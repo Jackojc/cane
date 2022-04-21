@@ -248,13 +248,44 @@ inline void         compile_ident   (Instructions&, Lexer&);
 inline void         compile_euclide (Instructions&, Lexer&);
 inline void         compile_midi    (Instructions&, Lexer&);
 inline void         compile_chain   (Instructions&, Lexer&);
+inline void         compile_infix   (Instructions&, Lexer&);
+inline void         compile_postfix (Instructions&, Lexer&);
 inline void         compile_expr    (Instructions&, Lexer&);
 inline Instructions compile         (Lexer&);
 
 
 // Predicates
-constexpr auto is_literal = partial_eq_any(Symbols::INT, Symbols::HEX, Symbols::BIN);
-constexpr auto is_step = partial_eq_any(Symbols::SKIP, Symbols::BEAT);
+constexpr auto is_literal = partial_eq_any(
+	Symbols::INT,
+	Symbols::HEX,
+	Symbols::BIN
+);
+
+constexpr auto is_infix = partial_eq_any(
+	Symbols::OR,
+	Symbols::AND,
+	Symbols::XOR,
+	Symbols::CAT,
+	Symbols::LSHN,
+	Symbols::RSHN,
+	Symbols::REPN
+);
+
+constexpr auto is_postfix = partial_eq_any(
+	Symbols::NOT,
+	Symbols::LSH,
+	Symbols::RSH
+);
+
+constexpr auto is_step = partial_eq_any(
+	Symbols::SKIP,
+	Symbols::BEAT
+);
+
+constexpr auto is_operator = [] (auto x) {
+	return is_infix(x) or is_postfix(x);
+};
+
 
 // Defs
 inline size_t compile_literal(Instructions& is, Lexer& lx) {
@@ -363,12 +394,56 @@ inline void compile_chain(Instructions& is, Lexer& lx) {
 	}
 }
 
+inline void compile_infix(Instructions& is, Lexer& lx) {
+	CANE_LOG(LOG_LEVEL_1, "infix");
+
+	lx.expect(is_infix, lx.peek().view, STR_INFIX);
+	Symbols kind = lx.next().kind;  // skip operator
+
+	switch (kind) {
+		// Infix literal
+		case Symbols::LSHN:
+		case Symbols::RSHN:
+		case Symbols::REPN: {
+			compile_literal(is, lx);
+		} break;
+
+		// Infix expr
+		case Symbols::OR:
+		case Symbols::AND:
+		case Symbols::XOR:
+		case Symbols::CAT: {
+			compile_expr(is, lx);
+		} break;
+
+		default: {
+			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_INFIX);
+		} break;
+	}
+}
+
+inline void compile_postfix(Instructions& is, Lexer& lx) {
+	CANE_LOG(LOG_LEVEL_1, "postfix");
+
+	lx.expect(is_postfix, lx.peek().view, STR_POSTFIX);
+	Symbols kind = lx.next().kind;  // skip operator
+
+	switch (kind) {
+		case Symbols::RSH: break;
+		case Symbols::LSH: break;
+		case Symbols::NOT: break;
+
+		default: {
+			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_POSTFIX);
+		} break;
+	}
+}
+
 inline void compile_expr(Instructions& is, Lexer& lx) {
 	CANE_LOG(LOG_LEVEL_1, "expr");
 
-	Symbols lhs_kind = lx.peek().kind;
-
-	switch (lhs_kind) {
+	// Nud (Nothing to the left, prefix position)
+	switch (lx.peek().kind) {
 		// Euclidean sequence
 		case Symbols::INT:
 		case Symbols::HEX:
@@ -387,49 +462,36 @@ inline void compile_expr(Instructions& is, Lexer& lx) {
 		} break;
 
 		default: {
-			// Check if the next token is a postfix operator.
-			if (partial_eq_none(
-				Symbols::LSH,
-				Symbols::RSH,
-				Symbols::NOT,
-				Symbols::CHAIN
-			)(lx.peek().kind))
-				lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_EXPR);
+			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_EXPR);
 		} break;
 	}
 
-	switch (lx.peek().kind) {
-		// Postfix operators
-		case Symbols::LSH:
-		case Symbols::RSH:
-		case Symbols::NOT: {
-			lx.next();  // skip operator
-		} break;
+	while (is_operator(lx.peek().kind)) {
+		switch (lx.peek().kind) {
+			case Symbols::LSH:
+			case Symbols::RSH:
+			case Symbols::NOT: {
+				compile_postfix(is, lx);
+			} break;
 
-		case Symbols::CHAIN: {
-			compile_chain(is, lx);
-		} break;
+			case Symbols::LSHN:
+			case Symbols::RSHN:
+			case Symbols::REPN:
+			case Symbols::CAT:
+			case Symbols::OR:
+			case Symbols::AND:
+			case Symbols::XOR: {
+				compile_infix(is, lx);
+			} break;
 
-		// Postfix operators with literal argument
-		case Symbols::LSHN:
-		case Symbols::RSHN:
-		case Symbols::REPN: {
-			lx.next();  // skip operator
-			compile_literal(is, lx);
-		} break;
-
-		case Symbols::CAT:
-		case Symbols::OR:
-		case Symbols::AND:
-		case Symbols::XOR: {
-			lx.next();  // skip operator
-			compile_expr(is, lx);
-		} break;
-
-		default: {
-			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_OPERATOR);
-		} break;
+			default: {
+				lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_OPERATOR);
+			} break;
+		}
 	}
+
+	while (lx.peek().kind == Symbols::CHAIN)
+		compile_chain(is, lx);
 }
 
 inline Instructions compile(Lexer& lx) {
