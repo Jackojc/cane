@@ -39,32 +39,32 @@ template <typename... Ts>
 	\
 	/* Keywords & Grouping */ \
 	X(MIDI,   "midi") \
-	X(LPAREN, "lparen") \
-	X(RPAREN, "rparen") \
-	X(LSEQ,   "lseq") \
-	X(RSEQ,   "rseq") \
+	X(LPAREN, "(") \
+	X(RPAREN, ")") \
+	X(LSEQ,   "[") \
+	X(RSEQ,   "]") \
 	\
 	/* Operators */ \
-	X(CHAIN,  "chain") \
-	X(SEP,    "sep") \
-	X(OFFSET, "offset") \
-	X(SKIP,   "skip") \
-	X(BEAT,   "beat") \
+	X(CHAIN,  "=>") \
+	X(SEP,    "/") \
+	X(OFFSET, "+") \
+	X(SKIP,   ".") \
+	X(BEAT,   "!") \
 	\
 	/* Argument Operators */ \
-	X(LSHN, "lshn") \
-	X(RSHN, "rshn") \
-	X(REPN, "repn") \
-	X(BPM,  "bpm") \
+	X(LSHN, "<<") \
+	X(RSHN, ">>") \
+	X(REPN, "*") \
+	X(BPM,  "@") \
 	\
 	/* Sequence Operators */ \
-	X(OR,  "or") \
-	X(AND, "and") \
-	X(XOR, "xor") \
-	X(CAT, "cat") \
-	X(NOT, "not") \
-	X(LSH, "lsh") \
-	X(RSH, "rsh")
+	X(OR,  "|") \
+	X(AND, "&") \
+	X(XOR, "^") \
+	X(CAT, ",") \
+	X(NOT, "~") \
+	X(LSH, "<") \
+	X(RSH, ">")
 
 	#define X(name, str) name,
 		enum class Symbols { SYMBOL_TYPES };
@@ -200,11 +200,11 @@ struct Lexer {
 				kind = Symbols::MIDI;
 		}
 
-		// If the kind is still NONE, we can assume we didn't find a valid
-		// token. The reason this check is disconnected from the above if-else
-		// chain is because some checks are nested and only fail after succeeding
-		// with the original check so we wouldn't fall through if this check
-		// was connected.
+		// If the kind is still NONE by this point, we can assume we didn't find
+		// a valid // token. The reason this check is disconnected from the above
+		// if-else chain is because some checks are nested and only fail after
+		// succeeding with the original check so we wouldn't fall through if this
+		// check was connected.
 		if (kind == Symbols::NONE) {
 			halt(Phases::PHASE_LEXICAL, original, view, STR_UNKNOWN_CHAR, view);
 		}
@@ -449,6 +449,11 @@ inline void compile_expr(Instructions& is, Lexer& lx) {
 		case Symbols::HEX:
 		case Symbols::BIN: {
 			compile_euclide(is, lx);
+		} break;
+
+		// Variable ref
+		case Symbols::IDENT: {
+			compile_ident(is, lx);
 		} break;
 
 		// Sequence

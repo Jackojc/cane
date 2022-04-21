@@ -7,6 +7,12 @@
 
 namespace cane {
 
+	#ifndef NDEBUG  // Debug
+		#define CANE_ENABLE_ASSERT
+	#else  // Release
+		#define CANE_DISABLE_ASSERT
+	#endif
+
 	#define CANE_ANSI_RESET  "\x1b[0m"
 	#define CANE_ANSI_BOLD   "\x1b[1m"
 
