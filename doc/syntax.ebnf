@@ -16,10 +16,10 @@ sequence ::= '[' step* ']'
 
 // `2/8 | !>>2/8`
 infix ::= <expr> ( '|' | '&' | '^' | ',' ) <expr>
-prefix ::= ( '~' | '<' | '>' ) <expr>
-postfix ::= <expr> ( '<<' | '>>' | '*' ) <literal>
+postfix ::= <expr> ( '~' | '<' | '>' )
+postfix_arg ::= <expr> ( '<<' | '>>' | '*' ) <literal>
 
 // `[!..!..] .. 2/6 => hihat => midi 1 @ 360`
-expr ::= <sequence> | <infix> | <prefix> | <postfix> | <chain> | '(' <expr> ')'
+expr ::= <sequence> | <infix> | <postfix> | <postfix_arg> | <chain> | '(' <expr> ')'
 
 program ::= <expr>*
