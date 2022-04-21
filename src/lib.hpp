@@ -195,8 +195,16 @@ struct Lexer {
 		else if (cane::is_letter(c)) {
 			kind = Symbols::IDENT;
 			view = cane::consume_char(src, c, cane::is_alphanumeric);
+
+			if (view == "midi"_sv)
+				kind = Symbols::MIDI;
 		}
 
+		// If the kind is still NONE, we can assume we didn't find a valid
+		// token. The reason this check is disconnected from the above if-else
+		// chain is because some checks are nested and only fail after succeeding
+		// with the original check so we wouldn't fall through if this check
+		// was connected.
 		if (kind == Symbols::NONE) {
 			halt(Phases::PHASE_LEXICAL, original, view, STR_UNKNOWN_CHAR, view);
 		}
@@ -234,9 +242,12 @@ struct Instructions: public std::vector<Op> {
 
 // Decls
 inline size_t       compile_literal (Instructions&, Lexer&);
+inline size_t       compile_step    (Instructions&, Lexer&);
 inline void         compile_seq     (Instructions&, Lexer&);
 inline void         compile_ident   (Instructions&, Lexer&);
 inline void         compile_euclide (Instructions&, Lexer&);
+inline void         compile_midi    (Instructions&, Lexer&);
+inline void         compile_chain   (Instructions&, Lexer&);
 inline void         compile_expr    (Instructions&, Lexer&);
 inline Instructions compile         (Lexer&);
 
@@ -247,6 +258,8 @@ constexpr auto is_step = partial_eq_any(Symbols::SKIP, Symbols::BEAT);
 
 // Defs
 inline size_t compile_literal(Instructions& is, Lexer& lx) {
+	CANE_LOG(LOG_LEVEL_1, "literal");
+
 	lx.expect(is_literal, lx.peek().view, STR_LITERAL);
 	auto [view, kind] = lx.next();
 
@@ -263,14 +276,26 @@ inline size_t compile_literal(Instructions& is, Lexer& lx) {
 	return n;
 }
 
+inline size_t compile_step(Instructions& is, Lexer& lx) {
+	CANE_LOG(LOG_LEVEL_1, "step");
+
+	lx.expect(is_step, lx.peek().view, STR_STEP);
+	Symbols step = lx.next().kind;
+
+	return
+		(step == Symbols::BEAT) +
+		(step == Symbols::SKIP)
+	;
+}
+
 inline void compile_seq(Instructions& is, Lexer& lx) {
+	CANE_LOG(LOG_LEVEL_1, "seq");
+
 	lx.expect(equal(Symbols::LSEQ), lx.peek().view, STR_EXPECT, sym2str(Symbols::LSEQ));
 	lx.next();  // skip `[`
 
 	while (lx.peek().kind != Symbols::RSEQ) {
-		lx.expect(is_step, lx.peek().view, STR_STEP);
-		Symbols step = lx.next().kind;
-
+		size_t s = compile_step(is, lx);
 		// TODO: emit sequences
 	}
 
@@ -279,6 +304,8 @@ inline void compile_seq(Instructions& is, Lexer& lx) {
 }
 
 inline void compile_ident(Instructions& is, Lexer& lx) {
+	CANE_LOG(LOG_LEVEL_1, "ident");
+
 	lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
 	auto [view, kind] = lx.next();
 
@@ -286,13 +313,16 @@ inline void compile_ident(Instructions& is, Lexer& lx) {
 }
 
 inline void compile_euclide(Instructions& is, Lexer& lx) {
+	CANE_LOG(LOG_LEVEL_1, "euclide");
+
 	size_t offset = 0;
+	size_t steps = 0;
 	size_t beats = compile_literal(is, lx);
 
 	lx.expect(equal(Symbols::SEP), lx.peek().view, STR_EXPECT, sym2str(Symbols::SEP));
 	lx.next();  // skip `/`
 
-	size_t steps = compile_literal(is, lx);
+	steps = compile_literal(is, lx);
 
 	if (lx.peek().kind == Symbols::OFFSET) {
 		lx.next();  // skip `+`
@@ -303,36 +333,98 @@ inline void compile_euclide(Instructions& is, Lexer& lx) {
 	// TODO: emit euclidean sequences (lower to normal sequences first)
 }
 
-inline void compile_expr(Instructions& is, Lexer& lx) {
+inline void compile_midi(Instructions& is, Lexer& lx) {
+	CANE_LOG(LOG_LEVEL_1, "midi");
+
+	lx.expect(equal(Symbols::MIDI), lx.peek().view, STR_MIDI);
+	lx.next();  // skip `midi`
+
+	size_t channel = compile_literal(is, lx);
+
+	lx.expect(equal(Symbols::BPM), lx.peek().view, STR_EXPECT, sym2str(Symbols::BPM));
+	lx.next();  // skip `@`
+
+	size_t bpm = compile_literal(is, lx);
+}
+
+inline void compile_chain(Instructions& is, Lexer& lx) {
+	CANE_LOG(LOG_LEVEL_1, "chain");
+
+	lx.expect(equal(Symbols::CHAIN), lx.peek().view, STR_EXPECT, sym2str(Symbols::CHAIN));
+	lx.next();  // skip `=>`
+
 	switch (lx.peek().kind) {
-		case Symbols::NOT: break;
-		case Symbols::LSH: break;
-		case Symbols::RSH: break;
-
-		case Symbols::INT: break;
-		case Symbols::HEX: break;
-		case Symbols::BIN: break;
-
-		case Symbols::MIDI: break;
-
-		case Symbols::LPAREN: break;
-		case Symbols::LSEQ: break;
+		case Symbols::IDENT: compile_ident(is, lx); break;
+		case Symbols::MIDI:  compile_midi(is, lx); break;
 
 		default: {
-			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_EXPR);
+			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_CHAIN);
+		} break;
+	}
+}
+
+inline void compile_expr(Instructions& is, Lexer& lx) {
+	CANE_LOG(LOG_LEVEL_1, "expr");
+
+	Symbols lhs_kind = lx.peek().kind;
+
+	switch (lhs_kind) {
+		// Euclidean sequence
+		case Symbols::INT:
+		case Symbols::HEX:
+		case Symbols::BIN: {
+			compile_euclide(is, lx);
+		} break;
+
+		// Sequence
+		case Symbols::LSEQ: {
+			compile_seq(is, lx);
+		} break;
+
+		// Grouped expression
+		case Symbols::LPAREN: {
+			compile_expr(is, lx);
+		} break;
+
+		default: {
+			// Check if the next token is a postfix operator.
+			if (partial_eq_none(
+				Symbols::LSH,
+				Symbols::RSH,
+				Symbols::NOT,
+				Symbols::CHAIN
+			)(lx.peek().kind))
+				lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_EXPR);
 		} break;
 	}
 
 	switch (lx.peek().kind) {
-		case Symbols::CAT: break;
-		case Symbols::OR: break;
-		case Symbols::AND: break;
-		case Symbols::XOR: break;
+		// Postfix operators
+		case Symbols::LSH:
+		case Symbols::RSH:
+		case Symbols::NOT: {
+			lx.next();  // skip operator
+		} break;
 
-		case Symbols::CHAIN: break;
-		case Symbols::LSHN: break;
-		case Symbols::RSHN: break;
-		case Symbols::REPN: break;
+		case Symbols::CHAIN: {
+			compile_chain(is, lx);
+		} break;
+
+		// Postfix operators with literal argument
+		case Symbols::LSHN:
+		case Symbols::RSHN:
+		case Symbols::REPN: {
+			lx.next();  // skip operator
+			compile_literal(is, lx);
+		} break;
+
+		case Symbols::CAT:
+		case Symbols::OR:
+		case Symbols::AND:
+		case Symbols::XOR: {
+			lx.next();  // skip operator
+			compile_expr(is, lx);
+		} break;
 
 		default: {
 			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_OPERATOR);
@@ -341,6 +433,8 @@ inline void compile_expr(Instructions& is, Lexer& lx) {
 }
 
 inline Instructions compile(Lexer& lx) {
+	CANE_LOG(LOG_LEVEL_1, "compile");
+
 	Instructions is;
 
 	while (lx.peek().kind != Symbols::TERMINATOR)
