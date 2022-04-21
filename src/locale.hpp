@@ -13,10 +13,13 @@ namespace cane {
 	constexpr View STR_LITERAL  = "expecting a literal"_sv;
 	constexpr View STR_STEP     = "expecting a step"_sv;
 	constexpr View STR_IDENT    = "expecting an identifier"_sv;
-	constexpr View STR_OPERATOR = "expecting an operator"_sv;
 	constexpr View STR_EXPR     = "expecting an expression"_sv;
 	constexpr View STR_CHAIN    = "expecting a identifier or midi output"_sv;
 	constexpr View STR_MIDI     = "expecting a midi output"_sv;
+
+	constexpr View STR_OPERATOR = "expecting an operator"_sv;
+	constexpr View STR_INFIX    = "expecting an infix operator"_sv;
+	constexpr View STR_POSTFIX  = "expecting a postfixoperator"_sv;
 
 	constexpr View STR_EXPECT = "expecting '{}'"_sv;
 

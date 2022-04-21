@@ -185,22 +185,22 @@ namespace cane {
 		12, 36, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
 	};
 
-	#define BR_UTF_VALID    0
-	#define BR_UTF_INVALID  1
+	#define CANE_UTF_VALID    0
+	#define CANE_UTF_INVALID  1
 
 	// Validate a UTF-8 encoded string.
 	constexpr bool utf_validate(View sv) {
-		uint32_t state = BR_UTF_VALID;
+		uint32_t state = CANE_UTF_VALID;
 
 		for (; not sv.is_eof(); sv = next_byte(sv)) {
 			uint32_t type = INTERNAL_UTF_TABLE__[(uint8_t)as_byte(sv)];
 			state = INTERNAL_UTF_TABLE__[256 + state + type];
 
-			if (state == BR_UTF_INVALID)
+			if (state == CANE_UTF_INVALID)
 				break;
 		}
 
-		return state == BR_UTF_VALID;
+		return state == CANE_UTF_VALID;
 	}
 
 
