@@ -2,24 +2,20 @@ literal ::= ? [0-9_]+ ? | ? 0x[0-9A-z_]+ ? | ? 0b[0-1_]+ ?
 identifier ::= ? \S+ ?
 comment ::= ? #.+$ ?
 
-// `midi 5 @ 240`
 midi ::= 'midi' <literal> '@' <literal>
-
-// `4/8+1` `2/5`
-euclidean ::= <literal> '/' <literal> [ '+' <literal> ]
-// `5/9 => snare => midi 3 @ 120`
-chain ::= <expr> '=>' ( <identifier> | <midi> )
+connection ::= <midi> | <identifier>
 
 step ::= '!' | '.'
-// `[!...!...]`
-sequence ::= '[' step* ']'
+sequence ::= '[' <step>* ']'
+euclidean ::= <literal> '/' <literal> [ '+' <literal> ]
 
-// `2/8 | !>>2/8`
-infix ::= <expr> ( '|' | '&' | '^' | ',' ) <expr>
+infix_e ::= ( '|' | '&' | '^' | ',' ) <expr>
+infix_l ::= ( '<<' | '>>' | '*' ) <literal>
+infix ::= <expr> ( <infix_e> | <infix_l> )
+
 postfix ::= <expr> ( '~' | '<' | '>' )
-postfix_arg ::= <expr> ( '<<' | '>>' | '*' ) <literal>
 
-// `[!..!..] .. 2/6 => hihat => midi 1 @ 360`
-expr ::= <sequence> | <infix> | <postfix> | <postfix_arg> | <chain> | '(' <expr> ')'
+expr ::= <identifier> | <sequence> | <infix> | <postfix> | '(' <expr> ')'
+chain ::= <expr> ( '=>' <connection> )*
 
-program ::= <expr>*
+program ::= <chain>*
