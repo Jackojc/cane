@@ -188,8 +188,40 @@ struct Lexer {
 		}
 
 		else if (cane::is_number(c)) {
-			kind = Symbols::INT;
-			view = cane::consume_char(src, c, cane::is_number);
+			if (c == '0') {
+				const auto lbegin = begin;  // Save starting position of token so we include "0x" or "0b"
+				src = cane::iter_next_char(src, c);
+
+				// Hex literal
+				if (as_char(src) == 'x') {
+					kind = Symbols::HEX;
+					src = cane::iter_next_char(src, c);
+					view = cane::consume_char(src, c, [&] (uint32_t c) {
+						return
+							(c >= 'A' and c <= 'Z') or
+							(c >= 'a' and c <= 'z') or
+							(c >= '0' and c <= '9')
+						;
+					});
+				}
+
+				// Binary literal
+				else if (as_char(src) == 'b') {
+					kind = Symbols::BIN;
+					src = cane::iter_next_char(src, c);
+					view = cane::consume_char(src, c, [&] (uint32_t c) {
+						return c == '0' or c == '1';
+					});
+				}
+
+				begin = lbegin;
+			}
+
+			// Decimal literal
+			else {
+				kind = Symbols::INT;
+				view = cane::consume_char(src, c, cane::is_number);
+			}
 		}
 
 		else if (cane::is_letter(c)) {
@@ -218,19 +250,19 @@ struct Lexer {
 
 
 struct Op {
-	Symbols kind = Symbols::NONE;
+	// Symbols kind = Symbols::NONE;
 
-	View sv = ""_sv;
+	// View sv = ""_sv;
 
-	size_t x = 0u;
-	size_t y = 0u;
-	size_t z = 0u;
+	// size_t x = 0u;
+	// size_t y = 0u;
+	// size_t z = 0u;
 
-	constexpr Op(Symbols kind_, View sv_, size_t x_ = 0u, size_t y_ = 0u, size_t z_ = 0u):
-		kind(kind_), sv(sv_), x(x_), y(y_), z(z_) {}
+	// constexpr Op(Symbols kind_, View sv_, size_t x_ = 0u, size_t y_ = 0u, size_t z_ = 0u):
+	// 	kind(kind_), sv(sv_), x(x_), y(y_), z(z_) {}
 
-	constexpr Op():
-		kind(Symbols::NONE) {}
+	// constexpr Op():
+	// 	kind(Symbols::NONE) {}
 };
 
 struct Instructions: public std::vector<Op> {
@@ -238,6 +270,48 @@ struct Instructions: public std::vector<Op> {
 		return this->emplace_back(std::forward<Ts>(args)...);
 	}
 };
+
+
+// Decoders (all of these functions assume correct input)
+constexpr uint64_t b10_decode(View sv) {
+	uint64_t n = 0;
+
+	for (auto ptr = sv.begin; ptr != sv.end; ++ptr)
+		n = (n * 10) + (*ptr - '0');
+
+	return n;
+}
+
+constexpr uint64_t b16_decode(View sv) {
+	uint64_t n = 0;
+	sv = cane::next_char(sv, 2);  // skip `0x`
+
+	// Interesting fact about ASCII:
+	// A-Z and a-z are the same ranges minus a difference of a single bit.
+	// We can exploit this peculiarity to make the ranges line up.
+	// If we mask out the single bit that seperates the two ranges, they
+	// become the same range. Another way to formulate this is to
+	// mask out all but the lower 4 bits. This has the added benefit of
+	// moving the ranges (now single range) into the 1-6 range. From
+	// here, it's just a matter of adding 9 if the character is >= 'A'.
+	for (auto ptr = sv.begin; ptr != sv.end; ++ptr)
+		n = (n * 16) +
+			(*ptr & 0b00001111) +  // Move A-Z and a-z into range [1,6]
+			(*ptr >= 'A') * 9      // +9 if character is A-Z or a-z
+		;
+
+	return n;
+}
+
+constexpr uint64_t b2_decode(View sv) {
+	uint64_t n = 0;
+	sv = cane::next_char(sv, 2);  // skip `0b`
+
+	for (auto ptr = sv.begin; ptr != sv.end; ++ptr)
+		n = (n * 2) + (*ptr - '0');
+
+	return n;
+}
 
 
 // Decls
@@ -289,7 +363,7 @@ constexpr auto is_operator = [] (auto x) {
 
 // Defs
 inline size_t compile_literal(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_LEVEL_1, "literal");
+	CANE_LOG(LOG_INFO, "literal");
 
 	lx.expect(is_literal, lx.peek().view, STR_LITERAL);
 	auto [view, kind] = lx.next();
@@ -298,17 +372,19 @@ inline size_t compile_literal(Instructions& is, Lexer& lx) {
 
 	// TODO: emit literals
 	switch (kind) {
-		case Symbols::INT: break;
-		case Symbols::HEX: break;
-		case Symbols::BIN: break;
+		case Symbols::INT: { n = b10_decode(view); } break;
+		case Symbols::HEX: { n = b16_decode(view); } break;
+		case Symbols::BIN: { n = b2_decode(view); } break;
 		default: break;
 	}
+
+	// println(n);
 
 	return n;
 }
 
 inline size_t compile_step(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_LEVEL_1, "step");
+	CANE_LOG(LOG_INFO, "step");
 
 	lx.expect(is_step, lx.peek().view, STR_STEP);
 	Symbols step = lx.next().kind;
@@ -320,7 +396,7 @@ inline size_t compile_step(Instructions& is, Lexer& lx) {
 }
 
 inline void compile_seq(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_LEVEL_1, "seq");
+	CANE_LOG(LOG_INFO, "seq");
 
 	lx.expect(equal(Symbols::LSEQ), lx.peek().view, STR_EXPECT, sym2str(Symbols::LSEQ));
 	lx.next();  // skip `[`
@@ -335,7 +411,7 @@ inline void compile_seq(Instructions& is, Lexer& lx) {
 }
 
 inline void compile_ident(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_LEVEL_1, "ident");
+	CANE_LOG(LOG_INFO, "ident");
 
 	lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
 	auto [view, kind] = lx.next();
@@ -344,7 +420,7 @@ inline void compile_ident(Instructions& is, Lexer& lx) {
 }
 
 inline void compile_euclide(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_LEVEL_1, "euclide");
+	CANE_LOG(LOG_INFO, "euclide");
 
 	size_t offset = 0;
 	size_t steps = 0;
@@ -365,7 +441,7 @@ inline void compile_euclide(Instructions& is, Lexer& lx) {
 }
 
 inline void compile_midi(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_LEVEL_1, "midi");
+	CANE_LOG(LOG_INFO, "midi");
 
 	lx.expect(equal(Symbols::MIDI), lx.peek().view, STR_MIDI);
 	lx.next();  // skip `midi`
@@ -379,7 +455,7 @@ inline void compile_midi(Instructions& is, Lexer& lx) {
 }
 
 inline void compile_chain(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_LEVEL_1, "chain");
+	CANE_LOG(LOG_INFO, "chain");
 
 	lx.expect(equal(Symbols::CHAIN), lx.peek().view, STR_EXPECT, sym2str(Symbols::CHAIN));
 	lx.next();  // skip `=>`
@@ -395,7 +471,7 @@ inline void compile_chain(Instructions& is, Lexer& lx) {
 }
 
 inline void compile_infix(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_LEVEL_1, "infix");
+	CANE_LOG(LOG_INFO, "infix");
 
 	lx.expect(is_infix, lx.peek().view, STR_INFIX);
 	Symbols kind = lx.next().kind;  // skip operator
@@ -423,7 +499,7 @@ inline void compile_infix(Instructions& is, Lexer& lx) {
 }
 
 inline void compile_postfix(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_LEVEL_1, "postfix");
+	CANE_LOG(LOG_INFO, "postfix");
 
 	lx.expect(is_postfix, lx.peek().view, STR_POSTFIX);
 	Symbols kind = lx.next().kind;  // skip operator
@@ -440,7 +516,7 @@ inline void compile_postfix(Instructions& is, Lexer& lx) {
 }
 
 inline void compile_expr(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_LEVEL_1, "expr");
+	CANE_LOG(LOG_INFO, "expr");
 
 	// Nud (Nothing to the left, prefix position)
 	switch (lx.peek().kind) {
@@ -500,7 +576,7 @@ inline void compile_expr(Instructions& is, Lexer& lx) {
 }
 
 inline Instructions compile(Lexer& lx) {
-	CANE_LOG(LOG_LEVEL_1, "compile");
+	CANE_LOG(LOG_INFO, "compile");
 
 	Instructions is;
 

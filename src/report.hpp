@@ -13,10 +13,7 @@ namespace cane {
 		X(PHASE_ENCODING, encoding) \
 		X(PHASE_LEXICAL, lexical) \
 		X(PHASE_SYNTACTIC, syntactic) \
-		X(PHASE_SEMANTIC, semantic) \
-		X(PHASE_EFFECT_CHECK, effect) \
-		X(PHASE_INTERMEDIATE, intermediate) \
-		X(PHASE_CODEGEN, codegen)
+		X(PHASE_SEMANTIC, semantic)
 
 		#define X(name, str) name,
 			enum class Phases { PHASES };

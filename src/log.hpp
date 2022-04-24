@@ -144,27 +144,27 @@ namespace cane {
 	}
 
 
-	#define CANE_LOG_1_STYLE  CANE_ANSI_RESET     "[-]"
-	#define CANE_LOG_2_STYLE  CANE_ANSI_FG_BLUE   "[*]"
-	#define CANE_LOG_3_STYLE  CANE_ANSI_FG_RED    "[!]"
-	#define CANE_LOG_4_STYLE  CANE_ANSI_FG_GREEN  "[^]"
+	#define CANE_INFO_STYLE  CANE_ANSI_RESET     "[-]"
+	#define CANE_WARN_STYLE  CANE_ANSI_FG_BLUE   "[*]"
+	#define CANE_ERR_STYLE   CANE_ANSI_FG_RED    "[!]"
+	#define CANE_SUCC_STYLE  CANE_ANSI_FG_GREEN  "[^]"
 
 
 	enum {
-		LOG_LEVEL_1,
-		LOG_LEVEL_2,
-		LOG_LEVEL_3,
-		LOG_LEVEL_4,
+		LOG_INFO,
+		LOG_WARN,
+		LOG_ERR,
+		LOG_SUCC,
 	};
 
 
 	namespace detail {
 		constexpr auto lvl_to_style(size_t lvl) {
 			switch (lvl) {
-				case LOG_LEVEL_1: return CANE_LOG_1_STYLE " ";
-				case LOG_LEVEL_2: return CANE_LOG_2_STYLE " ";
-				case LOG_LEVEL_3: return CANE_LOG_3_STYLE " ";
-				case LOG_LEVEL_4: return CANE_LOG_4_STYLE " ";
+				case LOG_INFO: return CANE_INFO_STYLE " ";
+				case LOG_WARN: return CANE_WARN_STYLE " ";
+				case LOG_ERR:  return CANE_ERR_STYLE  " ";
+				case LOG_SUCC: return CANE_SUCC_STYLE " ";
 			}
 
 			return "";

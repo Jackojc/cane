@@ -704,20 +704,6 @@ namespace cane {
 		return inner;
 	}
 
-
-	// Conversion functions.
-	template <typename T> constexpr T to_int(View sv) {
-		if (sv.is_eof()) return T {};
-
-		T num {};
-
-		for (auto ptr = sv.begin; ptr != sv.end; ++ptr) {
-			num = (num * 10) + (*ptr - '0');
-		}
-
-		return num;
-	}
-
 }
 
 
