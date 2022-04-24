@@ -29,6 +29,9 @@ make dbg=no
 - [Gwion](https://github.com/Gwion/Gwion)
 - [Prop](https://pbat.ch/proj/prop.html)
 
+### Resources
+- [Euclidean Rhythms](http://cgm.cs.mcgill.ca/~godfried/publications/banff.pdf)
+
 ### License
 This project uses the GPL-3.0 license. (check [LICENSE](LICENSE))
 
