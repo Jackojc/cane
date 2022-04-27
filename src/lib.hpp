@@ -145,6 +145,7 @@ struct Lexer {
 		else if (c == '&') { kind = Symbols::AND;    src = cane::iter_next_char(src, c); }
 		else if (c == '^') { kind = Symbols::XOR;    src = cane::iter_next_char(src, c); }
 		else if (c == ',') { kind = Symbols::CAT;    src = cane::iter_next_char(src, c); }
+		else if (c == '~') { kind = Symbols::NOT;    src = cane::iter_next_char(src, c); }
 		else if (c == '*') { kind = Symbols::REPN;   src = cane::iter_next_char(src, c); }
 		else if (c == '!') { kind = Symbols::BEAT;   src = cane::iter_next_char(src, c); }
 		else if (c == '.') { kind = Symbols::SKIP;   src = cane::iter_next_char(src, c); }
@@ -217,11 +218,8 @@ struct Lexer {
 				begin = lbegin;
 			}
 
-			// Decimal literal
-			else {
-				kind = Symbols::INT;
-				view = cane::consume_char(src, c, cane::is_number);
-			}
+			kind = Symbols::INT;
+			view = cane::consume_char(src, c, cane::is_number);
 		}
 
 		else if (cane::is_letter(c)) {
@@ -249,29 +247,6 @@ struct Lexer {
 };
 
 
-struct Op {
-	// Symbols kind = Symbols::NONE;
-
-	// View sv = ""_sv;
-
-	// size_t x = 0u;
-	// size_t y = 0u;
-	// size_t z = 0u;
-
-	// constexpr Op(Symbols kind_, View sv_, size_t x_ = 0u, size_t y_ = 0u, size_t z_ = 0u):
-	// 	kind(kind_), sv(sv_), x(x_), y(y_), z(z_) {}
-
-	// constexpr Op():
-	// 	kind(Symbols::NONE) {}
-};
-
-struct Instructions: public std::vector<Op> {
-	template <typename... Ts> decltype(auto) instruction(Ts&&... args) {
-		return this->emplace_back(std::forward<Ts>(args)...);
-	}
-};
-
-
 // Decoders (all of these functions assume correct input)
 constexpr uint64_t b10_decode(View sv) {
 	uint64_t n = 0;
@@ -295,10 +270,7 @@ constexpr uint64_t b16_decode(View sv) {
 	// moving the ranges (now single range) into the 1-6 range. From
 	// here, it's just a matter of adding 9 if the character is >= 'A'.
 	for (auto ptr = sv.begin; ptr != sv.end; ++ptr)
-		n = (n * 16) +
-			(*ptr & 0b00001111) +  // Move A-Z and a-z into range [1,6]
-			(*ptr >= 'A') * 9      // +9 if character is A-Z or a-z
-		;
+		n = (n * 16) + (*ptr & 0xf) + (*ptr >> 6) * 9;
 
 	return n;
 }
@@ -314,18 +286,52 @@ constexpr uint64_t b2_decode(View sv) {
 }
 
 
-// Decls
-inline size_t       compile_literal (Instructions&, Lexer&);
-inline size_t       compile_step    (Instructions&, Lexer&);
-inline void         compile_seq     (Instructions&, Lexer&);
-inline void         compile_ident   (Instructions&, Lexer&);
-inline void         compile_euclide (Instructions&, Lexer&);
-inline void         compile_midi    (Instructions&, Lexer&);
-inline void         compile_chain   (Instructions&, Lexer&);
-inline void         compile_infix   (Instructions&, Lexer&);
-inline void         compile_postfix (Instructions&, Lexer&);
-inline void         compile_expr    (Instructions&, Lexer&);
-inline Instructions compile         (Lexer&);
+using Sequence = std::vector<uint8_t>;
+using Notes = std::vector<uint8_t>;
+using Channel = uint8_t;
+
+struct Pattern {
+	Sequence seq;
+	Notes notes;
+	size_t bpm;
+
+	Pattern(const Sequence& seq_, const Notes& notes_, size_t bpm_):
+		seq(seq_), notes(notes_), bpm(bpm_) {}
+};
+
+using Chain = std::vector<Pattern>;
+
+struct Context {
+	std::array<Chain, 16> chains;
+	std::unordered_map<View, Sequence> symbols;
+};
+
+
+// Literal expressions return a size_t.
+// Sequence expressions return a sequence.
+// Statements return void.
+
+// Literal expressions
+inline size_t literal (Context&, Lexer&);
+inline size_t step    (Context&, Lexer&);
+
+// Sequence expressions
+inline Sequence sequence   (Context&, Lexer&);
+inline Sequence euclide    (Context&, Lexer&);
+inline Sequence reference  (Context&, Lexer&);
+
+inline Sequence& infix      (Context&, Lexer&, Sequence&);
+inline Sequence& postfix    (Context&, Lexer&, Sequence&);
+
+inline Sequence expression (Context&, Lexer&);
+
+// Statements
+inline void midi      (Context&, Lexer&, Sequence&);
+inline void assign    (Context&, Lexer&, Sequence&);
+
+inline void statement (Context&, Lexer&);
+
+inline Context compile (Lexer&);
 
 
 // Predicates
@@ -362,161 +368,185 @@ constexpr auto is_operator = [] (auto x) {
 
 
 // Defs
-inline size_t compile_literal(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_INFO, "literal");
+inline size_t literal(Context& ctx, Lexer& lx) {
+	// CANE_LOG(LOG_INFO, "literal");
 
 	lx.expect(is_literal, lx.peek().view, STR_LITERAL);
 	auto [view, kind] = lx.next();
 
 	size_t n = 0;
 
-	// TODO: emit literals
 	switch (kind) {
 		case Symbols::INT: { n = b10_decode(view); } break;
 		case Symbols::HEX: { n = b16_decode(view); } break;
-		case Symbols::BIN: { n = b2_decode(view); } break;
+		case Symbols::BIN: { n = b2_decode(view);  } break;
 		default: break;
 	}
-
-	// println(n);
 
 	return n;
 }
 
-inline size_t compile_step(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_INFO, "step");
+inline size_t step(Context& ctx, Lexer& lx) {
+	// CANE_LOG(LOG_INFO, "step");
 
 	lx.expect(is_step, lx.peek().view, STR_STEP);
 	Symbols step = lx.next().kind;
 
-	return
-		(step == Symbols::BEAT) +
-		(step == Symbols::SKIP)
-	;
+	return step == Symbols::BEAT;
 }
 
-inline void compile_seq(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_INFO, "seq");
+inline Sequence sequence(Context& ctx, Lexer& lx) {
+	// CANE_LOG(LOG_INFO, "seq");
 
 	lx.expect(equal(Symbols::LSEQ), lx.peek().view, STR_EXPECT, sym2str(Symbols::LSEQ));
 	lx.next();  // skip `[`
 
+	Sequence seq;
+
 	while (lx.peek().kind != Symbols::RSEQ) {
-		size_t s = compile_step(is, lx);
-		// TODO: emit sequences
+		size_t s = step(ctx, lx);
+		seq.emplace_back(s);
 	}
 
 	lx.expect(equal(Symbols::RSEQ), lx.peek().view, STR_EXPECT, sym2str(Symbols::RSEQ));
 	lx.next();  // skip `]`
+
+	return seq;
 }
 
-inline void compile_ident(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_INFO, "ident");
-
-	lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
-	auto [view, kind] = lx.next();
-
-	// TODO: emit references to identifiers and resolve definitions
-}
-
-inline void compile_euclide(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_INFO, "euclide");
+inline Sequence euclide(Context& ctx, Lexer& lx) {
+	// CANE_LOG(LOG_INFO, "euclide");
 
 	size_t offset = 0;
 	size_t steps = 0;
-	size_t beats = compile_literal(is, lx);
+	size_t beats = literal(ctx, lx);
 
 	lx.expect(equal(Symbols::SEP), lx.peek().view, STR_EXPECT, sym2str(Symbols::SEP));
 	lx.next();  // skip `/`
 
-	steps = compile_literal(is, lx);
+	steps = literal(ctx, lx);
 
 	if (lx.peek().kind == Symbols::OFFSET) {
 		lx.next();  // skip `+`
-
-		offset = compile_literal(is, lx);
+		offset = literal(ctx, lx);
 	}
 
-	// TODO: emit euclidean sequences (lower to normal sequences first)
+	Sequence seq;
+
+	for (size_t i = 0; i != steps; ++i)
+		seq.emplace_back((((i + offset) * beats) % steps) < beats);
+
+	return seq;
 }
 
-inline void compile_midi(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_INFO, "midi");
+inline Sequence reference(Context& ctx, Lexer& lx) {
+	CANE_LOG(LOG_INFO, "reference");
 
-	lx.expect(equal(Symbols::MIDI), lx.peek().view, STR_MIDI);
-	lx.next();  // skip `midi`
+	lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
+	auto [view, kind] = lx.next();
 
-	size_t channel = compile_literal(is, lx);
+	// Lookup symbol
+	auto it = ctx.symbols.find(view);
 
-	lx.expect(equal(Symbols::BPM), lx.peek().view, STR_EXPECT, sym2str(Symbols::BPM));
-	lx.next();  // skip `@`
+	if (it == ctx.symbols.end())
+		lx.error(Phases::PHASE_SEMANTIC, view, STR_UNDEFINED, view);
 
-	size_t bpm = compile_literal(is, lx);
+	return it->second;
 }
 
-inline void compile_chain(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_INFO, "chain");
-
-	lx.expect(equal(Symbols::CHAIN), lx.peek().view, STR_EXPECT, sym2str(Symbols::CHAIN));
-	lx.next();  // skip `=>`
-
-	switch (lx.peek().kind) {
-		case Symbols::IDENT: compile_ident(is, lx); break;
-		case Symbols::MIDI:  compile_midi(is, lx); break;
-
-		default: {
-			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_CHAIN);
-		} break;
-	}
-}
-
-inline void compile_infix(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_INFO, "infix");
+inline Sequence& infix(Context& ctx, Lexer& lx, Sequence& seq) {
+	// CANE_LOG(LOG_INFO, "infix");
 
 	lx.expect(is_infix, lx.peek().view, STR_INFIX);
 	Symbols kind = lx.next().kind;  // skip operator
 
 	switch (kind) {
 		// Infix literal
-		case Symbols::LSHN:
-		case Symbols::RSHN:
+		case Symbols::LSHN: {
+			size_t n = literal(ctx, lx);
+			std::rotate(seq.begin(), seq.begin() + n, seq.end());
+		} break;
+
+		case Symbols::RSHN: {
+			size_t n = literal(ctx, lx);
+			std::rotate(seq.rbegin(), seq.rbegin() + n, seq.rend());
+		} break;
+
 		case Symbols::REPN: {
-			compile_literal(is, lx);
+			View lv = lx.peek().view;
+			size_t n = literal(ctx, lx);
+
+			if (n == 0)
+				lx.error(Phases::PHASE_SEMANTIC, lv, STR_GREATER, 0);
+
+			size_t cnt = seq.size();
+
+			seq.reserve(seq.capacity() + n * cnt);
+
+			while (--n)
+				std::copy_n(seq.begin(), cnt, std::back_inserter(seq));
 		} break;
 
 		// Infix expr
-		case Symbols::OR:
-		case Symbols::AND:
-		case Symbols::XOR:
+		case Symbols::OR: {
+			Sequence rhs = expression(ctx, lx);
+			std::transform(rhs.begin(), rhs.end(), seq.begin(), seq.begin(), std::bit_or<>{});
+		} break;
+
+		case Symbols::AND: {
+			Sequence rhs = expression(ctx, lx);
+			std::transform(rhs.begin(), rhs.end(), seq.begin(), seq.begin(), std::bit_and<>{});
+		} break;
+
+		case Symbols::XOR: {
+			Sequence rhs = expression(ctx, lx);
+			std::transform(rhs.begin(), rhs.end(), seq.begin(), seq.begin(), std::bit_xor<>{});
+		} break;
+
 		case Symbols::CAT: {
-			compile_expr(is, lx);
+			Sequence rhs = expression(ctx, lx);
+			seq.insert(seq.end(), rhs.begin(), rhs.end());
 		} break;
 
 		default: {
 			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_INFIX);
 		} break;
 	}
+
+	return seq;
 }
 
-inline void compile_postfix(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_INFO, "postfix");
+inline Sequence& postfix(Context& ctx, Lexer& lx, Sequence& seq) {
+	// CANE_LOG(LOG_INFO, "postfix");
 
 	lx.expect(is_postfix, lx.peek().view, STR_POSTFIX);
 	Symbols kind = lx.next().kind;  // skip operator
 
 	switch (kind) {
-		case Symbols::RSH: break;
-		case Symbols::LSH: break;
-		case Symbols::NOT: break;
+		case Symbols::LSH: {
+			std::rotate(seq.begin(), seq.begin() + 1, seq.end());
+		} break;
+
+		case Symbols::RSH: {
+			std::rotate(seq.rbegin(), seq.rbegin() + 1, seq.rend());
+		} break;
+
+		case Symbols::NOT: {
+			std::transform(seq.begin(), seq.end(), seq.begin(), std::logical_not<>{});
+		} break;
 
 		default: {
 			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_POSTFIX);
 		} break;
 	}
+
+	return seq;
 }
 
-inline void compile_expr(Instructions& is, Lexer& lx) {
-	CANE_LOG(LOG_INFO, "expr");
+inline Sequence expression(Context& ctx, Lexer& lx) {
+	// CANE_LOG(LOG_INFO, "expr");
+
+	Sequence seq;
 
 	// Nud (Nothing to the left, prefix position)
 	switch (lx.peek().kind) {
@@ -524,22 +554,22 @@ inline void compile_expr(Instructions& is, Lexer& lx) {
 		case Symbols::INT:
 		case Symbols::HEX:
 		case Symbols::BIN: {
-			compile_euclide(is, lx);
+			seq = euclide(ctx, lx);
 		} break;
 
 		// Variable ref
 		case Symbols::IDENT: {
-			compile_ident(is, lx);
+			seq = reference(ctx, lx);
 		} break;
 
 		// Sequence
 		case Symbols::LSEQ: {
-			compile_seq(is, lx);
+			seq = sequence(ctx, lx);
 		} break;
 
 		// Grouped expression
 		case Symbols::LPAREN: {
-			compile_expr(is, lx);
+			seq = expression(ctx, lx);
 		} break;
 
 		default: {
@@ -548,11 +578,13 @@ inline void compile_expr(Instructions& is, Lexer& lx) {
 	}
 
 	while (is_operator(lx.peek().kind)) {
+		CANE_LOG(LOG_WARN, sym2str(lx.peek().kind));
+
 		switch (lx.peek().kind) {
 			case Symbols::LSH:
 			case Symbols::RSH:
 			case Symbols::NOT: {
-				compile_postfix(is, lx);
+				seq = postfix(ctx, lx, seq);
 			} break;
 
 			case Symbols::LSHN:
@@ -562,7 +594,7 @@ inline void compile_expr(Instructions& is, Lexer& lx) {
 			case Symbols::OR:
 			case Symbols::AND:
 			case Symbols::XOR: {
-				compile_infix(is, lx);
+				seq = infix(ctx, lx, seq);
 			} break;
 
 			default: {
@@ -571,19 +603,68 @@ inline void compile_expr(Instructions& is, Lexer& lx) {
 		}
 	}
 
-	while (lx.peek().kind == Symbols::CHAIN)
-		compile_chain(is, lx);
+	return seq;
 }
 
-inline Instructions compile(Lexer& lx) {
-	CANE_LOG(LOG_INFO, "compile");
+inline void assign(Context& ctx, Lexer& lx, Sequence& seq) {
+	CANE_LOG(LOG_INFO, "assign");
 
-	Instructions is;
+	lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
+	auto [view, kind] = lx.next();
+
+	// Assign or error if re-assigned.
+	if (auto [it, succ] = ctx.symbols.try_emplace(view, seq); not succ)
+		lx.error(Phases::PHASE_SEMANTIC, view, STR_REDEFINED, view);
+}
+
+inline void midi(Context& ctx, Lexer& lx, Sequence& seq) {
+	CANE_LOG(LOG_INFO, "midi");
+
+	lx.expect(equal(Symbols::MIDI), lx.peek().view, STR_MIDI);
+	lx.next();  // skip `midi`
+
+	size_t channel = literal(ctx, lx);
+
+	lx.expect(equal(Symbols::BPM), lx.peek().view, STR_EXPECT, sym2str(Symbols::BPM));
+	lx.next();  // skip `@`
+
+	size_t bpm = literal(ctx, lx);
+
+	ctx.chains[channel].emplace_back(seq, Notes{}, bpm);
+}
+
+inline void statement(Context& ctx, Lexer& lx) {
+	CANE_LOG(LOG_INFO, "statement");
+
+	Sequence seq = expression(ctx, lx);
+
+	if (lx.peek().kind == Symbols::CHAIN) {
+		CANE_LOG(LOG_INFO, "chain");
+
+		lx.next();  // skip `=>`
+
+		switch (lx.peek().kind) {
+			case Symbols::IDENT: assign(ctx, lx, seq); break;
+			case Symbols::MIDI:  midi(ctx, lx, seq); break;
+
+			default: {
+				lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_CHAIN);
+			} break;
+		}
+	}
+}
+
+
+
+inline Context compile(Lexer& lx) {
+	// CANE_LOG(LOG_INFO, "compile");
+
+	Context ctx;
 
 	while (lx.peek().kind != Symbols::TERMINATOR)
-		compile_expr(is, lx);
+		statement(ctx, lx);
 
-	return is;
+	return ctx;
 }
 
 }
