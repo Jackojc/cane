@@ -490,21 +490,37 @@ inline Sequence& infix(Context& ctx, Lexer& lx, Sequence& seq) {
 		// Infix expr
 		case Symbols::OR: {
 			Sequence rhs = expression(ctx, lx);
+
+			if (rhs.size() > seq.size())
+				std::swap(rhs, seq);
+
 			std::transform(rhs.begin(), rhs.end(), seq.begin(), seq.begin(), std::bit_or<>{});
 		} break;
 
 		case Symbols::AND: {
 			Sequence rhs = expression(ctx, lx);
+
+			if (rhs.size() > seq.size())
+				std::swap(rhs, seq);
+
 			std::transform(rhs.begin(), rhs.end(), seq.begin(), seq.begin(), std::bit_and<>{});
 		} break;
 
 		case Symbols::XOR: {
 			Sequence rhs = expression(ctx, lx);
+
+			if (rhs.size() > seq.size())
+				std::swap(rhs, seq);
+
 			std::transform(rhs.begin(), rhs.end(), seq.begin(), seq.begin(), std::bit_xor<>{});
 		} break;
 
 		case Symbols::CAT: {
 			Sequence rhs = expression(ctx, lx);
+
+			if (rhs.size() > seq.size())
+				std::swap(rhs, seq);
+
 			seq.insert(seq.end(), rhs.begin(), rhs.end());
 		} break;
 
