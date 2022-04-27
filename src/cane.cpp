@@ -16,12 +16,30 @@ int main(int, const char*[]) {
 		if (not cane::utf_validate(src))
 			lx.error(cane::Phases::PHASE_ENCODING, src, cane::STR_ENCODING);
 
-		// while (lx.peek().kind != cane::Symbols::TERMINATOR) {
-		// 	printlnfmt("{} => {}", lx.peek().kind, lx.peek().view);
-		// 	lx.next();
-		// }
+		cane::Context ctx = cane::compile(lx);
 
-		cane::Instructions is = cane::compile(lx);
+		// Ugly debug output
+		int i = 0;
+		for (cane::Chain& c: ctx.chains) {
+			if (c.empty()) continue;
+			cane::print(CANE_ANSI_BOLD CANE_ANSI_FG_BRIGHT_YELLOW "midi", i, CANE_ANSI_RESET " ");
+
+			for (cane::Pattern& p: c) {
+				cane::print(CANE_ANSI_BOLD "[" CANE_ANSI_RESET " ");
+
+				for (bool s: p.seq) {
+					cane::print(s ?
+						CANE_ANSI_BOLD CANE_ANSI_FG_BRIGHT_YELLOW "X" CANE_ANSI_RESET " " :
+						CANE_ANSI_FG_BLUE "-" CANE_ANSI_RESET " "
+					);
+				}
+
+				cane::print(CANE_ANSI_BOLD "]" CANE_ANSI_RESET " ");
+			}
+
+			cane::println();
+			i++;
+		}
 	}
 
 	catch (cane::Error) {
