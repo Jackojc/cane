@@ -203,10 +203,10 @@ namespace cane {
 			CANE_DEBUG_RUN(( cane::err(CANE_TRACE, cane::detail::lvl_to_style(CANE_VAR(lvl))) )); \
 			CANE_DEBUG_RUN(( cane::err("`", CANE_VAR(fn_name), "`") )); \
 			\
-			if constexpr(sizeof...(CANE_VAR(args)) > 0) \
+			if constexpr(sizeof...(CANE_VAR(args)) > 0) { \
 				CANE_DEBUG_RUN( (cane::err(" => ")) ); \
 				CANE_DEBUG_RUN( (cane::errfmt(std::forward<decltype(CANE_VAR(args))>(CANE_VAR(args))...)) ); \
-			\
+			} \
 			CANE_DEBUG_RUN(( cane::errln( CANE_ANSI_RESET ) )); \
 		} ( __VA_ARGS__ ); } while (0)
 
