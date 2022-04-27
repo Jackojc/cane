@@ -16,6 +16,6 @@ infix ::= <expr> ( <infix_e> | <infix_l> )
 postfix ::= <expr> ( '~' | '<' | '>' )
 
 expr ::= <identifier> | <sequence> | <infix> | <postfix> | '(' <expr> ')'
-chain ::= <expr> ( '=>' <connection> )*
+stat ::= <expr> [ '=>' <connection> ]
 
-program ::= <chain>*
+program ::= <stat>*

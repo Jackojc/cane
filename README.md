@@ -1,4 +1,5 @@
 # cane
+> The beatings will continue until a banger is made
 A small MIDI sequencer DSL designed around vectors and euclidean rhythms
 
 ![c++](https://img.shields.io/badge/c%2B%2B-%3E%3D17-blue.svg?style=flat)
@@ -31,6 +32,7 @@ make dbg=no
 
 ### Resources
 - [Euclidean Rhythms](http://cgm.cs.mcgill.ca/~godfried/publications/banff.pdf)
+- [Summary of MIDI 1.0 Messages](https://www.midi.org/specifications-old/item/table-1-summary-of-midi-message)
 
 ### License
 This project uses the GPL-3.0 license. (check [LICENSE](LICENSE))
