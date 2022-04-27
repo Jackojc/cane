@@ -1,5 +1,6 @@
 # cane
 > The beatings will continue until a banger is made
+
 A small MIDI sequencer DSL designed around vectors and euclidean rhythms
 
 ![c++](https://img.shields.io/badge/c%2B%2B-%3E%3D17-blue.svg?style=flat)
