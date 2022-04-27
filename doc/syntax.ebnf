@@ -2,9 +2,6 @@ literal ::= ? [0-9_]+ ? | ? 0x[0-9A-z_]+ ? | ? 0b[0-1_]+ ?
 identifier ::= ? \S+ ?
 comment ::= ? #.+$ ?
 
-midi ::= 'midi' <literal> '@' <literal>
-connection ::= <midi> | <identifier>
-
 step ::= '!' | '.'
 sequence ::= '[' <step>* ']'
 euclidean ::= <literal> '/' <literal> [ '+' <literal> ]
@@ -15,7 +12,10 @@ infix ::= <expr> ( <infix_e> | <infix_l> )
 
 postfix ::= <expr> ( '~' | '<' | '>' )
 
-expr ::= <identifier> | <sequence> | <infix> | <postfix> | '(' <expr> ')'
-stat ::= <expr> [ '=>' <connection> ]
+chain ::= <expr> '=>' <identifier>
+sink ::= <expr> '~>' <literal> '@' <literal>
+
+expr ::= <identifier> | <sequence> | <infix> | <postfix> | <chain> | '(' <expr> ')'
+stat ::= <expr> | <sink>
 
 program ::= <stat>*
