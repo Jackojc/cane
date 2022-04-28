@@ -3,10 +3,10 @@
 
 A small MIDI sequencer DSL designed around vectors and euclidean rhythms
 
-![c++](https://img.shields.io/badge/c%2B%2B-%3E%3D17-blue.svg?style=flat)
-[![license](https://img.shields.io/github/license/Jackojc/cane.svg?style=flat)](./LICENSE)
-![code size](https://img.shields.io/github/languages/code-size/Jackojc/cane?style=flat-square)
+![c++](https://img.shields.io/badge/c%2B%2B-17-blue.svg?style=flat)
 [![issues](https://img.shields.io/github/issues/Jackojc/cane.svg?style=flat)](https://github.com/Jackojc/cane/issues)
+[![pull requests](https://img.shields.io/github/issues-pr/Jackojc/cane?style=flat)](https://github.com/Jackojc/cane/pulls)
+[![license](https://img.shields.io/github/license/Jackojc/cane.svg?style=flat)](./LICENSE)
 [![discord](https://img.shields.io/discord/537732103765229590.svg?label=discord&style=flat)](https://discord.gg/H2qKkSd9gC)
 
 ### Example
