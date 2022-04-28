@@ -25,6 +25,16 @@ template <typename... Ts>
 	throw Error {};
 }
 
+template <typename... Ts>
+inline void warn(Ts&&... args) {
+	report<Report::WARNING>(std::cerr, std::forward<Ts>(args)...);
+}
+
+template <typename... Ts>
+inline void note(Ts&&... args) {
+	report<Report::NOTICE>(std::cerr, std::forward<Ts>(args)...);
+}
+
 #define SYMBOL_TYPES \
 	X(NONE,       "none") \
 	X(TERMINATOR, "eof") \
@@ -49,20 +59,24 @@ template <typename... Ts>
 	X(SKIP,   ".") \
 	X(BEAT,   "!") \
 	\
-	/* Argument Operators */ \
+	/* Argument Infix Operators */ \
 	X(LSHN, "<<") \
 	X(RSHN, ">>") \
 	X(REPN, "*") \
 	X(BPM,  "@") \
 	\
-	/* Sequence Operators */ \
+	/* Binary Sequence Operators */ \
 	X(OR,  "|") \
 	X(AND, "&") \
 	X(XOR, "^") \
 	X(CAT, ",") \
+	\
+	/* Postfix Sequence Operators */ \
 	X(NOT, "~") \
 	X(LSH, "<") \
-	X(RSH, ">")
+	X(RSH, ">") \
+	X(REV, "'") \
+	X(DBG, "?")
 
 	#define X(name, str) name,
 		enum class Symbols { SYMBOL_TYPES };
@@ -109,6 +123,16 @@ struct Lexer {
 		halt(phase, original, sv, std::forward<Ts>(args)...);
 	}
 
+	template <typename... Ts>
+	void warning(Phases phase, View sv, Ts&&... args) {
+		warn(phase, original, sv, std::forward<Ts>(args)...);
+	}
+
+	template <typename... Ts>
+	void notice(Phases phase, View sv, Ts&&... args) {
+		note(phase, original, sv, std::forward<Ts>(args)...);
+	}
+
 	inline Token peek() const {
 		return peek_;
 	}
@@ -136,16 +160,18 @@ struct Lexer {
 			return next();
 		}
 
-		else if (c == '/') { kind = Symbols::SEP;    src = cane::iter_next_char(src, c); }
-		else if (c == '@') { kind = Symbols::BPM;    src = cane::iter_next_char(src, c); }
-		else if (c == '+') { kind = Symbols::OFFSET; src = cane::iter_next_char(src, c); }
-		else if (c == '|') { kind = Symbols::OR;     src = cane::iter_next_char(src, c); }
-		else if (c == '&') { kind = Symbols::AND;    src = cane::iter_next_char(src, c); }
-		else if (c == '^') { kind = Symbols::XOR;    src = cane::iter_next_char(src, c); }
-		else if (c == ',') { kind = Symbols::CAT;    src = cane::iter_next_char(src, c); }
-		else if (c == '*') { kind = Symbols::REPN;   src = cane::iter_next_char(src, c); }
-		else if (c == '!') { kind = Symbols::BEAT;   src = cane::iter_next_char(src, c); }
-		else if (c == '.') { kind = Symbols::SKIP;   src = cane::iter_next_char(src, c); }
+		else if (c == '?')  { kind = Symbols::DBG;    src = cane::iter_next_char(src, c); }
+		else if (c == '\'') { kind = Symbols::REV;    src = cane::iter_next_char(src, c); }
+		else if (c == '/')  { kind = Symbols::SEP;    src = cane::iter_next_char(src, c); }
+		else if (c == '@')  { kind = Symbols::BPM;    src = cane::iter_next_char(src, c); }
+		else if (c == '+')  { kind = Symbols::OFFSET; src = cane::iter_next_char(src, c); }
+		else if (c == '|')  { kind = Symbols::OR;     src = cane::iter_next_char(src, c); }
+		else if (c == '&')  { kind = Symbols::AND;    src = cane::iter_next_char(src, c); }
+		else if (c == '^')  { kind = Symbols::XOR;    src = cane::iter_next_char(src, c); }
+		else if (c == ',')  { kind = Symbols::CAT;    src = cane::iter_next_char(src, c); }
+		else if (c == '*')  { kind = Symbols::REPN;   src = cane::iter_next_char(src, c); }
+		else if (c == '!')  { kind = Symbols::BEAT;   src = cane::iter_next_char(src, c); }
+		else if (c == '.')  { kind = Symbols::SKIP;   src = cane::iter_next_char(src, c); }
 
 		else if (c == '[') { kind = Symbols::LSEQ;   src = cane::iter_next_char(src, c); }
 		else if (c == ']') { kind = Symbols::RSEQ;   src = cane::iter_next_char(src, c); }
@@ -292,10 +318,23 @@ constexpr uint64_t b2_decode(View sv) {
 	return n;
 }
 
-
-using Sequence = std::vector<uint8_t>;
-using Notes = std::vector<uint8_t>;
+using Step = uint8_t;
+using Note = uint8_t;
 using Channel = uint8_t;
+
+using Sequence = std::vector<Step>;
+using Notes = std::vector<Note>;
+
+inline std::ostream& operator<<(std::ostream& os, Sequence& s) {
+	os << "[";
+
+	for (auto x: s)
+		os << (x ? sym2str(Symbols::BEAT) : sym2str(Symbols::SKIP));
+
+	os << "]";
+
+	return os;
+}
 
 struct Pattern {
 	Sequence seq;
@@ -352,7 +391,9 @@ constexpr auto is_infix = partial_eq_any(
 constexpr auto is_postfix = partial_eq_any(
 	Symbols::NOT,
 	Symbols::LSH,
-	Symbols::RSH
+	Symbols::RSH,
+	Symbols::REV,
+	Symbols::DBG
 );
 
 constexpr auto is_step = partial_eq_any(
@@ -470,14 +511,9 @@ constexpr size_t infix_precedence(Symbols kind) {
 	size_t prec = 0;
 
 	switch (kind) {
+		case Symbols::DBG:
 		case Symbols::CHAIN: {
 			prec = 1;
-		} break;
-
-		case Symbols::LSH:
-		case Symbols::RSH:
-		case Symbols::NOT: {
-			prec = 2;
 		} break;
 
 		case Symbols::LSHN:
@@ -487,6 +523,13 @@ constexpr size_t infix_precedence(Symbols kind) {
 		case Symbols::OR:
 		case Symbols::AND:
 		case Symbols::XOR: {
+			prec = 2;
+		} break;
+
+		case Symbols::REV:
+		case Symbols::LSH:
+		case Symbols::RSH:
+		case Symbols::NOT: {
 			prec = 3;
 		} break;
 
@@ -561,6 +604,16 @@ inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 
 
 			// Postfix
+			case Symbols::DBG: {
+				View dbg_v = lx.next().view;  // skip operator
+				lx.notice(Phases::PHASE_SEMANTIC, dbg_v, STR_DEBUG, seq);
+			} break;
+
+			case Symbols::REV: {
+				lx.next();  // skip operator
+				std::reverse(seq.begin(), seq.end());
+			} break;
+
 			case Symbols::LSH: {
 				lx.next();  // skip operator
 				std::rotate(seq.begin(), seq.begin() + 1, seq.end());
