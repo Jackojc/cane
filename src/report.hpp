@@ -29,7 +29,13 @@ namespace cane {
 	}
 
 
-	template <typename... Ts>
+	enum class Report {
+		ERROR,
+		WARNING,
+		NOTICE,
+	};
+
+	template <Report R = Report::ERROR, typename... Ts>
 	inline std::ostream& report(
 		std::ostream& os,
 		Phases phase,
@@ -48,11 +54,17 @@ namespace cane {
 
 		const auto digits = count_digits(line_n);
 
-		const auto highlight = colour(ANSI_FG_RED, ansi_enabled);
-		const auto yellow = colour(ANSI_FG_YELLOW, ansi_enabled);
-		const auto cyan = colour(ANSI_FG_CYAN, ansi_enabled);
-		const auto bold = colour(ANSI_BOLD, ansi_enabled);
-		const auto reset = colour(ANSI_RESET, ansi_enabled);
+		auto highlight = colour(ANSI_FG_RED,    ansi_enabled);
+		auto yellow    = colour(ANSI_FG_YELLOW, ansi_enabled);
+		auto cyan      = colour(ANSI_FG_CYAN,   ansi_enabled);
+		auto bold      = colour(ANSI_BOLD,      ansi_enabled);
+		auto reset     = colour(ANSI_RESET,     ansi_enabled);
+
+		if (R == Report::WARNING)
+			highlight = colour(ANSI_FG_BLUE, ansi_enabled);
+
+		else if (R == Report::NOTICE)
+			highlight = colour(ANSI_FG_YELLOW, ansi_enabled);
 
 		const auto phase_name = PHASE_TO_STRING[(int)phase];
 
@@ -62,7 +74,14 @@ namespace cane {
 		};
 
 		// Error type.
-		outfmt(os, "{}{}{} error{}: ", highlight, bold, phase_name, reset);
+		if (R == Report::ERROR)
+			outfmt(os, "{}{}{} error{}: ", highlight, bold, phase_name, reset);
+
+		else if (R == Report::WARNING)
+			outfmt(os, "{}{}{} warning{}: ", highlight, bold, phase_name, reset);
+
+		else if (R == Report::NOTICE)
+			outfmt(os, "{}{}{} notice{}: ", highlight, bold, phase_name, reset);
 
 		// Overview.
 		outlnfmt(os, std::forward<Ts>(args)...);
