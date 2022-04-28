@@ -13,9 +13,8 @@ infix ::= <expr> ( <infix_e> | <infix_l> )
 postfix ::= <expr> ( '~' | '<' | '>' )
 
 chain ::= <expr> '=>' <identifier>
-sink ::= <expr> '~>' <literal> '@' <literal>
 
 expr ::= <identifier> | <sequence> | <infix> | <postfix> | <chain> | '(' <expr> ')'
-stat ::= <expr> | <sink>
+stat ::= <expr> ( '~>' <literal> '@' <literal> )*
 
 program ::= <stat>*

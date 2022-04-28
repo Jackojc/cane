@@ -325,7 +325,7 @@ inline Sequence& chain      (Context&, Lexer&, Sequence&);
 inline Sequence  expression (Context&, Lexer&, size_t = 0);
 
 // Statements
-inline void sink      (Context&, Lexer&, Sequence&);
+inline Sequence& sink      (Context&, Lexer&, Sequence&);
 inline void statement (Context&, Lexer&);
 
 inline Context compile (Lexer&);
@@ -645,7 +645,7 @@ inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 	return seq;
 }
 
-inline void sink(Context& ctx, Lexer& lx, Sequence& seq) {
+inline Sequence& sink(Context& ctx, Lexer& lx, Sequence& seq) {
 	CANE_LOG(LOG_INFO);
 
 	lx.expect(equal(Symbols::SINK), lx.peek().view, STR_EXPECT, sym2str(Symbols::SINK));
@@ -659,6 +659,8 @@ inline void sink(Context& ctx, Lexer& lx, Sequence& seq) {
 	size_t bpm = literal(ctx, lx);
 
 	ctx.chains[channel].emplace_back(seq, Notes{}, bpm);
+
+	return seq;
 }
 
 inline void statement(Context& ctx, Lexer& lx) {
@@ -666,8 +668,8 @@ inline void statement(Context& ctx, Lexer& lx) {
 
 	Sequence seq = expression(ctx, lx);
 
-	if (lx.peek().kind == Symbols::SINK)
-		sink(ctx, lx, seq);
+	while (lx.peek().kind == Symbols::SINK)
+		seq = sink(ctx, lx, seq);
 }
 
 inline Context compile(Lexer& lx) {
