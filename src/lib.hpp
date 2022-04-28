@@ -585,7 +585,10 @@ inline Sequence expression(Context& ctx, Lexer& lx) {
 
 		// Grouped expression
 		case Symbols::LPAREN: {
+			lx.next();  // skip `(`
 			seq = expression(ctx, lx);
+			lx.expect(equal(Symbols::RPAREN), lx.peek().view, STR_EXPECT, sym2str(Symbols::RPAREN));
+			lx.next();  // skip `)`
 		} break;
 
 		default: {
