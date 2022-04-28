@@ -460,6 +460,49 @@ inline Sequence& chain(Context& ctx, Lexer& lx, Sequence& seq) {
 	return seq;
 }
 
+// Lookup table for infix operator precedence.
+constexpr size_t infix_precedence(Symbols kind) {
+	size_t prec = 0;
+
+	switch (kind) {
+		case Symbols::CHAIN: {
+			prec = 1;
+		} break;
+
+		case Symbols::LSH:
+		case Symbols::RSH:
+		case Symbols::NOT: {
+			prec = 2;
+		} break;
+
+		case Symbols::LSHN:
+		case Symbols::RSHN:
+		case Symbols::REPN:
+		case Symbols::CAT:
+		case Symbols::OR:
+		case Symbols::AND:
+		case Symbols::XOR: {
+			prec = 3;
+		} break;
+
+		default: {
+			prec = 0;
+		} break;
+	}
+
+	return prec;
+}
+
+// Transform sequence in place using function object.
+template <typename V, typename F>
+constexpr void transform_seq_in_place(V& seq, const F& fn, V& other) {
+	// Step stretching, we pick the largest sequence to transform.
+	if (other.size() > seq.size())
+		std::swap(other, seq);
+
+	std::transform(other.cbegin(), other.cend(), seq.begin(), seq.begin(), fn);
+}
+
 inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 	CANE_LOG(LOG_WARN);
 
@@ -500,27 +543,9 @@ inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 	}
 
 	while (is_operator(lx.peek().kind)) {
-		size_t prec = 0;
+		size_t prec = infix_precedence(lx.peek().kind);
 
-		switch (lx.peek().kind) {
-			case Symbols::CHAIN: { prec = 1; } break;
-
-			case Symbols::LSH:
-			case Symbols::RSH:
-			case Symbols::NOT: { prec = 2; } break;
-
-			case Symbols::LSHN:
-			case Symbols::RSHN:
-			case Symbols::REPN:
-			case Symbols::CAT:
-			case Symbols::OR:
-			case Symbols::AND:
-			case Symbols::XOR: { prec = 3; } break;
-
-			default: { prec = 0; } break;
-		}
-
-		if (prec <= bp or prec == 0)
+		if (any(prec <= bp, prec == 0))
 			break;
 
 		switch (lx.peek().kind) {
@@ -566,11 +591,13 @@ inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 				View lv = lx.peek().view;
 				size_t n = literal(ctx, lx);
 
+				// We don't want to shrink the sequence, it can only grow.
 				if (n == 0)
 					lx.error(Phases::PHASE_SEMANTIC, lv, STR_GREATER, 0);
 
+				// Copy sequence N times to the end of itself.
+				// turns i.e. `[a b c]` where N=3 into `[a b c a b c a b c]`.
 				size_t cnt = seq.size();
-
 				seq.reserve(seq.capacity() + n * cnt);
 
 				while (--n)
@@ -584,7 +611,7 @@ inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 
 				Sequence rhs = expression(ctx, lx, prec);
 
-				if (rhs.size() > seq.size())
+				if (rhs.size() > seq.size())  // step stretching
 					std::swap(rhs, seq);
 
 				seq.insert(seq.end(), rhs.begin(), rhs.end());
@@ -592,35 +619,20 @@ inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 
 			case Symbols::OR: {
 				lx.next();  // skip operator
-
 				Sequence rhs = expression(ctx, lx, prec);
-
-				if (rhs.size() > seq.size())
-					std::swap(rhs, seq);
-
-				std::transform(rhs.begin(), rhs.end(), seq.begin(), seq.begin(), std::bit_or<>{});
+				transform_seq_in_place(seq, std::bit_or<>{}, rhs);
 			} break;
 
 			case Symbols::AND: {
 				lx.next();  // skip operator
-
 				Sequence rhs = expression(ctx, lx, prec);
-
-				if (rhs.size() > seq.size())
-					std::swap(rhs, seq);
-
-				std::transform(rhs.begin(), rhs.end(), seq.begin(), seq.begin(), std::bit_and<>{});
+				transform_seq_in_place(seq, std::bit_and<>{}, rhs);
 			} break;
 
 			case Symbols::XOR: {
 				lx.next();  // skip operator
-
 				Sequence rhs = expression(ctx, lx, prec);
-
-				if (rhs.size() > seq.size())
-					std::swap(rhs, seq);
-
-				std::transform(rhs.begin(), rhs.end(), seq.begin(), seq.begin(), std::bit_xor<>{});
+				transform_seq_in_place(seq, std::bit_xor<>{}, rhs);
 			} break;
 
 
