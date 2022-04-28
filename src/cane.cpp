@@ -36,12 +36,12 @@ int main(int, const char*[]) {
 			cane::print(CANE_ANSI_BOLD CANE_ANSI_FG_BRIGHT_YELLOW "midi", i, CANE_ANSI_RESET " ");
 
 			for (cane::Pattern& p: c) {
-				cane::print(CANE_ANSI_BOLD "[" CANE_ANSI_RESET " ");
+				cane::print(CANE_ANSI_BOLD "[" CANE_ANSI_RESET);
 
 				for (bool s: p.seq) {
 					cane::print(s ?
-						CANE_ANSI_BOLD CANE_ANSI_FG_BRIGHT_YELLOW "X" CANE_ANSI_RESET " " :
-						CANE_ANSI_FG_BLUE "-" CANE_ANSI_RESET " "
+						CANE_ANSI_BOLD CANE_ANSI_FG_BRIGHT_YELLOW "!" CANE_ANSI_RESET :
+						CANE_ANSI_FG_BLUE "." CANE_ANSI_RESET
 					);
 				}
 
