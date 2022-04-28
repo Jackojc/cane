@@ -16,8 +16,10 @@ A small MIDI sequencer DSL designed around vectors and euclidean rhythms
 ```
 
 ### Introduction & Reference
-See the introduction [here](doc/introduction.md)
-and see the reference [here](doc/reference.md).
+See the introduction [here](doc/intro.md)
+and see the reference [here](doc/ref.md).
+
+The EBNF grammar is [here](doc/syntax.ebnf).
 
 ### Build & Run
 Make sure to use a c++-17 compliant compiler.
