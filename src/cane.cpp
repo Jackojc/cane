@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <chrono>
 
 #include <report.hpp>
 #include <view.hpp>
@@ -16,7 +17,17 @@ int main(int, const char*[]) {
 		if (not cane::utf_validate(src))
 			lx.error(cane::Phases::PHASE_ENCODING, src, cane::STR_ENCODING);
 
+		namespace time = std::chrono;
+
+		using clock = time::steady_clock;
+		using unit = time::microseconds;
+
+		auto t1 = clock::now();
 		cane::Context ctx = cane::compile(lx);
+		auto t2 = clock::now();
+
+		time::duration<double, std::micro> t = t2 - t1;
+		cane::printlnfmt(CANE_ANSI_FG_YELLOW "took: {}µs" CANE_ANSI_RESET, t.count());
 
 		// Ugly debug output
 		int i = 0;
