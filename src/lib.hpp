@@ -506,6 +506,26 @@ inline Sequence& chain(Context& ctx, Lexer& lx, Sequence& seq) {
 	return seq;
 }
 
+// Lookup table for prefix operator precedence.
+constexpr size_t prefix_precedence(Symbols kind) {
+	size_t prec = 0;
+
+	switch (kind) {
+		case Symbols::REV:
+		case Symbols::LSH:
+		case Symbols::RSH:
+		case Symbols::NOT: {
+			prec = 4;
+		} break;
+
+		default: {
+			prec = 0;
+		} break;
+	}
+
+	return prec;
+}
+
 // Lookup table for infix operator precedence.
 constexpr size_t infix_precedence(Symbols kind) {
 	size_t prec = 0;
@@ -520,7 +540,7 @@ constexpr size_t infix_precedence(Symbols kind) {
 		case Symbols::LSH:
 		case Symbols::RSH:
 		case Symbols::NOT: {
-			prec = 3;
+			prec = 2;
 		} break;
 
 		case Symbols::LSHN:
@@ -530,7 +550,7 @@ constexpr size_t infix_precedence(Symbols kind) {
 		case Symbols::OR:
 		case Symbols::AND:
 		case Symbols::XOR: {
-			prec = 2;
+			prec = 3;
 		} break;
 
 		default: {
@@ -557,7 +577,35 @@ inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 	Sequence seq;
 
 	// Nud (Nothing to the left, prefix position)
+	size_t prec = prefix_precedence(lx.peek().kind);
+
 	switch (lx.peek().kind) {
+		// Prefix operators
+		case Symbols::REV: {
+			lx.next();  // skip operator.
+			seq = expression(ctx, lx, prec);
+			std::reverse(seq.begin(), seq.end());
+		} break;
+
+		case Symbols::LSH: {
+			lx.next();  // skip operator.
+			seq = expression(ctx, lx, prec);
+			std::rotate(seq.begin(), seq.begin() + 1, seq.end());
+		} break;
+
+		case Symbols::RSH: {
+			lx.next();  // skip operator.
+			seq = expression(ctx, lx, prec);
+			std::rotate(seq.rbegin(), seq.rbegin() + 1, seq.rend());
+		} break;
+
+		case Symbols::NOT: {
+			lx.next();  // skip operator.
+			seq = expression(ctx, lx, prec);
+			std::transform(seq.begin(), seq.end(), seq.begin(), std::logical_not<>{});
+		} break;
+
+
 		// Euclidean sequence
 		case Symbols::INT:
 		case Symbols::HEX:
