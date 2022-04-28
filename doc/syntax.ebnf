@@ -10,7 +10,7 @@ infix_e ::= ( '|' | '&' | '^' | ',' ) <expr>
 infix_l ::= ( '<<' | '>>' | '*' ) <literal>
 infix ::= <expr> ( <infix_e> | <infix_l> )
 
-postfix ::= <expr> ( '~' | '<' | '>' )
+postfix ::= <expr> ( '~' | '<' | '>' | '\'' | '?' )
 
 chain ::= <expr> '=>' <identifier>
 
