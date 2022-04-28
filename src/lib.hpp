@@ -38,7 +38,6 @@ template <typename... Ts>
 	X(BIN,   "bin") \
 	\
 	/* Keywords & Grouping */ \
-	X(MIDI,   "midi") \
 	X(LPAREN, "(") \
 	X(RPAREN, ")") \
 	X(LSEQ,   "[") \
@@ -46,6 +45,7 @@ template <typename... Ts>
 	\
 	/* Operators */ \
 	X(CHAIN,  "=>") \
+	X(SINK,   "~>") \
 	X(SEP,    "/") \
 	X(OFFSET, "+") \
 	X(SKIP,   ".") \
@@ -145,7 +145,6 @@ struct Lexer {
 		else if (c == '&') { kind = Symbols::AND;    src = cane::iter_next_char(src, c); }
 		else if (c == '^') { kind = Symbols::XOR;    src = cane::iter_next_char(src, c); }
 		else if (c == ',') { kind = Symbols::CAT;    src = cane::iter_next_char(src, c); }
-		else if (c == '~') { kind = Symbols::NOT;    src = cane::iter_next_char(src, c); }
 		else if (c == '*') { kind = Symbols::REPN;   src = cane::iter_next_char(src, c); }
 		else if (c == '!') { kind = Symbols::BEAT;   src = cane::iter_next_char(src, c); }
 		else if (c == '.') { kind = Symbols::SKIP;   src = cane::iter_next_char(src, c); }
@@ -173,6 +172,17 @@ struct Lexer {
 
 			if (as_char(src) == '>') {
 				kind = Symbols::RSHN;
+				view = overlap(view, as_view(src));
+				src = cane::iter_next_char(src, c);
+			}
+		}
+
+		else if (c == '~') {
+			kind = Symbols::NOT;
+			src = cane::iter_next_char(src, c);
+
+			if (as_char(src) == '>') {
+				kind = Symbols::SINK;
 				view = overlap(view, as_view(src));
 				src = cane::iter_next_char(src, c);
 			}
@@ -225,9 +235,6 @@ struct Lexer {
 		else if (cane::is_letter(c)) {
 			kind = Symbols::IDENT;
 			view = cane::consume_char(src, c, cane::is_alphanumeric);
-
-			if (view == "midi"_sv)
-				kind = Symbols::MIDI;
 		}
 
 		// If the kind is still NONE by this point, we can assume we didn't find
@@ -307,28 +314,22 @@ struct Context {
 };
 
 
-// Literal expressions return a size_t.
-// Sequence expressions return a sequence.
-// Statements return void.
-
 // Literal expressions
 inline size_t literal (Context&, Lexer&);
-inline size_t step    (Context&, Lexer&);
 
 // Sequence expressions
-inline Sequence sequence   (Context&, Lexer&);
-inline Sequence euclide    (Context&, Lexer&);
-inline Sequence reference  (Context&, Lexer&);
+inline Sequence sequence  (Context&, Lexer&);
+inline Sequence euclide   (Context&, Lexer&);
+inline Sequence reference (Context&, Lexer&);
 
-inline Sequence& infix      (Context&, Lexer&, Sequence&);
-inline Sequence& postfix    (Context&, Lexer&, Sequence&);
+inline Sequence& infix   (Context&, Lexer&, Sequence&);
+inline Sequence& postfix (Context&, Lexer&, Sequence&);
+inline Sequence& chain   (Context&, Lexer&, Sequence&);
 
 inline Sequence expression (Context&, Lexer&);
 
 // Statements
-inline void midi      (Context&, Lexer&, Sequence&);
-inline void assign    (Context&, Lexer&, Sequence&);
-
+inline void sink      (Context&, Lexer&, Sequence&);
 inline void statement (Context&, Lexer&);
 
 inline Context compile (Lexer&);
@@ -369,7 +370,7 @@ constexpr auto is_operator = [] (auto x) {
 
 // Defs
 inline size_t literal(Context& ctx, Lexer& lx) {
-	// CANE_LOG(LOG_INFO, "literal");
+	CANE_LOG(LOG_INFO);
 
 	lx.expect(is_literal, lx.peek().view, STR_LITERAL);
 	auto [view, kind] = lx.next();
@@ -386,17 +387,8 @@ inline size_t literal(Context& ctx, Lexer& lx) {
 	return n;
 }
 
-inline size_t step(Context& ctx, Lexer& lx) {
-	// CANE_LOG(LOG_INFO, "step");
-
-	lx.expect(is_step, lx.peek().view, STR_STEP);
-	Symbols step = lx.next().kind;
-
-	return step == Symbols::BEAT;
-}
-
 inline Sequence sequence(Context& ctx, Lexer& lx) {
-	// CANE_LOG(LOG_INFO, "seq");
+	CANE_LOG(LOG_INFO);
 
 	lx.expect(equal(Symbols::LSEQ), lx.peek().view, STR_EXPECT, sym2str(Symbols::LSEQ));
 	lx.next();  // skip `[`
@@ -404,8 +396,9 @@ inline Sequence sequence(Context& ctx, Lexer& lx) {
 	Sequence seq;
 
 	while (lx.peek().kind != Symbols::RSEQ) {
-		size_t s = step(ctx, lx);
-		seq.emplace_back(s);
+		lx.expect(is_step, lx.peek().view, STR_STEP);
+		Symbols step = lx.next().kind;
+		seq.emplace_back(step == Symbols::BEAT);
 	}
 
 	lx.expect(equal(Symbols::RSEQ), lx.peek().view, STR_EXPECT, sym2str(Symbols::RSEQ));
@@ -415,7 +408,7 @@ inline Sequence sequence(Context& ctx, Lexer& lx) {
 }
 
 inline Sequence euclide(Context& ctx, Lexer& lx) {
-	// CANE_LOG(LOG_INFO, "euclide");
+	CANE_LOG(LOG_INFO);
 
 	size_t offset = 0;
 	size_t steps = 0;
@@ -440,7 +433,7 @@ inline Sequence euclide(Context& ctx, Lexer& lx) {
 }
 
 inline Sequence reference(Context& ctx, Lexer& lx) {
-	CANE_LOG(LOG_INFO, "reference");
+	CANE_LOG(LOG_INFO);
 
 	lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
 	auto [view, kind] = lx.next();
@@ -454,25 +447,50 @@ inline Sequence reference(Context& ctx, Lexer& lx) {
 	return it->second;
 }
 
+inline Sequence& chain(Context& ctx, Lexer& lx, Sequence& seq) {
+	CANE_LOG(LOG_INFO);
+
+	lx.expect(equal(Symbols::CHAIN), lx.peek().view, STR_EXPECT, sym2str(Symbols::CHAIN));
+	lx.next();  // skip `=>`
+
+	lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
+	auto [view, kind] = lx.next();
+
+	// Assign or error if re-assigned.
+	if (auto [it, succ] = ctx.symbols.try_emplace(view, seq); not succ)
+		lx.error(Phases::PHASE_SEMANTIC, view, STR_REDEFINED, view);
+
+	return seq;
+}
+
 inline Sequence& infix(Context& ctx, Lexer& lx, Sequence& seq) {
-	// CANE_LOG(LOG_INFO, "infix");
+	CANE_LOG(LOG_INFO);
 
 	lx.expect(is_infix, lx.peek().view, STR_INFIX);
-	Symbols kind = lx.next().kind;  // skip operator
+	Symbols kind = lx.peek().kind;  // skip operator
 
 	switch (kind) {
+		// Infix identifier
+		// case Symbols::CHAIN: {
+		// 	seq = chain(ctx, lx, seq);
+		// } break;
+
 		// Infix literal
 		case Symbols::LSHN: {
+			lx.next();  // skip operator
 			size_t n = literal(ctx, lx);
 			std::rotate(seq.begin(), seq.begin() + n, seq.end());
 		} break;
 
 		case Symbols::RSHN: {
+			lx.next();  // skip operator
 			size_t n = literal(ctx, lx);
 			std::rotate(seq.rbegin(), seq.rbegin() + n, seq.rend());
 		} break;
 
 		case Symbols::REPN: {
+			lx.next();  // skip operator
+
 			View lv = lx.peek().view;
 			size_t n = literal(ctx, lx);
 
@@ -489,6 +507,8 @@ inline Sequence& infix(Context& ctx, Lexer& lx, Sequence& seq) {
 
 		// Infix expr
 		case Symbols::OR: {
+			lx.next();  // skip operator
+
 			Sequence rhs = expression(ctx, lx);
 
 			if (rhs.size() > seq.size())
@@ -498,6 +518,8 @@ inline Sequence& infix(Context& ctx, Lexer& lx, Sequence& seq) {
 		} break;
 
 		case Symbols::AND: {
+			lx.next();  // skip operator
+
 			Sequence rhs = expression(ctx, lx);
 
 			if (rhs.size() > seq.size())
@@ -507,6 +529,8 @@ inline Sequence& infix(Context& ctx, Lexer& lx, Sequence& seq) {
 		} break;
 
 		case Symbols::XOR: {
+			lx.next();  // skip operator
+
 			Sequence rhs = expression(ctx, lx);
 
 			if (rhs.size() > seq.size())
@@ -516,6 +540,8 @@ inline Sequence& infix(Context& ctx, Lexer& lx, Sequence& seq) {
 		} break;
 
 		case Symbols::CAT: {
+			lx.next();  // skip operator
+
 			Sequence rhs = expression(ctx, lx);
 
 			if (rhs.size() > seq.size())
@@ -533,7 +559,7 @@ inline Sequence& infix(Context& ctx, Lexer& lx, Sequence& seq) {
 }
 
 inline Sequence& postfix(Context& ctx, Lexer& lx, Sequence& seq) {
-	// CANE_LOG(LOG_INFO, "postfix");
+	CANE_LOG(LOG_INFO);
 
 	lx.expect(is_postfix, lx.peek().view, STR_POSTFIX);
 	Symbols kind = lx.next().kind;  // skip operator
@@ -560,7 +586,7 @@ inline Sequence& postfix(Context& ctx, Lexer& lx, Sequence& seq) {
 }
 
 inline Sequence expression(Context& ctx, Lexer& lx) {
-	// CANE_LOG(LOG_INFO, "expr");
+	CANE_LOG(LOG_WARN);
 
 	Sequence seq;
 
@@ -597,8 +623,6 @@ inline Sequence expression(Context& ctx, Lexer& lx) {
 	}
 
 	while (is_operator(lx.peek().kind)) {
-		CANE_LOG(LOG_WARN, sym2str(lx.peek().kind));
-
 		switch (lx.peek().kind) {
 			case Symbols::LSH:
 			case Symbols::RSH:
@@ -622,25 +646,17 @@ inline Sequence expression(Context& ctx, Lexer& lx) {
 		}
 	}
 
+	if (lx.peek().kind == Symbols::CHAIN)
+		chain(ctx, lx, seq);
+
 	return seq;
 }
 
-inline void assign(Context& ctx, Lexer& lx, Sequence& seq) {
-	CANE_LOG(LOG_INFO, "assign");
+inline void sink(Context& ctx, Lexer& lx, Sequence& seq) {
+	CANE_LOG(LOG_INFO);
 
-	lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
-	auto [view, kind] = lx.next();
-
-	// Assign or error if re-assigned.
-	if (auto [it, succ] = ctx.symbols.try_emplace(view, seq); not succ)
-		lx.error(Phases::PHASE_SEMANTIC, view, STR_REDEFINED, view);
-}
-
-inline void midi(Context& ctx, Lexer& lx, Sequence& seq) {
-	CANE_LOG(LOG_INFO, "midi");
-
-	lx.expect(equal(Symbols::MIDI), lx.peek().view, STR_MIDI);
-	lx.next();  // skip `midi`
+	lx.expect(equal(Symbols::SINK), lx.peek().view, STR_EXPECT, sym2str(Symbols::SINK));
+	lx.next();  // skip `~>`
 
 	size_t channel = literal(ctx, lx);
 
@@ -653,31 +669,15 @@ inline void midi(Context& ctx, Lexer& lx, Sequence& seq) {
 }
 
 inline void statement(Context& ctx, Lexer& lx) {
-	CANE_LOG(LOG_INFO, "statement");
+	CANE_LOG(LOG_WARN);
 
 	Sequence seq = expression(ctx, lx);
 
-	if (lx.peek().kind == Symbols::CHAIN) {
-		CANE_LOG(LOG_INFO, "chain");
-
-		lx.next();  // skip `=>`
-
-		switch (lx.peek().kind) {
-			case Symbols::IDENT: assign(ctx, lx, seq); break;
-			case Symbols::MIDI:  midi(ctx, lx, seq); break;
-
-			default: {
-				lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_CHAIN);
-			} break;
-		}
-	}
+	if (lx.peek().kind == Symbols::SINK)
+		sink(ctx, lx, seq);
 }
 
-
-
 inline Context compile(Lexer& lx) {
-	// CANE_LOG(LOG_INFO, "compile");
-
 	Context ctx;
 
 	while (lx.peek().kind != Symbols::TERMINATOR)
