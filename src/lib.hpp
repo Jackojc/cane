@@ -318,15 +318,11 @@ struct Context {
 inline size_t literal (Context&, Lexer&);
 
 // Sequence expressions
-inline Sequence sequence  (Context&, Lexer&);
-inline Sequence euclide   (Context&, Lexer&);
-inline Sequence reference (Context&, Lexer&);
-
-inline Sequence& infix   (Context&, Lexer&, Sequence&);
-inline Sequence& postfix (Context&, Lexer&, Sequence&);
-inline Sequence& chain   (Context&, Lexer&, Sequence&);
-
-inline Sequence expression (Context&, Lexer&);
+inline Sequence  sequence   (Context&, Lexer&);
+inline Sequence  euclide    (Context&, Lexer&);
+inline Sequence  reference  (Context&, Lexer&);
+inline Sequence& chain      (Context&, Lexer&, Sequence&);
+inline Sequence  expression (Context&, Lexer&, size_t = 0);
 
 // Statements
 inline void sink      (Context&, Lexer&, Sequence&);
@@ -343,6 +339,7 @@ constexpr auto is_literal = partial_eq_any(
 );
 
 constexpr auto is_infix = partial_eq_any(
+	Symbols::CHAIN,
 	Symbols::OR,
 	Symbols::AND,
 	Symbols::XOR,
@@ -463,129 +460,7 @@ inline Sequence& chain(Context& ctx, Lexer& lx, Sequence& seq) {
 	return seq;
 }
 
-inline Sequence& infix(Context& ctx, Lexer& lx, Sequence& seq) {
-	CANE_LOG(LOG_INFO);
-
-	lx.expect(is_infix, lx.peek().view, STR_INFIX);
-	Symbols kind = lx.peek().kind;  // skip operator
-
-	switch (kind) {
-		// Infix identifier
-		// case Symbols::CHAIN: {
-		// 	seq = chain(ctx, lx, seq);
-		// } break;
-
-		// Infix literal
-		case Symbols::LSHN: {
-			lx.next();  // skip operator
-			size_t n = literal(ctx, lx);
-			std::rotate(seq.begin(), seq.begin() + n, seq.end());
-		} break;
-
-		case Symbols::RSHN: {
-			lx.next();  // skip operator
-			size_t n = literal(ctx, lx);
-			std::rotate(seq.rbegin(), seq.rbegin() + n, seq.rend());
-		} break;
-
-		case Symbols::REPN: {
-			lx.next();  // skip operator
-
-			View lv = lx.peek().view;
-			size_t n = literal(ctx, lx);
-
-			if (n == 0)
-				lx.error(Phases::PHASE_SEMANTIC, lv, STR_GREATER, 0);
-
-			size_t cnt = seq.size();
-
-			seq.reserve(seq.capacity() + n * cnt);
-
-			while (--n)
-				std::copy_n(seq.begin(), cnt, std::back_inserter(seq));
-		} break;
-
-		// Infix expr
-		case Symbols::OR: {
-			lx.next();  // skip operator
-
-			Sequence rhs = expression(ctx, lx);
-
-			if (rhs.size() > seq.size())
-				std::swap(rhs, seq);
-
-			std::transform(rhs.begin(), rhs.end(), seq.begin(), seq.begin(), std::bit_or<>{});
-		} break;
-
-		case Symbols::AND: {
-			lx.next();  // skip operator
-
-			Sequence rhs = expression(ctx, lx);
-
-			if (rhs.size() > seq.size())
-				std::swap(rhs, seq);
-
-			std::transform(rhs.begin(), rhs.end(), seq.begin(), seq.begin(), std::bit_and<>{});
-		} break;
-
-		case Symbols::XOR: {
-			lx.next();  // skip operator
-
-			Sequence rhs = expression(ctx, lx);
-
-			if (rhs.size() > seq.size())
-				std::swap(rhs, seq);
-
-			std::transform(rhs.begin(), rhs.end(), seq.begin(), seq.begin(), std::bit_xor<>{});
-		} break;
-
-		case Symbols::CAT: {
-			lx.next();  // skip operator
-
-			Sequence rhs = expression(ctx, lx);
-
-			if (rhs.size() > seq.size())
-				std::swap(rhs, seq);
-
-			seq.insert(seq.end(), rhs.begin(), rhs.end());
-		} break;
-
-		default: {
-			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_INFIX);
-		} break;
-	}
-
-	return seq;
-}
-
-inline Sequence& postfix(Context& ctx, Lexer& lx, Sequence& seq) {
-	CANE_LOG(LOG_INFO);
-
-	lx.expect(is_postfix, lx.peek().view, STR_POSTFIX);
-	Symbols kind = lx.next().kind;  // skip operator
-
-	switch (kind) {
-		case Symbols::LSH: {
-			std::rotate(seq.begin(), seq.begin() + 1, seq.end());
-		} break;
-
-		case Symbols::RSH: {
-			std::rotate(seq.rbegin(), seq.rbegin() + 1, seq.rend());
-		} break;
-
-		case Symbols::NOT: {
-			std::transform(seq.begin(), seq.end(), seq.begin(), std::logical_not<>{});
-		} break;
-
-		default: {
-			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_POSTFIX);
-		} break;
-	}
-
-	return seq;
-}
-
-inline Sequence expression(Context& ctx, Lexer& lx) {
+inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 	CANE_LOG(LOG_WARN);
 
 	Sequence seq;
@@ -612,7 +487,9 @@ inline Sequence expression(Context& ctx, Lexer& lx) {
 		// Grouped expression
 		case Symbols::LPAREN: {
 			lx.next();  // skip `(`
+
 			seq = expression(ctx, lx);
+
 			lx.expect(equal(Symbols::RPAREN), lx.peek().view, STR_EXPECT, sym2str(Symbols::RPAREN));
 			lx.next();  // skip `)`
 		} break;
@@ -623,12 +500,14 @@ inline Sequence expression(Context& ctx, Lexer& lx) {
 	}
 
 	while (is_operator(lx.peek().kind)) {
+		size_t prec = 0;
+
 		switch (lx.peek().kind) {
+			case Symbols::CHAIN: { prec = 1; } break;
+
 			case Symbols::LSH:
 			case Symbols::RSH:
-			case Symbols::NOT: {
-				seq = postfix(ctx, lx, seq);
-			} break;
+			case Symbols::NOT: { prec = 2; } break;
 
 			case Symbols::LSHN:
 			case Symbols::RSHN:
@@ -636,18 +515,120 @@ inline Sequence expression(Context& ctx, Lexer& lx) {
 			case Symbols::CAT:
 			case Symbols::OR:
 			case Symbols::AND:
-			case Symbols::XOR: {
-				seq = infix(ctx, lx, seq);
+			case Symbols::XOR: { prec = 3; } break;
+
+			default: { prec = 0; } break;
+		}
+
+		if (prec <= bp or prec == 0)
+			break;
+
+		switch (lx.peek().kind) {
+			// Infix with identifier
+			case Symbols::CHAIN: {
+				seq = chain(ctx, lx, seq);
 			} break;
+
+
+			// Postfix
+			case Symbols::LSH: {
+				lx.next();  // skip operator
+				std::rotate(seq.begin(), seq.begin() + 1, seq.end());
+			} break;
+
+			case Symbols::RSH: {
+				lx.next();  // skip operator
+				std::rotate(seq.rbegin(), seq.rbegin() + 1, seq.rend());
+			} break;
+
+			case Symbols::NOT: {
+				lx.next();  // skip operator
+				std::transform(seq.begin(), seq.end(), seq.begin(), std::logical_not<>{});
+			} break;
+
+
+			// Infix with literal
+			case Symbols::LSHN: {
+				lx.next();  // skip operator
+				size_t n = literal(ctx, lx);
+				std::rotate(seq.begin(), seq.begin() + n, seq.end());
+			} break;
+
+			case Symbols::RSHN: {
+				lx.next();  // skip operator
+				size_t n = literal(ctx, lx);
+				std::rotate(seq.rbegin(), seq.rbegin() + n, seq.rend());
+			} break;
+
+			case Symbols::REPN: {
+				lx.next();  // skip operator
+
+				View lv = lx.peek().view;
+				size_t n = literal(ctx, lx);
+
+				if (n == 0)
+					lx.error(Phases::PHASE_SEMANTIC, lv, STR_GREATER, 0);
+
+				size_t cnt = seq.size();
+
+				seq.reserve(seq.capacity() + n * cnt);
+
+				while (--n)
+					std::copy_n(seq.begin(), cnt, std::back_inserter(seq));
+			} break;
+
+
+			// Infix with expr
+			case Symbols::CAT: {
+				lx.next();  // skip operator
+
+				Sequence rhs = expression(ctx, lx, prec);
+
+				if (rhs.size() > seq.size())
+					std::swap(rhs, seq);
+
+				seq.insert(seq.end(), rhs.begin(), rhs.end());
+			} break;
+
+			case Symbols::OR: {
+				lx.next();  // skip operator
+
+				Sequence rhs = expression(ctx, lx, prec);
+
+				if (rhs.size() > seq.size())
+					std::swap(rhs, seq);
+
+				std::transform(rhs.begin(), rhs.end(), seq.begin(), seq.begin(), std::bit_or<>{});
+			} break;
+
+			case Symbols::AND: {
+				lx.next();  // skip operator
+
+				Sequence rhs = expression(ctx, lx, prec);
+
+				if (rhs.size() > seq.size())
+					std::swap(rhs, seq);
+
+				std::transform(rhs.begin(), rhs.end(), seq.begin(), seq.begin(), std::bit_and<>{});
+			} break;
+
+			case Symbols::XOR: {
+				lx.next();  // skip operator
+
+				Sequence rhs = expression(ctx, lx, prec);
+
+				if (rhs.size() > seq.size())
+					std::swap(rhs, seq);
+
+				std::transform(rhs.begin(), rhs.end(), seq.begin(), seq.begin(), std::bit_xor<>{});
+			} break;
+
 
 			default: {
 				lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_OPERATOR);
 			} break;
 		}
 	}
-
-	if (lx.peek().kind == Symbols::CHAIN)
-		chain(ctx, lx, seq);
 
 	return seq;
 }
