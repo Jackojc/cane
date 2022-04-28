@@ -3,11 +3,9 @@
 
 #include <iostream>
 #include <string>
-#include <string_view>
 #include <vector>
 #include <array>
 #include <unordered_map>
-#include <unordered_set>
 #include <algorithm>
 
 #include <locale.hpp>
@@ -199,8 +197,9 @@ struct Lexer {
 		}
 
 		else if (cane::is_number(c)) {
+			const auto lbegin = begin;  // Save starting position of token so we include "0x" or "0b"
+
 			if (c == '0') {
-				const auto lbegin = begin;  // Save starting position of token so we include "0x" or "0b"
 				src = cane::iter_next_char(src, c);
 
 				// Hex literal
@@ -225,11 +224,12 @@ struct Lexer {
 					});
 				}
 
-				begin = lbegin;
 			}
 
 			kind = Symbols::INT;
 			view = cane::consume_char(src, c, cane::is_number);
+
+			begin = lbegin;  // Make sure to set the begin pointer here so that we handle the lone 0 case aswell.
 		}
 
 		else if (cane::is_letter(c)) {
@@ -407,6 +407,8 @@ inline Sequence sequence(Context& ctx, Lexer& lx) {
 inline Sequence euclide(Context& ctx, Lexer& lx) {
 	CANE_LOG(LOG_INFO);
 
+	View lv = lx.peek().view;
+
 	size_t offset = 0;
 	size_t steps = 0;
 	size_t beats = literal(ctx, lx);
@@ -420,6 +422,9 @@ inline Sequence euclide(Context& ctx, Lexer& lx) {
 		lx.next();  // skip `+`
 		offset = literal(ctx, lx);
 	}
+
+	if (beats > steps)
+		lx.error(Phases::PHASE_SEMANTIC, lv, STR_LESSER_EQ, steps);
 
 	Sequence seq;
 
@@ -538,7 +543,7 @@ inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 		} break;
 
 		default: {
-			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_EXPR);
+			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_NUD);
 		} break;
 	}
 
@@ -651,12 +656,20 @@ inline Sequence& sink(Context& ctx, Lexer& lx, Sequence& seq) {
 	lx.expect(equal(Symbols::SINK), lx.peek().view, STR_EXPECT, sym2str(Symbols::SINK));
 	lx.next();  // skip `~>`
 
+	View chan_v = lx.peek().view;
 	size_t channel = literal(ctx, lx);
 
 	lx.expect(equal(Symbols::BPM), lx.peek().view, STR_EXPECT, sym2str(Symbols::BPM));
 	lx.next();  // skip `@`
 
+	View bpm_v = lx.peek().view;
 	size_t bpm = literal(ctx, lx);
+
+	if (channel > 15)
+		lx.error(Phases::PHASE_SEMANTIC, chan_v, STR_BETWEEN, 0, 15);
+
+	if (bpm == 0)
+		lx.error(Phases::PHASE_SEMANTIC, bpm_v, STR_GREATER, 0);
 
 	ctx.chains[channel].emplace_back(seq, Notes{}, bpm);
 
