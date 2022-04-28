@@ -516,6 +516,13 @@ constexpr size_t infix_precedence(Symbols kind) {
 			prec = 1;
 		} break;
 
+		case Symbols::REV:
+		case Symbols::LSH:
+		case Symbols::RSH:
+		case Symbols::NOT: {
+			prec = 3;
+		} break;
+
 		case Symbols::LSHN:
 		case Symbols::RSHN:
 		case Symbols::REPN:
@@ -524,13 +531,6 @@ constexpr size_t infix_precedence(Symbols kind) {
 		case Symbols::AND:
 		case Symbols::XOR: {
 			prec = 2;
-		} break;
-
-		case Symbols::REV:
-		case Symbols::LSH:
-		case Symbols::RSH:
-		case Symbols::NOT: {
-			prec = 3;
 		} break;
 
 		default: {
