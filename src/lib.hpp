@@ -40,6 +40,7 @@ inline void note(Ts&&... args) {
 	X(TERMINATOR, "eof") \
 	\
 	/* Special */ \
+	X(SYNC,  "sync") \
 	X(IDENT, "ident") \
 	X(INT,   "int") \
 	X(HEX,   "hex") \
@@ -261,6 +262,9 @@ struct Lexer {
 		else if (cane::is_letter(c)) {
 			kind = Symbols::IDENT;
 			view = cane::consume_char(src, c, cane::is_alphanumeric);
+
+			if (view == "sync"_sv)
+				kind = Symbols::SYNC;
 		}
 
 		// If the kind is still NONE by this point, we can assume we didn't find
@@ -371,10 +375,30 @@ inline Context compile (Lexer&);
 
 
 // Predicates
+constexpr auto is_expr = partial_eq_any(
+	Symbols::REV,
+	Symbols::LSH,
+	Symbols::RSH,
+	Symbols::NOT,
+	Symbols::INT,
+	Symbols::HEX,
+	Symbols::BIN,
+	Symbols::IDENT,
+	Symbols::LSEQ,
+	Symbols::LPAREN
+);
+
 constexpr auto is_literal = partial_eq_any(
 	Symbols::INT,
 	Symbols::HEX,
 	Symbols::BIN
+);
+
+constexpr auto is_prefix = partial_eq_any(
+	Symbols::NOT,
+	Symbols::LSH,
+	Symbols::RSH,
+	Symbols::REV
 );
 
 constexpr auto is_infix = partial_eq_any(
@@ -536,6 +560,7 @@ constexpr size_t infix_precedence(Symbols kind) {
 			prec = 1;
 		} break;
 
+		case Symbols::CAT:
 		case Symbols::REV:
 		case Symbols::LSH:
 		case Symbols::RSH:
@@ -546,7 +571,6 @@ constexpr size_t infix_precedence(Symbols kind) {
 		case Symbols::LSHN:
 		case Symbols::RSHN:
 		case Symbols::REPN:
-		case Symbols::CAT:
 		case Symbols::OR:
 		case Symbols::AND:
 		case Symbols::XOR: {
@@ -780,10 +804,22 @@ inline Sequence& sink(Context& ctx, Lexer& lx, Sequence& seq) {
 inline void statement(Context& ctx, Lexer& lx) {
 	CANE_LOG(LOG_WARN);
 
-	Sequence seq = expression(ctx, lx);
+	// Parse expression with optional sink
+	if (is_expr(lx.peek().kind)) {
+		Sequence seq = expression(ctx, lx);
 
-	while (lx.peek().kind == Symbols::SINK)
-		seq = sink(ctx, lx, seq);
+		while (lx.peek().kind == Symbols::SINK)
+			seq = sink(ctx, lx, seq);
+	}
+
+	// Parse sync with optional literal
+	else if (lx.peek().kind == Symbols::SYNC) {
+		lx.next();  // skip `sync`
+		size_t count = 0;
+
+		if (is_literal(lx.peek().kind))
+			count = literal(ctx, lx);
+	}
 }
 
 inline Context compile(Lexer& lx) {
