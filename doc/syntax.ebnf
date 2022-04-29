@@ -16,6 +16,6 @@ postfix ::= <expr> ( '~' | '<' | '>' | '\'' | '?' )
 chain ::= <expr> '=>' <identifier>
 
 expr ::= <identifier> | <sequence> | <prefix> | <infix> | <postfix> | <chain> | '(' <expr> ')'
-stat ::= <expr> ( '~>' <literal> '@' <literal> )*
+stat ::= ( <expr> ( '~>' <literal> '@' <literal> )* ) | ( "sync" [ <literal> ] )
 
 program ::= <stat>*

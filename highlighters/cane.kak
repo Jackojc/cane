@@ -15,11 +15,11 @@ provide-module -override cane %{
 	add-highlighter shared/cane/other/ regex "!|\." 0:value              # steps
 
 	# keywords and operators
-	add-highlighter shared/cane/other/ regex "\b(midi)\b" 0:keyword
+	add-highlighter shared/cane/other/ regex "\b(sync)\b" 0:keyword
 	add-highlighter shared/cane/other/ regex "'|\?|~>|=>|@|/|\+|\||&|\^|,|~|<<|>>|<|>|\*" 0:operator
 }
 
-hook global BufCreate .*\.(cn) %{ set-option buffer filetype cane }
+hook global BufCreate .*\.(cn|cane) %{ set-option buffer filetype cane }
 hook global WinSetOption filetype=cane %{ require-module cane }
 
 hook -group cane-highlight global WinSetOption filetype=cane %{
