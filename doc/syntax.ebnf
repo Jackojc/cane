@@ -4,7 +4,7 @@ comment ::= ? #.+$ ?
 
 step ::= '!' | '.'
 sequence ::= '[' <step>* ']'
-euclidean ::= <literal> '/' <literal> [ '+' <literal> ]
+euclidean ::= <literal> '/' <literal>
 
 infix_e ::= ( '|' | '&' | '^' | ',' ) <expr>
 infix_l ::= ( '<<' | '>>' | '*' ) <literal>
