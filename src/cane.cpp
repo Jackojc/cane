@@ -29,27 +29,19 @@ int main(int, const char*[]) {
 		time::duration<double, std::micro> t = t2 - t1;
 		cane::printlnfmt(CANE_ANSI_FG_YELLOW "took: {}µs" CANE_ANSI_RESET, t.count());
 
-		// Ugly debug output
-		int i = 0;
-		for (cane::Chain& c: ctx.chains) {
-			if (c.empty()) continue;
-			cane::print(CANE_ANSI_BOLD CANE_ANSI_FG_BRIGHT_YELLOW "midi", i, CANE_ANSI_RESET " ");
+		for (auto& [seq, notes, bpm, channel]: ctx.chains) {
+			cane::print(CANE_ANSI_BOLD CANE_ANSI_FG_BRIGHT_YELLOW, channel, " @ ", bpm, CANE_ANSI_RESET " ");
 
-			for (cane::Pattern& p: c) {
-				cane::print(CANE_ANSI_BOLD "[" CANE_ANSI_RESET);
+			cane::print(CANE_ANSI_BOLD "[" CANE_ANSI_RESET);
 
-				for (bool s: p.seq) {
-					cane::print(s ?
-						CANE_ANSI_BOLD CANE_ANSI_FG_BRIGHT_YELLOW "!" CANE_ANSI_RESET :
-						CANE_ANSI_FG_BLUE "." CANE_ANSI_RESET
-					);
-				}
-
-				cane::print(CANE_ANSI_BOLD "]" CANE_ANSI_RESET " ");
+			for (bool s: seq) {
+				cane::print(s ?
+					CANE_ANSI_BOLD CANE_ANSI_FG_BRIGHT_YELLOW "!" CANE_ANSI_RESET :
+					CANE_ANSI_FG_BLUE "." CANE_ANSI_RESET
+				);
 			}
 
-			cane::println();
-			i++;
+			cane::println(CANE_ANSI_BOLD "]" CANE_ANSI_RESET);
 		}
 	}
 

@@ -2,11 +2,11 @@
 #define CANE_LIB_HPP
 
 #include <iostream>
-#include <string>
 #include <vector>
 #include <array>
 #include <unordered_map>
 #include <algorithm>
+#include <numeric>
 
 #include <locale.hpp>
 #include <print.hpp>
@@ -61,10 +61,10 @@ inline void note(Ts&&... args) {
 	X(BEAT,   "!") \
 	\
 	/* Argument Infix Operators */ \
-	X(LSHN, "<<") \
-	X(RSHN, ">>") \
-	X(REPN, "*") \
-	X(BPM,  "@") \
+	X(ROTLN, "<<") \
+	X(ROTRN, ">>") \
+	X(REPN,  "*") \
+	X(BPM,   "@") \
 	\
 	/* Binary Sequence Operators */ \
 	X(OR,  "|") \
@@ -73,11 +73,11 @@ inline void note(Ts&&... args) {
 	X(CAT, ",") \
 	\
 	/* Postfix Sequence Operators */ \
-	X(NOT, "~") \
-	X(LSH, "<") \
-	X(RSH, ">") \
-	X(REV, "'") \
-	X(DBG, "?")
+	X(INVERT, "~") \
+	X(ROTL,   "<") \
+	X(ROTR,   ">") \
+	X(REV,    "'") \
+	X(DBG,    "?")
 
 	#define X(name, str) name,
 		enum class Symbols { SYMBOL_TYPES };
@@ -181,29 +181,29 @@ struct Lexer {
 		else if (c == ')') { kind = Symbols::RPAREN; src = cane::iter_next_char(src, c); }
 
 		else if (c == '<') {
-			kind = Symbols::LSH;
+			kind = Symbols::ROTL;
 			src = cane::iter_next_char(src, c);
 
 			if (as_char(src) == '<') {
-				kind = Symbols::LSHN;
+				kind = Symbols::ROTLN;
 				view = overlap(view, as_view(src));
 				src = cane::iter_next_char(src, c);
 			}
 		}
 
 		else if (c == '>') {
-			kind = Symbols::RSH;
+			kind = Symbols::ROTR;
 			src = cane::iter_next_char(src, c);
 
 			if (as_char(src) == '>') {
-				kind = Symbols::RSHN;
+				kind = Symbols::ROTRN;
 				view = overlap(view, as_view(src));
 				src = cane::iter_next_char(src, c);
 			}
 		}
 
 		else if (c == '~') {
-			kind = Symbols::NOT;
+			kind = Symbols::INVERT;
 			src = cane::iter_next_char(src, c);
 
 			if (as_char(src) == '>') {
@@ -344,17 +344,80 @@ struct Pattern {
 	Sequence seq;
 	Notes notes;
 	size_t bpm;
+	size_t channel;
 
-	Pattern(const Sequence& seq_, const Notes& notes_, size_t bpm_):
-		seq(seq_), notes(notes_), bpm(bpm_) {}
+	Pattern(const Sequence& seq_, const Notes& notes_, size_t bpm_, size_t channel_):
+		seq(seq_), notes(notes_), bpm(bpm_), channel(channel_) {}
 };
-
-using Chain = std::vector<Pattern>;
 
 struct Context {
-	std::array<Chain, 16> chains;
+	std::vector<Pattern> chains;
 	std::unordered_map<View, Sequence> symbols;
 };
+
+
+// Operations
+// Transform sequence in place using function object.
+template <typename V, typename F>
+constexpr void transform_seq_in_place(V& seq, const F& fn, V& other) {
+	// Step stretching, we pick the largest sequence to transform.
+	if (other.size() > seq.size())
+		std::swap(other, seq);
+
+	std::transform(other.cbegin(), other.cend(), seq.begin(), seq.begin(), fn);
+}
+
+template <typename V> constexpr decltype(auto) reverse(V&& v) {
+	std::reverse(v.begin(), v.end());
+	return v;
+}
+
+template <typename V> constexpr decltype(auto) rotl(V&& v, size_t n = 1) {
+	std::rotate(v.begin(), v.begin() + n, v.end());
+	return v;
+}
+
+template <typename V> constexpr decltype(auto) rotr(V&& v, size_t n = 1) {
+	std::rotate(v.rbegin(), v.rbegin() + n, v.rend());
+	return v;
+}
+
+template <typename V> constexpr decltype(auto) invert(V&& v) {
+	std::transform(v.begin(), v.end(), v.begin(), std::logical_not<>{});
+	return v;
+}
+
+template <typename V> constexpr decltype(auto) repeat(V&& v, size_t n = 1) {
+	// Copy sequence N times to the end of itself.
+	// turns i.e. `[a b c]` where N=3 into `[a b c a b c a b c]`.
+	size_t count = v.size();
+	v.reserve(v.capacity() + n * count);
+
+	while (--n)
+		std::copy_n(v.begin(), count, std::back_inserter(v));
+
+	return v;
+}
+
+template <typename V1, typename V2> constexpr decltype(auto) cat(V1&& a, V2&& b) {
+	a.insert(a.end(), b.begin(), b.end());
+	return a;
+}
+
+template <typename V1, typename V2> constexpr decltype(auto) disjunction(V1&& a, V2&& b) {
+	transform_seq_in_place(a, std::bit_or<>{}, b);
+	return a;
+}
+
+template <typename V1, typename V2> constexpr decltype(auto) conjunction(V1&& a, V2&& b) {
+	transform_seq_in_place(a, std::bit_and<>{}, b);
+	return a;
+}
+
+template <typename V1, typename V2> constexpr decltype(auto) ex_disjunction(V1&& a, V2&& b) {
+	transform_seq_in_place(a, std::bit_xor<>{}, b);
+	return a;
+}
 
 
 // Literal expressions
@@ -369,7 +432,8 @@ inline Sequence  expression (Context&, Lexer&, size_t = 0);
 
 // Statements
 inline Sequence& sink      (Context&, Lexer&, Sequence&);
-inline void statement (Context&, Lexer&);
+inline void      sync      (Context&, Lexer&);
+inline void      statement (Context&, Lexer&);
 
 inline Context compile (Lexer&);
 
@@ -377,9 +441,9 @@ inline Context compile (Lexer&);
 // Predicates
 constexpr auto is_expr = partial_eq_any(
 	Symbols::REV,
-	Symbols::LSH,
-	Symbols::RSH,
-	Symbols::NOT,
+	Symbols::ROTL,
+	Symbols::ROTR,
+	Symbols::INVERT,
 	Symbols::INT,
 	Symbols::HEX,
 	Symbols::BIN,
@@ -395,9 +459,9 @@ constexpr auto is_literal = partial_eq_any(
 );
 
 constexpr auto is_prefix = partial_eq_any(
-	Symbols::NOT,
-	Symbols::LSH,
-	Symbols::RSH,
+	Symbols::INVERT,
+	Symbols::ROTL,
+	Symbols::ROTR,
 	Symbols::REV
 );
 
@@ -407,15 +471,15 @@ constexpr auto is_infix = partial_eq_any(
 	Symbols::AND,
 	Symbols::XOR,
 	Symbols::CAT,
-	Symbols::LSHN,
-	Symbols::RSHN,
+	Symbols::ROTLN,
+	Symbols::ROTRN,
 	Symbols::REPN
 );
 
 constexpr auto is_postfix = partial_eq_any(
-	Symbols::NOT,
-	Symbols::LSH,
-	Symbols::RSH,
+	Symbols::INVERT,
+	Symbols::ROTL,
+	Symbols::ROTR,
 	Symbols::REV,
 	Symbols::DBG
 );
@@ -536,9 +600,9 @@ constexpr size_t prefix_precedence(Symbols kind) {
 
 	switch (kind) {
 		case Symbols::REV:
-		case Symbols::LSH:
-		case Symbols::RSH:
-		case Symbols::NOT: {
+		case Symbols::ROTL:
+		case Symbols::ROTR:
+		case Symbols::INVERT: {
 			prec = 4;
 		} break;
 
@@ -562,14 +626,14 @@ constexpr size_t infix_precedence(Symbols kind) {
 
 		case Symbols::CAT:
 		case Symbols::REV:
-		case Symbols::LSH:
-		case Symbols::RSH:
-		case Symbols::NOT: {
+		case Symbols::ROTL:
+		case Symbols::ROTR:
+		case Symbols::INVERT: {
 			prec = 2;
 		} break;
 
-		case Symbols::LSHN:
-		case Symbols::RSHN:
+		case Symbols::ROTLN:
+		case Symbols::ROTRN:
 		case Symbols::REPN:
 		case Symbols::OR:
 		case Symbols::AND:
@@ -585,16 +649,6 @@ constexpr size_t infix_precedence(Symbols kind) {
 	return prec;
 }
 
-// Transform sequence in place using function object.
-template <typename V, typename F>
-constexpr void transform_seq_in_place(V& seq, const F& fn, V& other) {
-	// Step stretching, we pick the largest sequence to transform.
-	if (other.size() > seq.size())
-		std::swap(other, seq);
-
-	std::transform(other.cbegin(), other.cend(), seq.begin(), seq.begin(), fn);
-}
-
 inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 	CANE_LOG(LOG_WARN);
 
@@ -607,26 +661,22 @@ inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 		// Prefix operators
 		case Symbols::REV: {
 			lx.next();  // skip operator.
-			seq = expression(ctx, lx, prec);
-			std::reverse(seq.begin(), seq.end());
+			seq = reverse(expression(ctx, lx, prec));
 		} break;
 
-		case Symbols::LSH: {
+		case Symbols::ROTL: {
 			lx.next();  // skip operator.
-			seq = expression(ctx, lx, prec);
-			std::rotate(seq.begin(), seq.begin() + 1, seq.end());
+			seq = rotl(expression(ctx, lx, prec));
 		} break;
 
-		case Symbols::RSH: {
+		case Symbols::ROTR: {
 			lx.next();  // skip operator.
-			seq = expression(ctx, lx, prec);
-			std::rotate(seq.rbegin(), seq.rbegin() + 1, seq.rend());
+			seq = rotr(expression(ctx, lx, prec));
 		} break;
 
-		case Symbols::NOT: {
+		case Symbols::INVERT: {
 			lx.next();  // skip operator.
-			seq = expression(ctx, lx, prec);
-			std::transform(seq.begin(), seq.end(), seq.begin(), std::logical_not<>{});
+			seq = invert(expression(ctx, lx, prec));
 		} break;
 
 
@@ -683,36 +733,34 @@ inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 
 			case Symbols::REV: {
 				lx.next();  // skip operator
-				std::reverse(seq.begin(), seq.end());
+				seq = reverse(seq);
 			} break;
 
-			case Symbols::LSH: {
+			case Symbols::ROTL: {
 				lx.next();  // skip operator
-				std::rotate(seq.begin(), seq.begin() + 1, seq.end());
+				seq = rotl(seq);
 			} break;
 
-			case Symbols::RSH: {
+			case Symbols::ROTR: {
 				lx.next();  // skip operator
-				std::rotate(seq.rbegin(), seq.rbegin() + 1, seq.rend());
+				seq = rotr(seq);
 			} break;
 
-			case Symbols::NOT: {
+			case Symbols::INVERT: {
 				lx.next();  // skip operator
-				std::transform(seq.begin(), seq.end(), seq.begin(), std::logical_not<>{});
+				seq = invert(seq);
 			} break;
 
 
 			// Infix with literal
-			case Symbols::LSHN: {
+			case Symbols::ROTLN: {
 				lx.next();  // skip operator
-				size_t n = literal(ctx, lx);
-				std::rotate(seq.begin(), seq.begin() + n, seq.end());
+				seq = rotl(seq, literal(ctx, lx));
 			} break;
 
-			case Symbols::RSHN: {
+			case Symbols::ROTRN: {
 				lx.next();  // skip operator
-				size_t n = literal(ctx, lx);
-				std::rotate(seq.rbegin(), seq.rbegin() + n, seq.rend());
+				seq = rotr(seq, literal(ctx, lx));
 			} break;
 
 			case Symbols::REPN: {
@@ -725,44 +773,29 @@ inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 				if (n == 0)
 					lx.error(Phases::PHASE_SEMANTIC, lv, STR_GREATER, 0);
 
-				// Copy sequence N times to the end of itself.
-				// turns i.e. `[a b c]` where N=3 into `[a b c a b c a b c]`.
-				size_t cnt = seq.size();
-				seq.reserve(seq.capacity() + n * cnt);
-
-				while (--n)
-					std::copy_n(seq.begin(), cnt, std::back_inserter(seq));
+				seq = repeat(seq, n);
 			} break;
 
 
 			// Infix with expr
 			case Symbols::CAT: {
 				lx.next();  // skip operator
-
-				Sequence rhs = expression(ctx, lx, prec);
-
-				if (rhs.size() > seq.size())  // step stretching
-					std::swap(rhs, seq);
-
-				seq.insert(seq.end(), rhs.begin(), rhs.end());
+				seq = cat(seq, expression(ctx, lx, prec));
 			} break;
 
 			case Symbols::OR: {
 				lx.next();  // skip operator
-				Sequence rhs = expression(ctx, lx, prec);
-				transform_seq_in_place(seq, std::bit_or<>{}, rhs);
+				seq = disjunction(seq, expression(ctx, lx, prec));
 			} break;
 
 			case Symbols::AND: {
 				lx.next();  // skip operator
-				Sequence rhs = expression(ctx, lx, prec);
-				transform_seq_in_place(seq, std::bit_and<>{}, rhs);
+				seq = conjunction(seq, expression(ctx, lx, prec));
 			} break;
 
 			case Symbols::XOR: {
 				lx.next();  // skip operator
-				Sequence rhs = expression(ctx, lx, prec);
-				transform_seq_in_place(seq, std::bit_xor<>{}, rhs);
+				seq = ex_disjunction(seq, expression(ctx, lx, prec));
 			} break;
 
 
@@ -796,9 +829,24 @@ inline Sequence& sink(Context& ctx, Lexer& lx, Sequence& seq) {
 	if (bpm == 0)
 		lx.error(Phases::PHASE_SEMANTIC, bpm_v, STR_GREATER, 0);
 
-	ctx.chains[channel].emplace_back(seq, Notes{}, bpm);
+	ctx.chains.emplace_back(seq, Notes{}, bpm, channel);
 
 	return seq;
+}
+
+inline void sync(Context& ctx, Lexer& lx) {
+	CANE_LOG(LOG_INFO);
+	lx.next();  // skip `sync`
+
+	size_t count = 1;
+	View count_v = lx.peek().view;
+
+	if (is_literal(lx.peek().kind))
+		count = literal(ctx, lx);
+
+	if (count == 0)
+		lx.error(Phases::PHASE_SEMANTIC, count_v, STR_GREATER, 0);
+
 }
 
 inline void statement(Context& ctx, Lexer& lx) {
@@ -813,13 +861,8 @@ inline void statement(Context& ctx, Lexer& lx) {
 	}
 
 	// Parse sync with optional literal
-	else if (lx.peek().kind == Symbols::SYNC) {
-		lx.next();  // skip `sync`
-		size_t count = 0;
-
-		if (is_literal(lx.peek().kind))
-			count = literal(ctx, lx);
-	}
+	else if (lx.peek().kind == Symbols::SYNC)
+		sync(ctx, lx);
 }
 
 inline Context compile(Lexer& lx) {
