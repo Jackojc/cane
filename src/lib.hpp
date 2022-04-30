@@ -56,7 +56,6 @@ inline void note(Ts&&... args) {
 	X(CHAIN,  "=>") \
 	X(SINK,   "~>") \
 	X(SEP,    "/") \
-	X(OFFSET, "+") \
 	X(SKIP,   ".") \
 	X(BEAT,   "!") \
 	\
@@ -165,7 +164,6 @@ struct Lexer {
 		else if (c == '\'') { kind = Symbols::REV;    src = cane::iter_next_char(src, c); }
 		else if (c == '/')  { kind = Symbols::SEP;    src = cane::iter_next_char(src, c); }
 		else if (c == '@')  { kind = Symbols::BPM;    src = cane::iter_next_char(src, c); }
-		else if (c == '+')  { kind = Symbols::OFFSET; src = cane::iter_next_char(src, c); }
 		else if (c == '|')  { kind = Symbols::OR;     src = cane::iter_next_char(src, c); }
 		else if (c == '&')  { kind = Symbols::AND;    src = cane::iter_next_char(src, c); }
 		else if (c == '^')  { kind = Symbols::XOR;    src = cane::iter_next_char(src, c); }
@@ -538,7 +536,6 @@ inline Sequence euclide(Context& ctx, Lexer& lx) {
 
 	View lv = lx.peek().view;
 
-	size_t offset = 0;
 	size_t steps = 0;
 	size_t beats = literal(ctx, lx);
 
@@ -547,18 +544,13 @@ inline Sequence euclide(Context& ctx, Lexer& lx) {
 
 	steps = literal(ctx, lx);
 
-	if (lx.peek().kind == Symbols::OFFSET) {
-		lx.next();  // skip `+`
-		offset = literal(ctx, lx);
-	}
-
 	if (beats > steps)
 		lx.error(Phases::PHASE_SEMANTIC, lv, STR_LESSER_EQ, steps);
 
 	Sequence seq;
 
 	for (size_t i = 0; i != steps; ++i)
-		seq.emplace_back((((i + offset) * beats) % steps) < beats);
+		seq.emplace_back(((i * beats) % steps) < beats);
 
 	return seq;
 }
@@ -847,6 +839,61 @@ inline void sync(Context& ctx, Lexer& lx) {
 	if (count == 0)
 		lx.error(Phases::PHASE_SEMANTIC, count_v, STR_GREATER, 0);
 
+	// ...
+	// loop channels until phase re-aligns
+	// clear sinks after
+	// for now, we can just not worry about saving
+	// what we clear out until we find a better method
+	// of storing in-progress sequences and final output
+
+	auto& chains = ctx.chains;
+
+	std::stable_sort(chains.begin(), chains.end(), [] (const auto& a, const auto& b) {
+		return a.channel < b.channel;
+	});
+
+	size_t lcm = 1;
+
+	struct Info {
+		size_t offset;
+		size_t length;
+		size_t steps;
+
+		Info(size_t offset_, size_t length_, size_t steps_):
+			offset(offset_), length(length_), steps(steps_) {}
+	};
+
+	std::vector<Info> ranges;
+
+	for (auto it = chains.begin(); it != chains.end();) {
+		const auto begin = it;
+
+		size_t offset = std::distance(chains.begin(), it);
+		size_t steps = 0;
+		size_t channel = it->channel;
+
+		for (; it != chains.end(); ++it) {
+			if (it->channel != channel)
+				break;
+
+			steps += it->seq.size();
+		}
+
+		size_t length = std::distance(begin, it);
+
+		lcm = std::lcm(lcm, steps);
+		ranges.emplace_back(offset, length, steps);
+	}
+
+	for (auto [offset, length, steps]: ranges) {
+		size_t reps = lcm / steps;
+		size_t count = chains.size();
+
+		chains.reserve(chains.capacity() + reps * count);
+
+		while (--reps)
+			std::copy_n(chains.begin() + offset, length, std::back_inserter(chains));
+	}
 }
 
 inline void statement(Context& ctx, Lexer& lx) {
