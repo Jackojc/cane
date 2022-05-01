@@ -809,17 +809,20 @@ inline Sequence& sink(Context& ctx, Lexer& lx, Sequence& seq) {
 	View chan_v = lx.peek().view;
 	size_t channel = literal(ctx, lx);
 
-	lx.expect(equal(Symbols::BPM), lx.peek().view, STR_EXPECT, sym2str(Symbols::BPM));
-	lx.next();  // skip `@`
+	size_t bpm = 120;
 
-	View bpm_v = lx.peek().view;
-	size_t bpm = literal(ctx, lx);
+	if (lx.peek().kind == Symbols::BPM) {
+		lx.next();  // skip `@`
+
+		View bpm_v = lx.peek().view;
+		bpm = literal(ctx, lx);
+
+		if (bpm == 0)
+			lx.error(Phases::PHASE_SEMANTIC, bpm_v, STR_GREATER, 0);
+	}
 
 	if (channel > 15)
 		lx.error(Phases::PHASE_SEMANTIC, chan_v, STR_BETWEEN, 0, 15);
-
-	if (bpm == 0)
-		lx.error(Phases::PHASE_SEMANTIC, bpm_v, STR_GREATER, 0);
 
 	ctx.chains.emplace_back(seq, Notes{}, bpm, channel);
 
@@ -830,21 +833,11 @@ inline void sync(Context& ctx, Lexer& lx) {
 	CANE_LOG(LOG_INFO);
 	lx.next();  // skip `sync`
 
-	size_t count = 1;
 	View count_v = lx.peek().view;
-
-	if (is_literal(lx.peek().kind))
-		count = literal(ctx, lx);
+	size_t count = literal(ctx, lx);
 
 	if (count == 0)
 		lx.error(Phases::PHASE_SEMANTIC, count_v, STR_GREATER, 0);
-
-	// ...
-	// loop channels until phase re-aligns
-	// clear sinks after
-	// for now, we can just not worry about saving
-	// what we clear out until we find a better method
-	// of storing in-progress sequences and final output
 
 	auto& chains = ctx.chains;
 
@@ -894,6 +887,12 @@ inline void sync(Context& ctx, Lexer& lx) {
 		while (--reps)
 			std::copy_n(chains.begin() + offset, length, std::back_inserter(chains));
 	}
+
+	std::stable_sort(chains.begin(), chains.end(), [] (const auto& a, const auto& b) {
+		return a.channel < b.channel;
+	});
+
+	// chains.clear();
 }
 
 inline void statement(Context& ctx, Lexer& lx) {
@@ -910,6 +909,9 @@ inline void statement(Context& ctx, Lexer& lx) {
 	// Parse sync with optional literal
 	else if (lx.peek().kind == Symbols::SYNC)
 		sync(ctx, lx);
+
+	else
+		lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_STATEMENT);
 }
 
 inline Context compile(Lexer& lx) {
