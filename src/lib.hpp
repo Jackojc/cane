@@ -895,6 +895,8 @@ inline void sync(Context& ctx, Lexer& lx) {
 			std::copy_n(channels.begin() + offset, length, std::back_inserter(channels));
 	}
 
+	channels = repeat(channels, count);
+
 	// channels.clear();
 }
 
