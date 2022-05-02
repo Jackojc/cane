@@ -321,35 +321,36 @@ constexpr uint64_t b2_decode(View sv) {
 }
 
 using Step = uint8_t;
-using Note = uint8_t;
 using Channel = uint8_t;
 
-using Sequence = std::vector<Step>;
-using Notes = std::vector<Note>;
+struct Sequence: public std::vector<Step> {
+	using std::vector<Step>::vector;
+};
 
 inline std::ostream& operator<<(std::ostream& os, Sequence& s) {
-	os << "[";
+	out(os, "[");
 
-	for (auto x: s)
-		os << (x ? sym2str(Symbols::BEAT) : sym2str(Symbols::SKIP));
+	for (auto x: s) {
+		out(os,
+			x ? CANE_ANSI_FG_BRIGHT_YELLOW: CANE_ANSI_FG_BLUE,
+			x ? sym2str(Symbols::BEAT): sym2str(Symbols::SKIP)
+		);
+	}
 
-	os << "]";
-
-	return os;
+	return out(os, CANE_ANSI_RESET "]");
 }
 
 struct Pattern {
 	Sequence seq;
-	Notes notes;
 	size_t bpm;
 	size_t channel;
 
-	Pattern(const Sequence& seq_, const Notes& notes_, size_t bpm_, size_t channel_):
-		seq(seq_), notes(notes_), bpm(bpm_), channel(channel_) {}
+	Pattern(const Sequence& seq_, size_t bpm_, size_t channel_):
+		seq(seq_), bpm(bpm_), channel(channel_) {}
 };
 
 struct Context {
-	std::vector<Pattern> chains;
+	std::vector<Pattern> channels;
 	std::unordered_map<View, Sequence> symbols;
 };
 
@@ -362,59 +363,65 @@ constexpr void transform_seq_in_place(V& seq, const F& fn, V& other) {
 	if (other.size() > seq.size())
 		std::swap(other, seq);
 
+	other.resize(seq.size());
+
 	std::transform(other.cbegin(), other.cend(), seq.begin(), seq.begin(), fn);
 }
 
-template <typename V> constexpr decltype(auto) reverse(V&& v) {
+template <typename V> constexpr decltype(auto) reverse(V v) {
 	std::reverse(v.begin(), v.end());
-	return v;
+	return std::move(v);
 }
 
-template <typename V> constexpr decltype(auto) rotl(V&& v, size_t n = 1) {
+template <typename V> constexpr decltype(auto) rotl(V v, size_t n = 1) {
 	std::rotate(v.begin(), v.begin() + n, v.end());
-	return v;
+	return std::move(v);
 }
 
-template <typename V> constexpr decltype(auto) rotr(V&& v, size_t n = 1) {
+template <typename V> constexpr decltype(auto) rotr(V v, size_t n = 1) {
 	std::rotate(v.rbegin(), v.rbegin() + n, v.rend());
-	return v;
+	return std::move(v);
 }
 
-template <typename V> constexpr decltype(auto) invert(V&& v) {
+template <typename V> constexpr decltype(auto) invert(V v) {
 	std::transform(v.begin(), v.end(), v.begin(), std::logical_not<>{});
-	return v;
+	return std::move(v);
 }
 
-template <typename V> constexpr decltype(auto) repeat(V&& v, size_t n = 1) {
+template <typename V> constexpr decltype(auto) repeat(V v, size_t n = 1) {
 	// Copy sequence N times to the end of itself.
 	// turns i.e. `[a b c]` where N=3 into `[a b c a b c a b c]`.
+
+	if (n == 0)
+		return std::move(v);
+
 	size_t count = v.size();
 	v.reserve(v.capacity() + n * count);
 
 	while (--n)
 		std::copy_n(v.begin(), count, std::back_inserter(v));
 
-	return v;
+	return std::move(v);
 }
 
-template <typename V1, typename V2> constexpr decltype(auto) cat(V1&& a, V2&& b) {
+template <typename V1, typename V2> constexpr decltype(auto) cat(V1 a, V2 b) {
 	a.insert(a.end(), b.begin(), b.end());
-	return a;
+	return std::move(a);
 }
 
-template <typename V1, typename V2> constexpr decltype(auto) disjunction(V1&& a, V2&& b) {
+template <typename V1, typename V2> constexpr decltype(auto) disjunction(V1 a, V2 b) {
 	transform_seq_in_place(a, std::bit_or<>{}, b);
-	return a;
+	return std::move(a);
 }
 
-template <typename V1, typename V2> constexpr decltype(auto) conjunction(V1&& a, V2&& b) {
+template <typename V1, typename V2> constexpr decltype(auto) conjunction(V1 a, V2 b) {
 	transform_seq_in_place(a, std::bit_and<>{}, b);
-	return a;
+	return std::move(a);
 }
 
-template <typename V1, typename V2> constexpr decltype(auto) ex_disjunction(V1&& a, V2&& b) {
+template <typename V1, typename V2> constexpr decltype(auto) ex_disjunction(V1 a, V2 b) {
 	transform_seq_in_place(a, std::bit_xor<>{}, b);
-	return a;
+	return std::move(a);
 }
 
 
@@ -725,34 +732,34 @@ inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 
 			case Symbols::REV: {
 				lx.next();  // skip operator
-				seq = reverse(seq);
+				seq = reverse(std::move(seq));
 			} break;
 
 			case Symbols::ROTL: {
 				lx.next();  // skip operator
-				seq = rotl(seq);
+				seq = rotl(std::move(seq));
 			} break;
 
 			case Symbols::ROTR: {
 				lx.next();  // skip operator
-				seq = rotr(seq);
+				seq = rotr(std::move(seq));
 			} break;
 
 			case Symbols::INVERT: {
 				lx.next();  // skip operator
-				seq = invert(seq);
+				seq = invert(std::move(seq));
 			} break;
 
 
 			// Infix with literal
 			case Symbols::ROTLN: {
 				lx.next();  // skip operator
-				seq = rotl(seq, literal(ctx, lx));
+				seq = rotl(std::move(seq), literal(ctx, lx));
 			} break;
 
 			case Symbols::ROTRN: {
 				lx.next();  // skip operator
-				seq = rotr(seq, literal(ctx, lx));
+				seq = rotr(std::move(seq), literal(ctx, lx));
 			} break;
 
 			case Symbols::REPN: {
@@ -765,29 +772,29 @@ inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 				if (n == 0)
 					lx.error(Phases::PHASE_SEMANTIC, lv, STR_GREATER, 0);
 
-				seq = repeat(seq, n);
+				seq = repeat(std::move(seq), n);
 			} break;
 
 
 			// Infix with expr
 			case Symbols::CAT: {
 				lx.next();  // skip operator
-				seq = cat(seq, expression(ctx, lx, prec));
+				seq = cat(std::move(seq), expression(ctx, lx, prec));
 			} break;
 
 			case Symbols::OR: {
 				lx.next();  // skip operator
-				seq = disjunction(seq, expression(ctx, lx, prec));
+				seq = disjunction(std::move(seq), expression(ctx, lx, prec));
 			} break;
 
 			case Symbols::AND: {
 				lx.next();  // skip operator
-				seq = conjunction(seq, expression(ctx, lx, prec));
+				seq = conjunction(std::move(seq), expression(ctx, lx, prec));
 			} break;
 
 			case Symbols::XOR: {
 				lx.next();  // skip operator
-				seq = ex_disjunction(seq, expression(ctx, lx, prec));
+				seq = ex_disjunction(std::move(seq), expression(ctx, lx, prec));
 			} break;
 
 
@@ -824,7 +831,7 @@ inline Sequence& sink(Context& ctx, Lexer& lx, Sequence& seq) {
 	if (channel > 15)
 		lx.error(Phases::PHASE_SEMANTIC, chan_v, STR_BETWEEN, 0, 15);
 
-	ctx.chains.emplace_back(seq, Notes{}, bpm, channel);
+	ctx.channels.emplace_back(seq, bpm, channel);
 
 	return seq;
 }
@@ -839,9 +846,9 @@ inline void sync(Context& ctx, Lexer& lx) {
 	if (count == 0)
 		lx.error(Phases::PHASE_SEMANTIC, count_v, STR_GREATER, 0);
 
-	auto& chains = ctx.chains;
+	auto& channels = ctx.channels;
 
-	std::stable_sort(chains.begin(), chains.end(), [] (const auto& a, const auto& b) {
+	std::stable_sort(channels.begin(), channels.end(), [] (const auto& a, const auto& b) {
 		return a.channel < b.channel;
 	});
 
@@ -858,18 +865,18 @@ inline void sync(Context& ctx, Lexer& lx) {
 
 	std::vector<Info> ranges;
 
-	for (auto it = chains.begin(); it != chains.end();) {
+	for (auto it = channels.begin(); it != channels.end();) {
 		const auto begin = it;
 
-		size_t offset = std::distance(chains.begin(), it);
+		size_t offset = std::distance(channels.begin(), it);
 		size_t steps = 0;
 		size_t channel = it->channel;
 
-		for (; it != chains.end(); ++it) {
+		for (; it != channels.end(); ++it) {
 			if (it->channel != channel)
 				break;
 
-			steps += it->seq.size();
+			steps += 60'000 / it->bpm * it->seq.size();
 		}
 
 		size_t length = std::distance(begin, it);
@@ -880,19 +887,15 @@ inline void sync(Context& ctx, Lexer& lx) {
 
 	for (auto [offset, length, steps]: ranges) {
 		size_t reps = lcm / steps;
-		size_t count = chains.size();
+		size_t count = channels.size();
 
-		chains.reserve(chains.capacity() + reps * count);
+		channels.reserve(channels.capacity() + reps * count);
 
 		while (--reps)
-			std::copy_n(chains.begin() + offset, length, std::back_inserter(chains));
+			std::copy_n(channels.begin() + offset, length, std::back_inserter(channels));
 	}
 
-	std::stable_sort(chains.begin(), chains.end(), [] (const auto& a, const auto& b) {
-		return a.channel < b.channel;
-	});
-
-	// chains.clear();
+	// channels.clear();
 }
 
 inline void statement(Context& ctx, Lexer& lx) {

@@ -29,30 +29,24 @@ int main(int, const char*[]) {
 		time::duration<double, std::micro> t = t2 - t1;
 		cane::printlnfmt(CANE_ANSI_FG_YELLOW "took: {}µs" CANE_ANSI_RESET, t.count());
 
-		std::stable_sort(ctx.chains.begin(), ctx.chains.end(), [] (const auto& a, const auto& b) {
+		std::stable_sort(ctx.channels.begin(), ctx.channels.end(), [] (const auto& a, const auto& b) {
 			return a.channel < b.channel;
 		});
 
 
-		for (auto it = ctx.chains.begin(); it != ctx.chains.end();) {
+		for (auto it = ctx.channels.begin(); it != ctx.channels.end();) {
 			size_t channel = it->channel;
 
 			cane::print(CANE_ANSI_BOLD CANE_ANSI_FG_BRIGHT_YELLOW "midi", channel, CANE_ANSI_RESET " ");
-			cane::print(CANE_ANSI_BOLD "[" CANE_ANSI_RESET);
 
-			for (; it != ctx.chains.end(); ++it) {
+			for (; it != ctx.channels.end(); ++it) {
 				if (it->channel != channel)
 					break;
 
-				for (bool s: it->seq) {
-					cane::print(s ?
-						CANE_ANSI_BOLD CANE_ANSI_FG_BRIGHT_YELLOW "!" CANE_ANSI_RESET :
-						CANE_ANSI_FG_BLUE "." CANE_ANSI_RESET
-					);
-				}
+				cane::print(it->seq);
 			}
 
-			cane::println(CANE_ANSI_BOLD "]" CANE_ANSI_RESET);
+			cane::println();
 		}
 	}
 
