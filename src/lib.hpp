@@ -328,16 +328,14 @@ struct Sequence: public std::vector<Step> {
 };
 
 inline std::ostream& operator<<(std::ostream& os, Sequence& s) {
-	out(os, "[");
-
 	for (auto x: s) {
 		out(os,
-			x ? CANE_ANSI_FG_BRIGHT_YELLOW: CANE_ANSI_FG_BLUE,
+			x ? CANE_ANSI_FG_YELLOW: CANE_ANSI_FG_BLUE,
 			x ? sym2str(Symbols::BEAT): sym2str(Symbols::SKIP)
 		);
 	}
 
-	return out(os, CANE_ANSI_RESET "]");
+	return out(os, CANE_ANSI_RESET);
 }
 
 struct Pattern {
@@ -370,22 +368,22 @@ constexpr void transform_seq_in_place(V& seq, const F& fn, V& other) {
 
 template <typename V> constexpr decltype(auto) reverse(V v) {
 	std::reverse(v.begin(), v.end());
-	return std::move(v);
+	return v;
 }
 
 template <typename V> constexpr decltype(auto) rotl(V v, size_t n = 1) {
 	std::rotate(v.begin(), v.begin() + n, v.end());
-	return std::move(v);
+	return v;
 }
 
 template <typename V> constexpr decltype(auto) rotr(V v, size_t n = 1) {
 	std::rotate(v.rbegin(), v.rbegin() + n, v.rend());
-	return std::move(v);
+	return v;
 }
 
 template <typename V> constexpr decltype(auto) invert(V v) {
 	std::transform(v.begin(), v.end(), v.begin(), std::logical_not<>{});
-	return std::move(v);
+	return v;
 }
 
 template <typename V> constexpr decltype(auto) repeat(V v, size_t n = 1) {
@@ -393,7 +391,7 @@ template <typename V> constexpr decltype(auto) repeat(V v, size_t n = 1) {
 	// turns i.e. `[a b c]` where N=3 into `[a b c a b c a b c]`.
 
 	if (n == 0)
-		return std::move(v);
+		return v;
 
 	size_t count = v.size();
 	v.reserve(v.capacity() + n * count);
@@ -401,27 +399,27 @@ template <typename V> constexpr decltype(auto) repeat(V v, size_t n = 1) {
 	while (--n)
 		std::copy_n(v.begin(), count, std::back_inserter(v));
 
-	return std::move(v);
+	return v;
 }
 
 template <typename V1, typename V2> constexpr decltype(auto) cat(V1 a, V2 b) {
 	a.insert(a.end(), b.begin(), b.end());
-	return std::move(a);
+	return a;
 }
 
 template <typename V1, typename V2> constexpr decltype(auto) disjunction(V1 a, V2 b) {
 	transform_seq_in_place(a, std::bit_or<>{}, b);
-	return std::move(a);
+	return a;
 }
 
 template <typename V1, typename V2> constexpr decltype(auto) conjunction(V1 a, V2 b) {
 	transform_seq_in_place(a, std::bit_and<>{}, b);
-	return std::move(a);
+	return a;
 }
 
 template <typename V1, typename V2> constexpr decltype(auto) ex_disjunction(V1 a, V2 b) {
 	transform_seq_in_place(a, std::bit_xor<>{}, b);
-	return std::move(a);
+	return a;
 }
 
 

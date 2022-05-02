@@ -37,7 +37,7 @@ int main(int, const char*[]) {
 		for (auto it = ctx.channels.begin(); it != ctx.channels.end();) {
 			size_t channel = it->channel;
 
-			cane::print(CANE_ANSI_BOLD CANE_ANSI_FG_BRIGHT_YELLOW "midi", channel, CANE_ANSI_RESET " ");
+			cane::print(CANE_ANSI_FG_YELLOW "midi", channel, CANE_ANSI_RESET " ");
 
 			for (; it != ctx.channels.end(); ++it) {
 				if (it->channel != channel)
