@@ -347,9 +347,38 @@ struct Pattern {
 		seq(seq_), bpm(bpm_), channel(channel_) {}
 };
 
+enum class Events {
+	ON, OFF,
+};
+
+inline std::ostream& operator<<(std::ostream& os, Events e) {
+	if (e == Events::ON)
+		out(os, "ON");
+
+	else if (e == Events::OFF)
+		out(os, "OFF");
+
+	return os;
+}
+
+struct Event {
+	size_t duration;
+	uint8_t note;
+	uint8_t velocity;
+	uint8_t channel;
+	Events kind;
+
+	constexpr Event(
+		size_t duration_, uint8_t note_, uint8_t velocity_, uint8_t channel_, Events kind_
+	):
+		duration(duration_), note(note_), velocity(velocity_), channel(channel_), kind(kind_)
+	{}
+};
+
 struct Context {
 	std::vector<Pattern> channels;
 	std::unordered_map<View, Sequence> symbols;
+	std::vector<Event> timeline;
 };
 
 
@@ -895,7 +924,44 @@ inline void sync(Context& ctx, Lexer& lx) {
 
 	channels = repeat(channels, count);
 
-	// channels.clear();
+	std::stable_sort(channels.begin(), channels.end(), [] (const auto& a, const auto& b) {
+		return a.channel < b.channel;
+	});
+
+	for (auto it = channels.begin(); it != channels.end();) {
+		size_t channel = it->channel;
+
+		cane::print(CANE_ANSI_FG_YELLOW "midi", channel, CANE_ANSI_RESET " ");
+
+		for (; it != channels.end(); ++it) {
+			if (it->channel != channel)
+				break;
+
+			cane::print(it->seq);
+		}
+
+		cane::println();
+	}
+
+	// Compile to timeline
+	for (auto& [seq, bpm, channel]: channels) {
+		size_t ms = 60'000 / bpm;
+
+		for (auto& step: seq) {
+			Events ev = std::array { Events::OFF, Events::ON } [step];
+
+			ctx.timeline.emplace_back(
+				ms,        // Duration
+				60,        // Note
+				127,       // Velocity
+				channel,   // Channel
+				ev         // On/Off
+			);
+		}
+	}
+
+
+	channels.clear();
 }
 
 inline void statement(Context& ctx, Lexer& lx) {
