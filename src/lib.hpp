@@ -325,7 +325,9 @@ using Channel = uint8_t;
 
 struct Sequence: public std::vector<Step> {
 	size_t bpm;
-	using std::vector<Step>::vector;
+
+	Sequence(size_t bpm_):
+		std::vector<Step>::vector{}, bpm(bpm_) {}
 };
 
 inline std::ostream& operator<<(std::ostream& os, Sequence& s) {
@@ -347,54 +349,43 @@ struct Pattern {
 		seq(seq_), channel(channel_) {}
 };
 
-enum class Events {
-	ON, OFF,
-};
+// enum class Events {
+// 	ON, OFF,
+// };
 
-inline std::ostream& operator<<(std::ostream& os, Events e) {
-	if (e == Events::ON)
-		out(os, "ON");
+// inline std::ostream& operator<<(std::ostream& os, Events e) {
+// 	if (e == Events::ON)
+// 		out(os, "ON");
 
-	else if (e == Events::OFF)
-		out(os, "OFF");
+// 	else if (e == Events::OFF)
+// 		out(os, "OFF");
 
-	return os;
-}
+// 	return os;
+// }
 
 struct Event {
-	size_t duration;
-	uint8_t note;
-	uint8_t velocity;
-	uint8_t channel;
-	Events kind;
+	// size_t duration;
+	// uint8_t note;
+	// uint8_t velocity;
+	// uint8_t channel;
+	// Events kind;
 
-	constexpr Event(
-		size_t duration_, uint8_t note_, uint8_t velocity_, uint8_t channel_, Events kind_
-	):
-		duration(duration_), note(note_), velocity(velocity_), channel(channel_), kind(kind_)
-	{}
+	// constexpr Event(
+	// 	size_t duration_, uint8_t note_, uint8_t velocity_, uint8_t channel_, Events kind_
+	// ):
+	// 	duration(duration_), note(note_), velocity(velocity_), channel(channel_), kind(kind_)
+	// {}
 };
 
 struct Context {
 	std::vector<Pattern> channels;
 	std::unordered_map<View, Sequence> symbols;
 	std::vector<Event> timeline;
+	size_t default_bpm = 120;
 };
 
 
 // Operations
-// Transform sequence in place using function object.
-template <typename V, typename F>
-constexpr void transform_seq_in_place(V& seq, const F& fn, V& other) {
-	// Step stretching, we pick the largest sequence to transform.
-	// if (other.size() > seq.size())
-	// 	std::swap(other, seq);
-
-	// other.resize(seq.size());
-
-	std::transform(other.cbegin(), other.cend(), seq.begin(), seq.begin(), fn);
-}
-
 template <typename V> constexpr decltype(auto) reverse(V v) {
 	std::reverse(v.begin(), v.end());
 	return v;
@@ -437,17 +428,17 @@ template <typename V1, typename V2> constexpr decltype(auto) cat(V1 a, V2 b) {
 }
 
 template <typename V1, typename V2> constexpr decltype(auto) disjunction(V1 a, V2 b) {
-	transform_seq_in_place(a, std::bit_or<>{}, b);
+	std::transform(b.cbegin(), b.cend(), a.begin(), a.begin(), std::bit_or<>{});
 	return a;
 }
 
 template <typename V1, typename V2> constexpr decltype(auto) conjunction(V1 a, V2 b) {
-	transform_seq_in_place(a, std::bit_and<>{}, b);
+	std::transform(b.cbegin(), b.cend(), a.begin(), a.begin(), std::bit_and<>{});
 	return a;
 }
 
 template <typename V1, typename V2> constexpr decltype(auto) ex_disjunction(V1 a, V2 b) {
-	transform_seq_in_place(a, std::bit_xor<>{}, b);
+	std::transform(b.cbegin(), b.cend(), a.begin(), a.begin(), std::bit_xor<>{});
 	return a;
 }
 
@@ -456,14 +447,18 @@ template <typename V1, typename V2> constexpr decltype(auto) ex_disjunction(V1 a
 inline size_t literal (Context&, Lexer&);
 
 // Sequence expressions
-inline Sequence  sequence   (Context&, Lexer&);
-inline Sequence  euclide    (Context&, Lexer&);
-inline Sequence  reference  (Context&, Lexer&);
-inline Sequence& chain      (Context&, Lexer&, Sequence&);
-inline Sequence  expression (Context&, Lexer&, size_t = 0);
+inline Sequence sequence      (Context&, Lexer&);
+inline Sequence euclide       (Context&, Lexer&);
+inline Sequence reference     (Context&, Lexer&);
+inline Sequence prefix        (Context&, Lexer&);
+inline Sequence chain         (Context&, Lexer&, Sequence&);
+inline Sequence infix_expr    (Context&, Lexer&, Sequence&);
+inline Sequence infix_literal (Context&, Lexer&, Sequence&);
+inline Sequence postfix       (Context&, Lexer&, Sequence&);
+inline Sequence expression    (Context&, Lexer&, size_t = 0);
 
 // Statements
-inline Sequence& sink      (Context&, Lexer&, Sequence&);
+inline Sequence  sink      (Context&, Lexer&, Sequence&);
 inline void      sync      (Context&, Lexer&);
 inline void      statement (Context&, Lexer&);
 
@@ -471,19 +466,6 @@ inline Context compile (Lexer&);
 
 
 // Predicates
-constexpr auto is_expr = partial_eq_any(
-	Symbols::REV,
-	Symbols::ROTL,
-	Symbols::ROTR,
-	Symbols::INVERT,
-	Symbols::INT,
-	Symbols::HEX,
-	Symbols::BIN,
-	Symbols::IDENT,
-	Symbols::LSEQ,
-	Symbols::LPAREN
-);
-
 constexpr auto is_literal = partial_eq_any(
 	Symbols::INT,
 	Symbols::HEX,
@@ -497,24 +479,32 @@ constexpr auto is_prefix = partial_eq_any(
 	Symbols::REV
 );
 
-constexpr auto is_infix = partial_eq_any(
-	Symbols::CHAIN,
+constexpr auto is_infix_expr = partial_eq_any(
 	Symbols::OR,
 	Symbols::AND,
 	Symbols::XOR,
-	Symbols::CAT,
+	Symbols::CAT
+);
+
+constexpr auto is_infix_literal = partial_eq_any(
 	Symbols::ROTLN,
 	Symbols::ROTRN,
 	Symbols::REPN
 );
 
-constexpr auto is_postfix = partial_eq_any(
-	Symbols::INVERT,
-	Symbols::ROTL,
-	Symbols::ROTR,
-	Symbols::REV,
-	Symbols::DBG
-);
+constexpr auto is_postfix = [] (auto x) {
+	return
+		is_prefix(x) or
+		eq_any(x,
+			Symbols::INVERT,
+			Symbols::ROTL,
+			Symbols::ROTR,
+			Symbols::REV,
+			Symbols::DBG
+		)
+	;
+};
+
 
 constexpr auto is_step = partial_eq_any(
 	Symbols::SKIP,
@@ -522,7 +512,26 @@ constexpr auto is_step = partial_eq_any(
 );
 
 constexpr auto is_operator = [] (auto x) {
-	return is_infix(x) or is_postfix(x);
+	return
+		is_prefix(x) or
+		is_infix_literal(x) or
+		is_infix_expr(x) or
+		is_postfix(x)
+	;
+};
+
+constexpr auto is_expr = [] (auto x) {
+	return
+		is_prefix(x) or
+		eq_any(x,
+			Symbols::INT,
+			Symbols::HEX,
+			Symbols::BIN,
+			Symbols::IDENT,
+			Symbols::LSEQ,
+			Symbols::LPAREN
+		)
+	;
 };
 
 
@@ -551,7 +560,7 @@ inline Sequence sequence(Context& ctx, Lexer& lx) {
 	lx.expect(equal(Symbols::LSEQ), lx.peek().view, STR_EXPECT, sym2str(Symbols::LSEQ));
 	lx.next();  // skip `[`
 
-	Sequence seq;
+	Sequence seq { ctx.default_bpm };
 
 	while (lx.peek().kind != Symbols::RSEQ) {
 		lx.expect(is_step, lx.peek().view, STR_STEP);
@@ -581,7 +590,7 @@ inline Sequence euclide(Context& ctx, Lexer& lx) {
 	if (beats > steps)
 		lx.error(Phases::PHASE_SEMANTIC, lv, STR_LESSER_EQ, steps);
 
-	Sequence seq;
+	Sequence seq { ctx.default_bpm };
 
 	for (size_t i = 0; i != steps; ++i)
 		seq.emplace_back(((i * beats) % steps) < beats);
@@ -604,7 +613,7 @@ inline Sequence reference(Context& ctx, Lexer& lx) {
 	return it->second;
 }
 
-inline Sequence& chain(Context& ctx, Lexer& lx, Sequence& seq) {
+inline Sequence chain(Context& ctx, Lexer& lx, Sequence& seq) {
 	CANE_LOG(LOG_INFO);
 
 	lx.expect(equal(Symbols::CHAIN), lx.peek().view, STR_EXPECT, sym2str(Symbols::CHAIN));
@@ -622,211 +631,87 @@ inline Sequence& chain(Context& ctx, Lexer& lx, Sequence& seq) {
 
 // Lookup table for prefix operator precedence.
 constexpr size_t prefix_precedence(Symbols kind) {
-	size_t prec = 0;
+	if (eq_any(kind,
+		Symbols::REV,
+		Symbols::ROTL,
+		Symbols::ROTR,
+		Symbols::INVERT
+	))
+		return 4;
 
-	switch (kind) {
-		case Symbols::REV:
-		case Symbols::ROTL:
-		case Symbols::ROTR:
-		case Symbols::INVERT: {
-			prec = 4;
-		} break;
-
-		default: {
-			prec = 0;
-		} break;
-	}
-
-	return prec;
+	return 0;
 }
 
 // Lookup table for infix operator precedence.
 constexpr size_t infix_precedence(Symbols kind) {
-	size_t prec = 0;
+	if (eq_any(kind,
+		Symbols::DBG,
+		Symbols::CHAIN
+	))
+		return 1;
 
-	switch (kind) {
-		case Symbols::DBG:
-		case Symbols::CHAIN: {
-			prec = 1;
-		} break;
+	else if (eq_any(kind,
+		Symbols::CAT,
+		Symbols::REV,
+		Symbols::ROTL,
+		Symbols::ROTR,
+		Symbols::INVERT
+	))
+		return 2;
 
-		case Symbols::CAT:
-		case Symbols::REV:
-		case Symbols::ROTL:
-		case Symbols::ROTR:
-		case Symbols::INVERT: {
-			prec = 2;
-		} break;
+	else if (eq_any(kind,
+		Symbols::ROTLN,
+		Symbols::ROTRN,
+		Symbols::REPN,
+		Symbols::OR,
+		Symbols::AND,
+		Symbols::XOR
+	))
+		return 3;
 
-		case Symbols::ROTLN:
-		case Symbols::ROTRN:
-		case Symbols::REPN:
-		case Symbols::OR:
-		case Symbols::AND:
-		case Symbols::XOR: {
-			prec = 3;
-		} break;
-
-		default: {
-			prec = 0;
-		} break;
-	}
-
-	return prec;
+	return 0;
 }
 
-inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
-	CANE_LOG(LOG_WARN);
-
-	Sequence seq;
-
-	// Nud (Nothing to the left, prefix position)
+inline Sequence prefix(Context& ctx, Lexer& lx) {
+	Sequence seq { ctx.default_bpm };
 	size_t prec = prefix_precedence(lx.peek().kind);
 
-	switch (lx.peek().kind) {
-		// Prefix operators
-		case Symbols::REV: {
-			lx.next();  // skip operator.
-			seq = reverse(expression(ctx, lx, prec));
-		} break;
+	Symbols kind = lx.peek().kind;
 
-		case Symbols::ROTL: {
-			lx.next();  // skip operator.
-			seq = rotl(expression(ctx, lx, prec));
-		} break;
+	if (is_prefix(kind)) {
+		lx.next();
 
-		case Symbols::ROTR: {
-			lx.next();  // skip operator.
-			seq = rotr(expression(ctx, lx, prec));
-		} break;
-
-		case Symbols::INVERT: {
-			lx.next();  // skip operator.
-			seq = invert(expression(ctx, lx, prec));
-		} break;
-
-
-		// Euclidean sequence
-		case Symbols::INT:
-		case Symbols::HEX:
-		case Symbols::BIN: {
-			seq = euclide(ctx, lx);
-		} break;
-
-		// Variable ref
-		case Symbols::IDENT: {
-			seq = reference(ctx, lx);
-		} break;
-
-		// Sequence
-		case Symbols::LSEQ: {
-			seq = sequence(ctx, lx);
-		} break;
-
-		// Grouped expression
-		case Symbols::LPAREN: {
-			lx.next();  // skip `(`
-
-			seq = expression(ctx, lx);
-
-			lx.expect(equal(Symbols::RPAREN), lx.peek().view, STR_EXPECT, sym2str(Symbols::RPAREN));
-			lx.next();  // skip `)`
-		} break;
-
-		default: {
-			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_NUD);
-		} break;
-	}
-
-	while (is_operator(lx.peek().kind)) {
-		size_t prec = infix_precedence(lx.peek().kind);
-
-		if (any(prec <= bp, prec == 0))
-			break;
-
-		switch (lx.peek().kind) {
-			// Infix with identifier
-			case Symbols::CHAIN: {
-				seq = chain(ctx, lx, seq);
-			} break;
-
-
-			// Postfix
-			case Symbols::DBG: {
-				View dbg_v = lx.next().view;  // skip operator
-				lx.notice(Phases::PHASE_SEMANTIC, dbg_v, STR_DEBUG, seq);
-			} break;
-
-			case Symbols::REV: {
-				lx.next();  // skip operator
-				seq = reverse(std::move(seq));
-			} break;
-
-			case Symbols::ROTL: {
-				lx.next();  // skip operator
-				seq = rotl(std::move(seq));
-			} break;
-
-			case Symbols::ROTR: {
-				lx.next();  // skip operator
-				seq = rotr(std::move(seq));
-			} break;
-
-			case Symbols::INVERT: {
-				lx.next();  // skip operator
-				seq = invert(std::move(seq));
-			} break;
-
-
-			// Infix with literal
-			case Symbols::ROTLN: {
-				lx.next();  // skip operator
-				seq = rotl(std::move(seq), literal(ctx, lx));
-			} break;
-
-			case Symbols::ROTRN: {
-				lx.next();  // skip operator
-				seq = rotr(std::move(seq), literal(ctx, lx));
-			} break;
-
-			case Symbols::REPN: {
-				lx.next();  // skip operator
-
-				View lv = lx.peek().view;
-				size_t n = literal(ctx, lx);
-
-				// We don't want to shrink the sequence, it can only grow.
-				if (n == 0)
-					lx.error(Phases::PHASE_SEMANTIC, lv, STR_GREATER, 0);
-
-				seq = repeat(std::move(seq), n);
-			} break;
-
-
-			// Infix with expr
-			case Symbols::CAT: {
-				lx.next();  // skip operator
-				seq = cat(std::move(seq), expression(ctx, lx, prec));
-			} break;
-
-			case Symbols::OR: {
-				lx.next();  // skip operator
-				seq = disjunction(std::move(seq), expression(ctx, lx, prec));
-			} break;
-
-			case Symbols::AND: {
-				lx.next();  // skip operator
-				seq = conjunction(std::move(seq), expression(ctx, lx, prec));
-			} break;
-
-			case Symbols::XOR: {
-				lx.next();  // skip operator
-				seq = ex_disjunction(std::move(seq), expression(ctx, lx, prec));
-			} break;
-
+		switch (kind) {
+			case Symbols::REV:    { seq = reverse (expression(ctx, lx, prec)); } break;
+			case Symbols::ROTL:   { seq = rotl    (expression(ctx, lx, prec)); } break;
+			case Symbols::ROTR:   { seq = rotr    (expression(ctx, lx, prec)); } break;
+			case Symbols::INVERT: { seq = invert  (expression(ctx, lx, prec)); } break;
 
 			default: {
-				lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_OPERATOR);
+				lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_PREFIX);
+			} break;
+		}
+	}
+
+	else {
+		switch (kind) {
+			case Symbols::INT:
+			case Symbols::HEX:
+			case Symbols::BIN:   { seq = euclide   (ctx, lx); } break;
+			case Symbols::IDENT: { seq = reference (ctx, lx); } break;
+			case Symbols::LSEQ:  { seq = sequence  (ctx, lx); } break;
+
+			case Symbols::LPAREN: {
+				lx.next();  // skip `(`
+
+				seq = expression(ctx, lx);
+
+				lx.expect(equal(Symbols::RPAREN), lx.peek().view, STR_EXPECT, sym2str(Symbols::RPAREN));
+				lx.next();  // skip `)`
+			} break;
+
+			default: {
+				lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_EXPR);
 			} break;
 		}
 	}
@@ -834,7 +719,103 @@ inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 	return seq;
 }
 
-inline Sequence& sink(Context& ctx, Lexer& lx, Sequence& seq) {
+inline Sequence infix_expr(Context& ctx, Lexer& lx, Sequence& seq) {
+	size_t prec = infix_precedence(lx.peek().kind);
+
+	switch (lx.next().kind) {
+		case Symbols::CAT: { seq = cat            (std::move(seq), expression(ctx, lx, prec)); } break;
+		case Symbols::OR:  { seq = disjunction    (std::move(seq), expression(ctx, lx, prec)); } break;
+		case Symbols::AND: { seq = conjunction    (std::move(seq), expression(ctx, lx, prec)); } break;
+		case Symbols::XOR: { seq = ex_disjunction (std::move(seq), expression(ctx, lx, prec)); } break;
+
+		default: {
+			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_INFIX_EXPR);
+		} break;
+	}
+
+	return seq;
+}
+
+inline Sequence infix_literal(Context& ctx, Lexer& lx, Sequence& seq) {
+	switch (lx.next().kind) {
+		// Infix with literal
+		case Symbols::ROTLN: { seq = rotl(std::move(seq), literal(ctx, lx)); } break;
+		case Symbols::ROTRN: { seq = rotr(std::move(seq), literal(ctx, lx)); } break;
+
+		case Symbols::REPN: {
+			View lv = lx.peek().view;
+			size_t n = literal(ctx, lx);
+
+			// We don't want to shrink the sequence, it can only grow.
+			if (n == 0)
+				lx.error(Phases::PHASE_SEMANTIC, lv, STR_GREATER, 0);
+
+			seq = repeat(std::move(seq), n);
+		} break;
+
+		default: {
+			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_INFIX_LITERAL);
+		} break;
+	}
+
+	return seq;
+}
+
+inline Sequence postfix(Context& ctx, Lexer& lx, Sequence& seq) {
+	Token tok = lx.next();
+
+	switch (tok.kind) {
+		case Symbols::REV:    { seq = reverse (std::move(seq)); } break;
+		case Symbols::ROTL:   { seq = rotl    (std::move(seq)); } break;
+		case Symbols::ROTR:   { seq = rotr    (std::move(seq)); } break;
+		case Symbols::INVERT: { seq = invert  (std::move(seq)); } break;
+
+		case Symbols::DBG: {
+			lx.notice(Phases::PHASE_SEMANTIC, tok.view, STR_DEBUG, seq);
+		} break;
+
+		default: {
+			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_POSTFIX);
+		} break;
+	}
+
+	return seq;
+}
+
+inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
+	CANE_LOG(LOG_WARN);
+
+	Sequence seq = prefix(ctx, lx);
+
+	while (is_operator(lx.peek().kind)) {
+		size_t prec = infix_precedence(lx.peek().kind);
+
+		if (any(prec <= bp, prec == 0))
+			break;
+
+		Symbols kind = lx.peek().kind;
+
+		// Operators
+		if (kind == Symbols::CHAIN)
+			seq = chain(ctx, lx, seq);
+
+		else if (is_infix_literal(lx.peek().kind))
+			seq = infix_literal(ctx, lx, seq);
+
+		else if (is_infix_expr(lx.peek().kind))
+			seq = infix_expr(ctx, lx, seq);
+
+		else if (is_postfix(lx.peek().kind))
+			seq = postfix(ctx, lx, seq);
+
+		else
+			lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_OPERATOR);
+	}
+
+	return seq;
+}
+
+inline Sequence sink(Context& ctx, Lexer& lx, Sequence& seq) {
 	CANE_LOG(LOG_INFO);
 
 	lx.expect(equal(Symbols::SINK), lx.peek().view, STR_EXPECT, sym2str(Symbols::SINK));
@@ -891,26 +872,6 @@ inline void sync(Context& ctx, Lexer& lx) {
 
 		cane::println();
 	}
-
-	// Compile to timeline
-	// for (auto& [seq, bpm, channel]: channels) {
-	// 	size_t ms = 60'000 / bpm;
-
-	// 	for (auto& step: seq) {
-	// 		Events ev = std::array { Events::OFF, Events::ON } [step];
-
-	// 		ctx.timeline.emplace_back(
-	// 			ms,        // Duration
-	// 			60,        // Note
-	// 			127,       // Velocity
-	// 			channel,   // Channel
-	// 			ev         // On/Off
-	// 		);
-	// 	}
-	// }
-
-
-	// channels.clear();
 }
 
 inline void statement(Context& ctx, Lexer& lx) {
