@@ -324,6 +324,7 @@ using Step = uint8_t;
 using Channel = uint8_t;
 
 struct Sequence: public std::vector<Step> {
+	size_t bpm;
 	using std::vector<Step>::vector;
 };
 
@@ -340,11 +341,10 @@ inline std::ostream& operator<<(std::ostream& os, Sequence& s) {
 
 struct Pattern {
 	Sequence seq;
-	size_t bpm;
 	size_t channel;
 
-	Pattern(const Sequence& seq_, size_t bpm_, size_t channel_):
-		seq(seq_), bpm(bpm_), channel(channel_) {}
+	Pattern(const Sequence& seq_, size_t channel_):
+		seq(seq_), channel(channel_) {}
 };
 
 enum class Events {
@@ -387,10 +387,10 @@ struct Context {
 template <typename V, typename F>
 constexpr void transform_seq_in_place(V& seq, const F& fn, V& other) {
 	// Step stretching, we pick the largest sequence to transform.
-	if (other.size() > seq.size())
-		std::swap(other, seq);
+	// if (other.size() > seq.size())
+	// 	std::swap(other, seq);
 
-	other.resize(seq.size());
+	// other.resize(seq.size());
 
 	std::transform(other.cbegin(), other.cend(), seq.begin(), seq.begin(), fn);
 }
@@ -858,7 +858,7 @@ inline Sequence& sink(Context& ctx, Lexer& lx, Sequence& seq) {
 	if (channel > 15)
 		lx.error(Phases::PHASE_SEMANTIC, chan_v, STR_BETWEEN, 0, 15);
 
-	ctx.channels.emplace_back(seq, bpm, channel);
+	ctx.channels.emplace_back(seq, channel);
 
 	return seq;
 }
@@ -873,67 +873,16 @@ inline void sync(Context& ctx, Lexer& lx) {
 	if (count == 0)
 		lx.error(Phases::PHASE_SEMANTIC, count_v, STR_GREATER, 0);
 
-	auto& channels = ctx.channels;
-
-	std::stable_sort(channels.begin(), channels.end(), [] (const auto& a, const auto& b) {
+	std::stable_sort(ctx.channels.begin(), ctx.channels.end(), [] (const auto& a, const auto& b) {
 		return a.channel < b.channel;
 	});
 
-	size_t lcm = 1;
-
-	struct Info {
-		size_t offset;
-		size_t length;
-		size_t steps;
-
-		Info(size_t offset_, size_t length_, size_t steps_):
-			offset(offset_), length(length_), steps(steps_) {}
-	};
-
-	std::vector<Info> ranges;
-
-	for (auto it = channels.begin(); it != channels.end();) {
-		const auto begin = it;
-
-		size_t offset = std::distance(channels.begin(), it);
-		size_t steps = 0;
-		size_t channel = it->channel;
-
-		for (; it != channels.end(); ++it) {
-			if (it->channel != channel)
-				break;
-
-			steps += 60'000 / it->bpm * it->seq.size();
-		}
-
-		size_t length = std::distance(begin, it);
-
-		lcm = std::lcm(lcm, steps);
-		ranges.emplace_back(offset, length, steps);
-	}
-
-	for (auto [offset, length, steps]: ranges) {
-		size_t reps = lcm / steps;
-		size_t count = channels.size();
-
-		channels.reserve(channels.capacity() + reps * count);
-
-		while (--reps)
-			std::copy_n(channels.begin() + offset, length, std::back_inserter(channels));
-	}
-
-	channels = repeat(channels, count);
-
-	std::stable_sort(channels.begin(), channels.end(), [] (const auto& a, const auto& b) {
-		return a.channel < b.channel;
-	});
-
-	for (auto it = channels.begin(); it != channels.end();) {
+	for (auto it = ctx.channels.begin(); it != ctx.channels.end();) {
 		size_t channel = it->channel;
 
 		cane::print(CANE_ANSI_FG_YELLOW "midi", channel, CANE_ANSI_RESET " ");
 
-		for (; it != channels.end(); ++it) {
+		for (; it != ctx.channels.end(); ++it) {
 			if (it->channel != channel)
 				break;
 
@@ -944,24 +893,24 @@ inline void sync(Context& ctx, Lexer& lx) {
 	}
 
 	// Compile to timeline
-	for (auto& [seq, bpm, channel]: channels) {
-		size_t ms = 60'000 / bpm;
+	// for (auto& [seq, bpm, channel]: channels) {
+	// 	size_t ms = 60'000 / bpm;
 
-		for (auto& step: seq) {
-			Events ev = std::array { Events::OFF, Events::ON } [step];
+	// 	for (auto& step: seq) {
+	// 		Events ev = std::array { Events::OFF, Events::ON } [step];
 
-			ctx.timeline.emplace_back(
-				ms,        // Duration
-				60,        // Note
-				127,       // Velocity
-				channel,   // Channel
-				ev         // On/Off
-			);
-		}
-	}
+	// 		ctx.timeline.emplace_back(
+	// 			ms,        // Duration
+	// 			60,        // Note
+	// 			127,       // Velocity
+	// 			channel,   // Channel
+	// 			ev         // On/Off
+	// 		);
+	// 	}
+	// }
 
 
-	channels.clear();
+	// channels.clear();
 }
 
 inline void statement(Context& ctx, Lexer& lx) {
