@@ -29,18 +29,18 @@ int main(int, const char*[]) {
 		time::duration<double, std::micro> t = t2 - t1;
 		cane::printlnfmt(CANE_ANSI_FG_YELLOW "took: {}µs" CANE_ANSI_RESET, t.count());
 
-		std::cout.precision(2);
-		std::cout << std::fixed;
+		// std::cout.precision(2);
+		// std::cout << std::fixed;
 
-		for (auto& [dur, note, vel, chan, kind]: ctx.timeline) {
-			cane::print(CANE_ANSI_FG_YELLOW "midi", (int)chan, CANE_ANSI_RESET " ");
-			// cane::print(CANE_ANSI_FG_BLUE, time / 1000.f, "s" CANE_ANSI_RESET " ");
-			cane::print("n:" CANE_ANSI_BOLD, (int)note, CANE_ANSI_RESET " ");
-			cane::print("v:" CANE_ANSI_BOLD, (int)vel, CANE_ANSI_RESET " ");
-			cane::print("d:" CANE_ANSI_BOLD, dur / 1000.f, "s" CANE_ANSI_RESET " ");
-			cane::print(CANE_ANSI_FG_RED, kind, CANE_ANSI_RESET);
-			cane::println();
-		}
+		// for (auto& [dur, note, vel, chan, kind]: ctx.timeline) {
+		// 	cane::print(CANE_ANSI_FG_YELLOW "midi", (int)chan, CANE_ANSI_RESET " ");
+		// 	// cane::print(CANE_ANSI_FG_BLUE, time / 1000.f, "s" CANE_ANSI_RESET " ");
+		// 	cane::print("n:" CANE_ANSI_BOLD, (int)note, CANE_ANSI_RESET " ");
+		// 	cane::print("v:" CANE_ANSI_BOLD, (int)vel, CANE_ANSI_RESET " ");
+		// 	cane::print("d:" CANE_ANSI_BOLD, dur / 1000.f, "s" CANE_ANSI_RESET " ");
+		// 	cane::print(CANE_ANSI_FG_RED, kind, CANE_ANSI_RESET);
+		// 	cane::println();
+		// }
 	}
 
 	catch (cane::Error) {
