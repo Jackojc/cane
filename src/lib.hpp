@@ -17,6 +17,14 @@
 
 namespace cane {
 
+// Constants
+constexpr size_t CHANNEL_MIN = 0u;
+constexpr size_t CHANNEL_MAX = 15u;
+constexpr size_t BPM_MIN     = 0u;
+constexpr size_t DEFAULT_BPM = 120u;
+
+
+// Errors/Warnings/Notices
 struct Error {};
 
 template <typename... Ts>
@@ -35,6 +43,8 @@ inline void note(Ts&&... args) {
 	report<Report::NOTICE>(std::cerr, std::forward<Ts>(args)...);
 }
 
+
+// Symbols
 #define SYMBOL_TYPES \
 	X(NONE,       "none") \
 	X(TERMINATOR, "eof") \
@@ -96,11 +106,12 @@ inline std::ostream& operator<<(std::ostream& os, Symbols k) {
 	return (os << sym2str(k));
 }
 
+
+// Lexer
 struct Token {
 	cane::View view = sym2str(Symbols::NONE);
 	cane::Symbols kind = Symbols::NONE;
 };
-
 
 struct Lexer {
 	cane::View original {};
@@ -381,7 +392,7 @@ struct Context {
 	std::vector<Pattern> channels;
 	std::unordered_map<View, Sequence> symbols;
 	std::vector<Event> timeline;
-	size_t default_bpm = 120;
+	size_t default_bpm = DEFAULT_BPM;
 };
 
 
@@ -450,17 +461,18 @@ inline size_t literal (Context&, Lexer&);
 inline Sequence sequence      (Context&, Lexer&);
 inline Sequence euclide       (Context&, Lexer&);
 inline Sequence reference     (Context&, Lexer&);
+
 inline Sequence prefix        (Context&, Lexer&);
 inline Sequence chain         (Context&, Lexer&, Sequence&);
 inline Sequence infix_expr    (Context&, Lexer&, Sequence&);
 inline Sequence infix_literal (Context&, Lexer&, Sequence&);
 inline Sequence postfix       (Context&, Lexer&, Sequence&);
+
 inline Sequence expression    (Context&, Lexer&, size_t = 0);
 
 // Statements
-inline Sequence  sink      (Context&, Lexer&, Sequence&);
-inline void      sync      (Context&, Lexer&);
-inline void      statement (Context&, Lexer&);
+inline Sequence sink      (Context&, Lexer&, Sequence&);
+inline void     statement (Context&, Lexer&);
 
 inline Context compile (Lexer&);
 
@@ -533,6 +545,49 @@ constexpr auto is_expr = [] (auto x) {
 		)
 	;
 };
+
+
+// Operator precedence lookup
+constexpr size_t prefix_precedence(Symbols kind) {
+	if (eq_any(kind,
+		Symbols::REV,
+		Symbols::ROTL,
+		Symbols::ROTR,
+		Symbols::INVERT
+	))
+		return 4;
+
+	return 0;
+}
+
+constexpr size_t infix_precedence(Symbols kind) {
+	if (eq_any(kind,
+		Symbols::DBG,
+		Symbols::CHAIN
+	))
+		return 1;
+
+	else if (eq_any(kind,
+		Symbols::CAT,
+		Symbols::REV,
+		Symbols::ROTL,
+		Symbols::ROTR,
+		Symbols::INVERT
+	))
+		return 2;
+
+	else if (eq_any(kind,
+		Symbols::ROTLN,
+		Symbols::ROTRN,
+		Symbols::REPN,
+		Symbols::OR,
+		Symbols::AND,
+		Symbols::XOR
+	))
+		return 3;
+
+	return 0;
+}
 
 
 // Defs
@@ -627,49 +682,6 @@ inline Sequence chain(Context& ctx, Lexer& lx, Sequence& seq) {
 		lx.error(Phases::PHASE_SEMANTIC, view, STR_REDEFINED, view);
 
 	return seq;
-}
-
-// Lookup table for prefix operator precedence.
-constexpr size_t prefix_precedence(Symbols kind) {
-	if (eq_any(kind,
-		Symbols::REV,
-		Symbols::ROTL,
-		Symbols::ROTR,
-		Symbols::INVERT
-	))
-		return 4;
-
-	return 0;
-}
-
-// Lookup table for infix operator precedence.
-constexpr size_t infix_precedence(Symbols kind) {
-	if (eq_any(kind,
-		Symbols::DBG,
-		Symbols::CHAIN
-	))
-		return 1;
-
-	else if (eq_any(kind,
-		Symbols::CAT,
-		Symbols::REV,
-		Symbols::ROTL,
-		Symbols::ROTR,
-		Symbols::INVERT
-	))
-		return 2;
-
-	else if (eq_any(kind,
-		Symbols::ROTLN,
-		Symbols::ROTRN,
-		Symbols::REPN,
-		Symbols::OR,
-		Symbols::AND,
-		Symbols::XOR
-	))
-		return 3;
-
-	return 0;
 }
 
 inline Sequence prefix(Context& ctx, Lexer& lx) {
@@ -824,7 +836,7 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence& seq) {
 	View chan_v = lx.peek().view;
 	size_t channel = literal(ctx, lx);
 
-	size_t bpm = 120;
+	size_t bpm = DEFAULT_BPM;
 
 	if (lx.peek().kind == Symbols::BPM) {
 		lx.next();  // skip `@`
@@ -832,47 +844,47 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence& seq) {
 		View bpm_v = lx.peek().view;
 		bpm = literal(ctx, lx);
 
-		if (bpm == 0)
-			lx.error(Phases::PHASE_SEMANTIC, bpm_v, STR_GREATER, 0);
+		if (bpm == BPM_MIN)
+			lx.error(Phases::PHASE_SEMANTIC, bpm_v, STR_GREATER, BPM_MIN);
 	}
 
-	if (channel > 15)
-		lx.error(Phases::PHASE_SEMANTIC, chan_v, STR_BETWEEN, 0, 15);
+	if (channel > CHANNEL_MAX)
+		lx.error(Phases::PHASE_SEMANTIC, chan_v, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
 
 	ctx.channels.emplace_back(seq, channel);
 
 	return seq;
 }
 
-inline void sync(Context& ctx, Lexer& lx) {
-	CANE_LOG(LOG_INFO);
-	lx.next();  // skip `sync`
+// inline void sync(Context& ctx, Lexer& lx) {
+// 	CANE_LOG(LOG_INFO);
+// 	lx.next();  // skip `sync`
 
-	View count_v = lx.peek().view;
-	size_t count = literal(ctx, lx);
+// 	View count_v = lx.peek().view;
+// 	size_t count = literal(ctx, lx);
 
-	if (count == 0)
-		lx.error(Phases::PHASE_SEMANTIC, count_v, STR_GREATER, 0);
+// 	if (count == 0)
+// 		lx.error(Phases::PHASE_SEMANTIC, count_v, STR_GREATER, 0);
 
-	std::stable_sort(ctx.channels.begin(), ctx.channels.end(), [] (const auto& a, const auto& b) {
-		return a.channel < b.channel;
-	});
+// 	std::stable_sort(ctx.channels.begin(), ctx.channels.end(), [] (const auto& a, const auto& b) {
+// 		return a.channel < b.channel;
+// 	});
 
-	for (auto it = ctx.channels.begin(); it != ctx.channels.end();) {
-		size_t channel = it->channel;
+// 	for (auto it = ctx.channels.begin(); it != ctx.channels.end();) {
+// 		size_t channel = it->channel;
 
-		cane::print(CANE_ANSI_FG_YELLOW "midi", channel, CANE_ANSI_RESET " ");
+// 		cane::print(CANE_ANSI_FG_YELLOW "midi", channel, CANE_ANSI_RESET " ");
 
-		for (; it != ctx.channels.end(); ++it) {
-			if (it->channel != channel)
-				break;
+// 		for (; it != ctx.channels.end(); ++it) {
+// 			if (it->channel != channel)
+// 				break;
 
-			cane::print(it->seq);
-		}
+// 			cane::print(it->seq);
+// 		}
 
-		cane::println();
-	}
-}
+// 		cane::println();
+// 	}
+// }
 
 inline void statement(Context& ctx, Lexer& lx) {
 	CANE_LOG(LOG_WARN);
@@ -884,10 +896,6 @@ inline void statement(Context& ctx, Lexer& lx) {
 		while (lx.peek().kind == Symbols::SINK)
 			seq = sink(ctx, lx, seq);
 	}
-
-	// Parse sync with optional literal
-	else if (lx.peek().kind == Symbols::SYNC)
-		sync(ctx, lx);
 
 	else
 		lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_STATEMENT);
