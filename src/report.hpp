@@ -10,32 +10,63 @@
 namespace cane {
 
 	#define PHASES \
-		X(PHASE_ENCODING, encoding) \
-		X(PHASE_LEXICAL, lexical) \
-		X(PHASE_SYNTACTIC, syntactic) \
-		X(PHASE_SEMANTIC, semantic)
+		X(ENCODING, encoding) \
+		X(LEXICAL, lexical) \
+		X(SYNTACTIC, syntactic) \
+		X(SEMANTIC, semantic)
 
 		#define X(name, str) name,
-			enum class Phases { PHASES };
+			enum class Phases: int { PHASES };
 		#undef X
 
 		#define X(name, str) #str##_sv,
 			constexpr View PHASE_TO_STRING[] = { PHASES };
 		#undef X
+
+		constexpr decltype(auto) phase2str(Phases p) {
+			return PHASE_TO_STRING[(int)p];
+		}
+
 	#undef PHASES
 
-	inline std::ostream& operator<<(std::ostream& os, Phases k) {
-		return (os << PHASE_TO_STRING[(int)k]);
+	inline std::ostream& operator<<(std::ostream& os, Phases p) {
+		return (os << phase2str(p));
 	}
 
 
-	enum class Report {
-		ERROR,
-		WARNING,
-		NOTICE,
-	};
+	#define REPORTS \
+		X(ERROR,   error,   CANE_ANSI_FG_RED) \
+		X(WARNING, warning, CANE_ANSI_FG_BLUE) \
+		X(NOTICE,  notice,  CANE_ANSI_FG_YELLOW)
 
-	template <Report R = Report::ERROR, typename... Ts>
+		#define X(name, str, colour) name,
+			enum class Reports: int { REPORTS };
+		#undef X
+
+		#define X(name, str, colour) #str##_sv,
+			constexpr View REPORT_TO_STRING[] = { REPORTS };
+		#undef X
+
+		#define X(name, str, colour) colour,
+			constexpr View REPORT_COLOUR_TO_STRING[] = { REPORTS };
+		#undef X
+
+		constexpr decltype(auto) report2str(Reports r) {
+			return REPORT_TO_STRING[(int)r];
+		}
+
+		constexpr decltype(auto) reportcolour2str(Reports r) {
+			return REPORT_COLOUR_TO_STRING[(int)r];
+		}
+
+	#undef REPORTS
+
+	inline std::ostream& operator<<(std::ostream& os, Reports r) {
+		return (os << report2str(r));
+	}
+
+
+	template <Reports R = Reports::ERROR, typename... Ts>
 	inline std::ostream& report(
 		std::ostream& os,
 		Phases phase,
@@ -43,9 +74,8 @@ namespace cane {
 		View sv,
 		Ts&&... args
 	) {
-		const bool ansi_enabled = true;
-
 		const auto focused_line = extend_to_line(src, sv);
+
 		const auto before = cane::before(focused_line, sv);
 		const auto after = cane::after(focused_line, sv);
 
@@ -54,60 +84,37 @@ namespace cane {
 
 		const auto digits = count_digits(line_n);
 
-		auto highlight = colour(ANSI_FG_RED,    ansi_enabled);
-		auto yellow    = colour(ANSI_FG_YELLOW, ansi_enabled);
-		auto cyan      = colour(ANSI_FG_CYAN,   ansi_enabled);
-		auto bold      = colour(ANSI_BOLD,      ansi_enabled);
-		auto reset     = colour(ANSI_RESET,     ansi_enabled);
-
-		if (R == Report::WARNING)
-			highlight = colour(ANSI_FG_BLUE, ansi_enabled);
-
-		else if (R == Report::NOTICE)
-			highlight = colour(ANSI_FG_YELLOW, ansi_enabled);
-
-		const auto phase_name = PHASE_TO_STRING[(int)phase];
+		auto highlight = reportcolour2str(R);
 
 		const auto padding = [&] {
 			for (size_t i = 0; i < digits + 1; i++)
 				out(os, " ");
 		};
 
-		// Error type.
-		if (R == Report::ERROR)
-			outfmt(os, "{}{}{} error{}: ", highlight, bold, phase_name, reset);
-
-		else if (R == Report::WARNING)
-			outfmt(os, "{}{}{} warning{}: ", highlight, bold, phase_name, reset);
-
-		else if (R == Report::NOTICE)
-			outfmt(os, "{}{}{} notice{}: ", highlight, bold, phase_name, reset);
+		outfmt(
+			os,
+			"{}" CANE_ANSI_BOLD "{} {}: " CANE_ANSI_RESET "{}:{} " CANE_ANSI_BOLD "=>" CANE_ANSI_RESET " ",
+			highlight, phase2str(phase), report2str(R), line_n, column_n
+		);
 
 		// Overview.
 		outlnfmt(os, std::forward<Ts>(args)...);
 
-		// File, line and column.
 		padding();
-		outfmt(os, "{}-->{} <stdin>:", cyan, reset);
+		outln(os);
 
-		if (not sv.is_eof()) {
-			// Line and column.
-			outlnfmt(os, "{}:{}", line_n, column_n);
+		padding();
+		outlnfmt(os, " " CANE_ANSI_FG_CYAN "|" CANE_ANSI_RESET);
 
-			// Source snippet.
-			padding();
-			outlnfmt(os, " {}|{}", cyan, reset);
+		outfmt(os, " " CANE_ANSI_FG_CYAN "{}" CANE_ANSI_RESET " " CANE_ANSI_FG_CYAN "|" CANE_ANSI_RESET " ", line_n);
 
-			outfmt(os, " {}{} |{} ", cyan, line_n, reset);
-			outlnfmt(os, "{}{}{}{}{}", before, highlight, sv, reset, after);
-
-			padding();
-			outlnfmt(os, " {}|{}\n", cyan, reset);
-		}
-
-		// EOF
+		if (sv.is_eof())
+			outlnfmt(os, "{}EOF{}", highlight, CANE_ANSI_RESET);
 		else
-			outln(os, "eof\n");
+			outlnfmt(os, "{}{}{}{}{}", before, highlight, sv, CANE_ANSI_RESET, after);
+
+		padding();
+		outlnfmt(os, " {}|{}\n", CANE_ANSI_FG_CYAN, CANE_ANSI_RESET);
 
 		return os;
 	}

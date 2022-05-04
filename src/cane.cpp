@@ -15,7 +15,7 @@ int main(int, const char*[]) {
 		cane::Lexer lx { src };
 
 		if (not cane::utf_validate(src))
-			lx.error(cane::Phases::PHASE_ENCODING, src, cane::STR_ENCODING);
+			lx.error(cane::Phases::ENCODING, src, cane::STR_ENCODING);
 
 		namespace time = std::chrono;
 

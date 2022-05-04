@@ -29,18 +29,18 @@ struct Error {};
 
 template <typename... Ts>
 [[noreturn]] inline void halt(Ts&&... args) {
-	report(std::cerr, std::forward<Ts>(args)...);
+	report<Reports::ERROR>(std::cerr, std::forward<Ts>(args)...);
 	throw Error {};
 }
 
 template <typename... Ts>
 inline void warn(Ts&&... args) {
-	report<Report::WARNING>(std::cerr, std::forward<Ts>(args)...);
+	report<Reports::WARNING>(std::cerr, std::forward<Ts>(args)...);
 }
 
 template <typename... Ts>
 inline void note(Ts&&... args) {
-	report<Report::NOTICE>(std::cerr, std::forward<Ts>(args)...);
+	report<Reports::NOTICE>(std::cerr, std::forward<Ts>(args)...);
 }
 
 
@@ -89,21 +89,21 @@ inline void note(Ts&&... args) {
 	X(DBG,    "?")
 
 	#define X(name, str) name,
-		enum class Symbols { SYMBOL_TYPES };
+		enum class Symbols: int { SYMBOL_TYPES };
 	#undef X
 
 	#define X(name, str) str##_sv,
 		constexpr View SYMBOL_TO_STRING[] = { SYMBOL_TYPES };
 	#undef X
 
-	constexpr decltype(auto) sym2str(Symbols sym) {
-		return SYMBOL_TO_STRING[(int)sym];
+	constexpr decltype(auto) sym2str(Symbols s) {
+		return SYMBOL_TO_STRING[(int)s];
 	}
 
 #undef SYMBOL_TYPES
 
-inline std::ostream& operator<<(std::ostream& os, Symbols k) {
-	return (os << sym2str(k));
+inline std::ostream& operator<<(std::ostream& os, Symbols s) {
+	return (os << sym2str(s));
 }
 
 
@@ -126,7 +126,7 @@ struct Lexer {
 	template <typename F, typename... Ts>
 	void expect(const F& fn, View sv, Ts&&... args) {
 		if (not fn(peek().kind))
-			halt(Phases::PHASE_SYNTACTIC, original, sv, std::forward<Ts>(args)...);
+			halt(Phases::SYNTACTIC, original, sv, std::forward<Ts>(args)...);
 	}
 
 	template <typename... Ts>
@@ -282,7 +282,7 @@ struct Lexer {
 		// succeeding with the original check so we wouldn't fall through if this
 		// check was connected.
 		if (kind == Symbols::NONE) {
-			halt(Phases::PHASE_LEXICAL, original, view, STR_UNKNOWN_CHAR, view);
+			halt(Phases::LEXICAL, original, view, STR_UNKNOWN_CHAR, view);
 		}
 
 		Token out = peek_;
@@ -331,6 +331,8 @@ constexpr uint64_t b2_decode(View sv) {
 	return n;
 }
 
+
+// Context
 using Step = uint8_t;
 using Channel = uint8_t;
 
@@ -338,11 +340,11 @@ struct Sequence: public std::vector<Step> {
 	size_t bpm;
 
 	Sequence(size_t bpm_):
-		std::vector<Step>::vector{}, bpm(bpm_) {}
+		std::vector<Step>::vector {}, bpm(bpm_) {}
 };
 
 inline std::ostream& operator<<(std::ostream& os, Sequence& s) {
-	for (auto x: s) {
+	for (Step x: s) {
 		out(os,
 			x ? CANE_ANSI_FG_YELLOW: CANE_ANSI_FG_BLUE,
 			x ? sym2str(Symbols::BEAT): sym2str(Symbols::SKIP)
@@ -351,14 +353,6 @@ inline std::ostream& operator<<(std::ostream& os, Sequence& s) {
 
 	return out(os, CANE_ANSI_RESET);
 }
-
-struct Pattern {
-	Sequence seq;
-	size_t channel;
-
-	Pattern(const Sequence& seq_, size_t channel_):
-		seq(seq_), channel(channel_) {}
-};
 
 // enum class Events {
 // 	ON, OFF,
@@ -646,7 +640,7 @@ inline Sequence euclide(Context& ctx, Lexer& lx) {
 	steps = literal(ctx, lx);
 
 	if (beats > steps)
-		lx.error(Phases::PHASE_SEMANTIC, lv, STR_LESSER_EQ, steps);
+		lx.error(Phases::SEMANTIC, lv, STR_LESSER_EQ, steps);
 
 	Sequence seq { ctx.default_bpm };
 
@@ -666,7 +660,7 @@ inline Sequence reference(Context& ctx, Lexer& lx) {
 	auto it = ctx.symbols.find(view);
 
 	if (it == ctx.symbols.end())
-		lx.error(Phases::PHASE_SEMANTIC, view, STR_UNDEFINED, view);
+		lx.error(Phases::SEMANTIC, view, STR_UNDEFINED, view);
 
 	return it->second;
 }
@@ -689,7 +683,7 @@ inline Sequence prefix(Context& ctx, Lexer& lx) {
 			case Symbols::INVERT: { seq = invert  (expression(ctx, lx, prec)); } break;
 
 			default: {
-				lx.error(Phases::PHASE_SYNTACTIC, tok.view, STR_PREFIX);
+				lx.error(Phases::SYNTACTIC, tok.view, STR_PREFIX);
 			} break;
 		}
 	}
@@ -712,7 +706,7 @@ inline Sequence prefix(Context& ctx, Lexer& lx) {
 			} break;
 
 			default: {
-				lx.error(Phases::PHASE_SYNTACTIC, tok.view, STR_EXPR);
+				lx.error(Phases::SYNTACTIC, tok.view, STR_EXPR);
 			} break;
 		}
 	}
@@ -724,9 +718,7 @@ inline Sequence infix_expr(Context& ctx, Lexer& lx, Sequence seq) {
 	CANE_LOG(LOG_INFO);
 
 	size_t prec = infix_precedence(lx.peek().kind);
-
-	Token tok = lx.peek();
-	lx.next();  // skip operator.
+	Token tok = lx.next();  // skip operator.
 
 	switch (tok.kind) {
 		case Symbols::CAT: { seq = cat            (std::move(seq), expression(ctx, lx, prec)); } break;
@@ -735,7 +727,7 @@ inline Sequence infix_expr(Context& ctx, Lexer& lx, Sequence seq) {
 		case Symbols::XOR: { seq = ex_disjunction (std::move(seq), expression(ctx, lx, prec)); } break;
 
 		default: {
-			lx.error(Phases::PHASE_SYNTACTIC, tok.view, STR_INFIX_EXPR);
+			lx.error(Phases::SYNTACTIC, tok.view, STR_INFIX_EXPR);
 		} break;
 	}
 
@@ -758,7 +750,7 @@ inline Sequence infix_literal(Context& ctx, Lexer& lx, Sequence seq) {
 
 			// We don't want to shrink the sequence, it can only grow.
 			if (n == 0)
-				lx.error(Phases::PHASE_SEMANTIC, lv, STR_GREATER, 0);
+				lx.error(Phases::SEMANTIC, lv, STR_GREATER, 0);
 
 			seq = repeat(std::move(seq), n);
 		} break;
@@ -768,13 +760,13 @@ inline Sequence infix_literal(Context& ctx, Lexer& lx, Sequence seq) {
 			size_t bpm = literal(ctx, lx);
 
 			if (bpm == BPM_MIN)
-				lx.error(Phases::PHASE_SEMANTIC, bpm_v, STR_GREATER, BPM_MIN);
+				lx.error(Phases::SEMANTIC, bpm_v, STR_GREATER, BPM_MIN);
 
 			seq.bpm = bpm;
 		} break;
 
 		default: {
-			lx.error(Phases::PHASE_SYNTACTIC, tok.view, STR_INFIX_LITERAL);
+			lx.error(Phases::SYNTACTIC, tok.view, STR_INFIX_LITERAL);
 		} break;
 	}
 
@@ -784,7 +776,7 @@ inline Sequence infix_literal(Context& ctx, Lexer& lx, Sequence seq) {
 inline Sequence postfix(Context& ctx, Lexer& lx, Sequence seq) {
 	CANE_LOG(LOG_INFO);
 
-	Token tok = lx.next();
+	Token tok = lx.next();  // skip operator.
 
 	switch (tok.kind) {
 		case Symbols::REV:    { seq = reverse (std::move(seq)); } break;
@@ -793,11 +785,11 @@ inline Sequence postfix(Context& ctx, Lexer& lx, Sequence seq) {
 		case Symbols::INVERT: { seq = invert  (std::move(seq)); } break;
 
 		case Symbols::DBG: {
-			lx.notice(Phases::PHASE_SEMANTIC, tok.view, STR_DEBUG, seq);
+			lx.notice(Phases::SEMANTIC, tok.view, STR_DEBUG, seq);
 		} break;
 
 		default: {
-			lx.error(Phases::PHASE_SYNTACTIC, tok.view, STR_POSTFIX);
+			lx.error(Phases::SYNTACTIC, tok.view, STR_POSTFIX);
 		} break;
 	}
 
@@ -815,7 +807,7 @@ inline Sequence chain(Context& ctx, Lexer& lx, Sequence seq) {
 
 	// Assign or error if re-assigned.
 	if (auto [it, succ] = ctx.symbols.try_emplace(view, seq); not succ)
-		lx.error(Phases::PHASE_SEMANTIC, view, STR_REDEFINED, view);
+		lx.error(Phases::SEMANTIC, view, STR_REDEFINED, view);
 
 	return seq;
 }
@@ -862,7 +854,7 @@ inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 			seq = postfix(ctx, lx, std::move(seq));
 
 		else
-			lx.error(Phases::PHASE_SYNTACTIC, tok.view, STR_OPERATOR);
+			lx.error(Phases::SYNTACTIC, tok.view, STR_OPERATOR);
 
 		tok = lx.peek();
 	}
@@ -880,7 +872,7 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence seq) {
 	size_t channel = literal(ctx, lx);
 
 	if (channel > CHANNEL_MAX)
-		lx.error(Phases::PHASE_SEMANTIC, chan_v, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
+		lx.error(Phases::SEMANTIC, chan_v, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
 
 	// TODO: compile sequence to timeline
 
@@ -898,7 +890,7 @@ inline void statement(Context& ctx, Lexer& lx) {
 	}
 
 	else
-		lx.error(Phases::PHASE_SYNTACTIC, lx.peek().view, STR_STATEMENT);
+		lx.error(Phases::SYNTACTIC, lx.peek().view, STR_STATEMENT);
 }
 
 inline Context compile(Lexer& lx) {

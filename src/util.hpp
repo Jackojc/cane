@@ -2,9 +2,9 @@
 #define CANE_UTIL_HPP
 
 #include <tuple>
+#include <cstddef>
 
 namespace cane {
-
 	// Utility macros.
 	// Stringify a macro def.
 	// i.e. CANE_STR(__LINE__) => "42" as opposed to "__LINE__"
@@ -22,7 +22,7 @@ namespace cane {
 	// Evaluate expressions at beginning and ending of a scope.
 	#define CANE_SCOPE(open, close) \
 		for ( \
-			br::index_t CANE_VAR(i) = ((open), 0); \
+			size_t CANE_VAR(i) = ((open), 0); \
 			!CANE_VAR(i); \
 			(CANE_VAR(i)++), (close) \
 		)
@@ -30,7 +30,7 @@ namespace cane {
 	// Evaluate expression at end of scope.
 	#define CANE_DEFER(close) \
 		for ( \
-			br::index_t CANE_VAR(i) = 0; \
+			size_t CANE_VAR(i) = 0; \
 			!CANE_VAR(i); \
 			(CANE_VAR(i)++), (close) \
 		)
@@ -298,7 +298,6 @@ namespace cane {
 
 		return hash;
 	}
-
 }
 
 #endif
