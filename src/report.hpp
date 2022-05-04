@@ -10,6 +10,7 @@
 namespace cane {
 
 	#define PHASES \
+		X(INTERNAL, internal) \
 		X(ENCODING, encoding) \
 		X(LEXICAL, lexical) \
 		X(SYNTACTIC, syntactic) \
