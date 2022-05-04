@@ -389,7 +389,6 @@ struct Event {
 };
 
 struct Context {
-	std::vector<Pattern> channels;
 	std::unordered_map<View, Sequence> symbols;
 	std::vector<Event> timeline;
 	size_t default_bpm = DEFAULT_BPM;
@@ -829,6 +828,8 @@ inline Sequence sync(Context& ctx, Lexer& lx, Sequence seq) {
 
 	Sequence rhs = expression(ctx, lx, infix_precedence(Symbols::SYNC));
 
+	// TODO: synchronise sequences with uneven steps and/or bpm
+
 	return seq;
 }
 
@@ -881,7 +882,7 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence seq) {
 	if (channel > CHANNEL_MAX)
 		lx.error(Phases::PHASE_SEMANTIC, chan_v, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
 
-	ctx.channels.emplace_back(seq, channel);
+	// TODO: compile sequence to timeline
 
 	return seq;
 }
