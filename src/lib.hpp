@@ -889,15 +889,13 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence seq) {
 inline void statement(Context& ctx, Lexer& lx) {
 	CANE_LOG(LOG_WARN);
 
-	if (is_expr(lx.peek().kind)) {
-		Sequence seq = expression(ctx, lx, 0);
-
-		while (lx.peek().kind == Symbols::SINK)
-			seq = sink(ctx, lx, std::move(seq));
-	}
-
-	else
+	if (not is_expr(lx.peek().kind))
 		lx.error(Phases::SYNTACTIC, lx.peek().view, STR_STATEMENT);
+
+	Sequence seq = expression(ctx, lx, 0);
+
+	while (lx.peek().kind == Symbols::SINK)
+		seq = sink(ctx, lx, std::move(seq));
 }
 
 inline Context compile(Lexer& lx) {
