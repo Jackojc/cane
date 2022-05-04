@@ -587,7 +587,9 @@ namespace cane {
 	template <typename F> constexpr size_t count(View sv, const F& fn) {
 		if (sv.is_eof()) return 0;
 
-		uint32_t chr = as_char(sv);
+		uint32_t chr;
+		sv = iter_next_char(sv, chr);
+
 		size_t count = 0;
 
 		while (not sv.is_eof()) {
