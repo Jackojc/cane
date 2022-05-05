@@ -35,7 +35,7 @@ namespace cane {
 	constexpr View STR_UNDEFINED     = "undefined variable `{}`"_sv;
 	constexpr View STR_REDEFINED     = "variable `{}` re-defined"_sv;
 
-	constexpr View STR_DEBUG         = "sequence is `{}` at this point"_sv;
+	constexpr View STR_DEBUG         = "sequence is `{}` @{}bpm"_sv;
 
 }
 
