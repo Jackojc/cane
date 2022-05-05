@@ -334,6 +334,47 @@ constexpr uint64_t b2_decode(View sv) {
 
 // Context
 using Step = uint8_t;
+
+#define STEPS \
+	X(SKIP, Symbols::SKIP, CANE_ANSI_FG_BLUE) \
+	X(BEAT, Symbols::BEAT, CANE_ANSI_FG_YELLOW)
+
+	#define X(name, sym, colour) name,
+		enum Steps: Step { STEPS };
+	#undef X
+
+	#define X(name, sym, colour) sym2str(sym),
+		constexpr View STEP_TO_STRING[] = { STEPS };
+	#undef X
+
+	#define X(name, sym, colour) #name##_sv,
+		constexpr View STEP_TO_NAME[] = { STEPS };
+	#undef X
+
+	#define X(name, str, colour) colour,
+		constexpr View STEP_TO_COLOUR[] = { STEPS };
+	#undef X
+
+	constexpr decltype(auto) step2colour(Step s) {
+		return STEP_TO_COLOUR[s];
+	}
+
+	constexpr decltype(auto) step2str(Step s) {
+		return STEP_TO_STRING[s];
+	}
+
+	constexpr decltype(auto) step2name(Step s) {
+		return STEP_TO_NAME[s];
+	}
+
+	#define X(name, sym, colour) s == sym ? name:
+		constexpr decltype(auto) sym2step(Symbols s) {
+			return STEPS 0;
+		}
+	#undef X
+
+#undef STEPS
+
 using Channel = uint8_t;
 
 struct Sequence: public std::vector<Step> {
@@ -344,46 +385,35 @@ struct Sequence: public std::vector<Step> {
 };
 
 inline std::ostream& operator<<(std::ostream& os, Sequence& s) {
-	for (Step x: s) {
-		out(os,
-			x ? CANE_ANSI_FG_YELLOW: CANE_ANSI_FG_BLUE,
-			x ? sym2str(Symbols::BEAT): sym2str(Symbols::SKIP)
-		);
-	}
+	for (Step x: s)
+		out(os, step2colour(x), step2str(x));
 
 	return out(os, CANE_ANSI_RESET);
 }
 
-// enum class Events {
-// 	ON, OFF,
-// };
-
-// inline std::ostream& operator<<(std::ostream& os, Events e) {
-// 	if (e == Events::ON)
-// 		out(os, "ON");
-
-// 	else if (e == Events::OFF)
-// 		out(os, "OFF");
-
-// 	return os;
-// }
 
 struct Event {
-	// size_t duration;
-	// uint8_t note;
-	// uint8_t velocity;
-	// uint8_t channel;
-	// Events kind;
+	size_t time;
+	size_t duration;
+	Channel channel;
+	Step step;
 
-	// constexpr Event(
-	// 	size_t duration_, uint8_t note_, uint8_t velocity_, uint8_t channel_, Events kind_
-	// ):
-	// 	duration(duration_), note(note_), velocity(velocity_), channel(channel_), kind(kind_)
-	// {}
+	constexpr Event(size_t time_, size_t duration_, Channel channel_, Step step_):
+		time(time_), duration(duration_), channel(channel_), step(step_) {}
 };
+
+inline std::ostream& operator<<(std::ostream& os, Event& e) {
+	out(os, CANE_ANSI_FG_RED, (int)e.channel, CANE_ANSI_RESET " ");
+	out(os, step2colour(e.step), step2name(e.step), CANE_ANSI_RESET " ");
+	out(os, CANE_ANSI_FG_GREEN, e.duration, CANE_ANSI_RESET, " ");
+	out(os, CANE_ANSI_FG_BLUE, e.time, CANE_ANSI_RESET " ");
+	return os;
+}
+
 
 struct Context {
 	std::unordered_map<View, Sequence> symbols;
+	std::unordered_map<size_t, size_t> times;
 	std::vector<Event> timeline;
 	size_t default_bpm = DEFAULT_BPM;
 };
@@ -629,8 +659,7 @@ inline Sequence sequence(Context& ctx, Lexer& lx) {
 
 	while (lx.peek().kind != Symbols::RSEQ) {
 		lx.expect(is_step, lx.peek().view, STR_STEP);
-		Symbols step = lx.next().kind;
-		seq.emplace_back(step == Symbols::BEAT);
+		seq.emplace_back(sym2step(lx.next().kind));
 	}
 
 	lx.expect(equal(Symbols::RSEQ), lx.peek().view, STR_EXPECT, sym2str(Symbols::RSEQ));
@@ -819,7 +848,7 @@ inline Sequence postfix(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
 
 
 		case Symbols::DBG: {
-			lx.notice(Phases::SEMANTIC, tok.view, STR_DEBUG, seq);
+			lx.notice(Phases::SEMANTIC, tok.view, STR_DEBUG, seq, seq.bpm);
 		} break;
 
 
@@ -876,12 +905,28 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence seq) {
 	lx.next();  // skip `~>`
 
 	View chan_v = lx.peek().view;
-	size_t channel = literal(ctx, lx);
+	Channel channel = literal(ctx, lx);
 
 	if (channel > CHANNEL_MAX)
 		lx.error(Phases::SEMANTIC, chan_v, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
 
-	// TODO: compile sequence to timeline
+	size_t ms_per_note = 60'000 / seq.bpm;
+
+	auto [it, succ] = ctx.times.try_emplace(channel, 0);
+	size_t& time = it->second;
+
+	for (Step s: seq) {
+		Event ev { time, ms_per_note, channel, s };
+
+		// Insert and preserve order by id.
+		ctx.timeline.insert(
+			std::upper_bound(ctx.timeline.begin(), ctx.timeline.end(), ev,
+				[] (auto& a, auto& b) {
+					return a.time < b.time;
+				}), ev);
+
+		time += ms_per_note;
+	}
 
 	return seq;
 }

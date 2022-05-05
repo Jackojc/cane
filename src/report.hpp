@@ -10,11 +10,11 @@
 namespace cane {
 
 	#define PHASES \
-		X(INTERNAL, internal) \
-		X(ENCODING, encoding) \
-		X(LEXICAL, lexical) \
+		X(INTERNAL,  internal) \
+		X(ENCODING,  encoding) \
+		X(LEXICAL,   lexical) \
 		X(SYNTACTIC, syntactic) \
-		X(SEMANTIC, semantic)
+		X(SEMANTIC,  semantic)
 
 		#define X(name, str) name,
 			enum class Phases: int { PHASES };
@@ -49,15 +49,15 @@ namespace cane {
 		#undef X
 
 		#define X(name, str, colour) colour,
-			constexpr View REPORT_COLOUR_TO_STRING[] = { REPORTS };
+			constexpr View REPORT_TO_COLOUR[] = { REPORTS };
 		#undef X
 
 		constexpr decltype(auto) report2str(Reports r) {
 			return REPORT_TO_STRING[(int)r];
 		}
 
-		constexpr decltype(auto) reportcolour2str(Reports r) {
-			return REPORT_COLOUR_TO_STRING[(int)r];
+		constexpr decltype(auto) report2colour(Reports r) {
+			return REPORT_TO_COLOUR[(int)r];
 		}
 
 	#undef REPORTS
@@ -85,7 +85,7 @@ namespace cane {
 
 		const auto digits = count_digits(line_n);
 
-		auto highlight = reportcolour2str(R);
+		auto highlight = report2colour(R);
 
 		const auto padding = [&] {
 			for (size_t i = 0; i < digits + 1; i++)
