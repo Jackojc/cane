@@ -21,6 +21,10 @@ and see the reference [here](doc/ref.md).
 
 The EBNF grammar is [here](doc/syntax.ebnf).
 
+### Requirements
+- [RtMidi](https://github.com/thestk/rtmidi)
+- [JACK](https://jackaudio.org/) _or_ [PipeWire](https://pipewire.org/)
+
 ### Build & Run
 Make sure to use a c++-17 compliant compiler.
 ```sh
