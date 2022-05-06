@@ -68,6 +68,14 @@ namespace cane {
 
 
 	template <Reports R = Reports::ERROR, typename... Ts>
+	inline std::ostream& general_report(std::ostream& os, Ts&&... args) {
+		auto highlight = report2colour(R);
+		outfmt(os, "{}" CANE_ANSI_BOLD "{}" CANE_ANSI_RESET " =>" CANE_ANSI_RESET " ", highlight, report2str(R));
+		return outlnfmt(os, std::forward<Ts>(args)...);
+	}
+
+
+	template <Reports R = Reports::ERROR, typename... Ts>
 	inline std::ostream& report(
 		std::ostream& os,
 		Phases phase,

@@ -28,19 +28,35 @@ constexpr size_t DEFAULT_BPM = 120u;
 struct Error {};
 
 template <typename... Ts>
-[[noreturn]] inline void halt(Ts&&... args) {
+[[noreturn]] inline void report_error(Ts&&... args) {
 	report<Reports::ERROR>(std::cerr, std::forward<Ts>(args)...);
 	throw Error {};
 }
 
 template <typename... Ts>
-inline void warn(Ts&&... args) {
+inline void report_warning(Ts&&... args) {
 	report<Reports::WARNING>(std::cerr, std::forward<Ts>(args)...);
 }
 
 template <typename... Ts>
-inline void note(Ts&&... args) {
+inline void report_notice(Ts&&... args) {
 	report<Reports::NOTICE>(std::cerr, std::forward<Ts>(args)...);
+}
+
+
+template <typename... Ts>
+inline void general_error(Ts&&... args) {
+	general_report<Reports::ERROR>(std::cerr, std::forward<Ts>(args)...);
+}
+
+template <typename... Ts>
+inline void general_warning(Ts&&... args) {
+	general_report<Reports::WARNING>(std::cerr, std::forward<Ts>(args)...);
+}
+
+template <typename... Ts>
+inline void general_notice(Ts&&... args) {
+	general_report<Reports::NOTICE>(std::cerr, std::forward<Ts>(args)...);
 }
 
 
@@ -126,22 +142,22 @@ struct Lexer {
 	template <typename F, typename... Ts>
 	void expect(const F& fn, View sv, Ts&&... args) {
 		if (not fn(peek().kind))
-			halt(Phases::SYNTACTIC, original, sv, std::forward<Ts>(args)...);
+			report_error(Phases::SYNTACTIC, original, sv, std::forward<Ts>(args)...);
 	}
 
 	template <typename... Ts>
 	[[noreturn]] void error(Phases phase, View sv, Ts&&... args) {
-		halt(phase, original, sv, std::forward<Ts>(args)...);
+		report_error(phase, original, sv, std::forward<Ts>(args)...);
 	}
 
 	template <typename... Ts>
 	void warning(Phases phase, View sv, Ts&&... args) {
-		warn(phase, original, sv, std::forward<Ts>(args)...);
+		report_warning(phase, original, sv, std::forward<Ts>(args)...);
 	}
 
 	template <typename... Ts>
 	void notice(Phases phase, View sv, Ts&&... args) {
-		note(phase, original, sv, std::forward<Ts>(args)...);
+		report_notice(phase, original, sv, std::forward<Ts>(args)...);
 	}
 
 	inline Token peek() const {
@@ -282,7 +298,7 @@ struct Lexer {
 		// succeeding with the original check so we wouldn't fall through if this
 		// check was connected.
 		if (kind == Symbols::NONE) {
-			halt(Phases::LEXICAL, original, view, STR_UNKNOWN_CHAR, view);
+			report_error(Phases::LEXICAL, original, view, STR_UNKNOWN_CHAR, view);
 		}
 
 		Token out = peek_;
@@ -394,19 +410,25 @@ inline std::ostream& operator<<(std::ostream& os, Sequence& s) {
 
 struct Event {
 	size_t time;
-	size_t duration;
-	Channel channel;
-	Step step;
+	uint8_t status;
+	uint8_t note;
+	uint8_t velocity;
 
-	constexpr Event(size_t time_, size_t duration_, Channel channel_, Step step_):
-		time(time_), duration(duration_), channel(channel_), step(step_) {}
+	constexpr Event(size_t time_, uint8_t kind, uint8_t channel, uint8_t note_, uint8_t velocity_):
+		time(time_), status((kind << 4) | channel), note(note_), velocity(velocity_) {}
+
+	constexpr decltype(auto) message() const {
+		return std::array { status, note, velocity };
+	}
 };
 
 inline std::ostream& operator<<(std::ostream& os, Event& e) {
-	out(os, CANE_ANSI_FG_RED, (int)e.channel, CANE_ANSI_RESET " ");
-	out(os, step2colour(e.step), step2name(e.step), CANE_ANSI_RESET " ");
-	out(os, CANE_ANSI_FG_GREEN, e.duration, CANE_ANSI_RESET, " ");
-	out(os, CANE_ANSI_FG_BLUE, e.time, CANE_ANSI_RESET " ");
+	out(os, CANE_ANSI_FG_YELLOW, (e.status & 0xf0) >> 4 == 0b1001 ? "ON": "OFF", CANE_ANSI_RESET " ");
+	out(os, "time: " CANE_ANSI_FG_CYAN, e.time, CANE_ANSI_RESET " ");
+	out(os, "channel: " CANE_ANSI_FG_CYAN, (int)e.status & 0x0f, CANE_ANSI_RESET " ");
+	out(os, "event: " CANE_ANSI_FG_CYAN, (int)e.status & 0xf0, CANE_ANSI_RESET " ");
+	out(os, "note: " CANE_ANSI_FG_CYAN, (int)e.note, CANE_ANSI_RESET " ");
+	out(os, "velocity: " CANE_ANSI_FG_CYAN, (int)e.velocity, CANE_ANSI_RESET " ");
 	return os;
 }
 
@@ -916,17 +938,18 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence seq) {
 	size_t& time = it->second;
 
 	for (Step s: seq) {
-		Event ev { time, ms_per_note, channel, s };
-
-		// Insert and preserve order by id.
-		ctx.timeline.insert(
-			std::upper_bound(ctx.timeline.begin(), ctx.timeline.end(), ev,
-				[] (auto& a, auto& b) {
-					return a.time < b.time;
-				}), ev);
+		// Beat
+		if (s) {
+			ctx.timeline.emplace_back(time, 0b1001, channel, 52, 0b01111111);
+			ctx.timeline.emplace_back(time + ms_per_note, 0b1000, channel, 52, 0b01111111);
+		}
 
 		time += ms_per_note;
 	}
+
+	std::stable_sort(ctx.timeline.begin(), ctx.timeline.end(), [] (auto& a, auto& b) {
+		return a.time < b.time;
+	});
 
 	return seq;
 }
