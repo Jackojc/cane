@@ -37,6 +37,19 @@ namespace cane {
 
 	constexpr View STR_DEBUG         = "sequence is `{}` @{}bpm"_sv;
 
+	constexpr View STR_RTMIDI_WARNING           = "warning"_sv;
+	constexpr View STR_RTMIDI_DEBUG_WARNING     = "debug warning"_sv;
+	constexpr View STR_RTMIDI_UNSPECIFIED       = "unspecified error"_sv;
+	constexpr View STR_RTMIDI_NO_DEVICES_FOUND  = "no devices found"_sv;
+	constexpr View STR_RTMIDI_INVALID_DEVICE    = "invalid device"_sv;
+	constexpr View STR_RTMIDI_MEMORY_ERROR      = "memory error"_sv;
+	constexpr View STR_RTMIDI_INVALID_PARAMETER = "invalid parameter"_sv;
+	constexpr View STR_RTMIDI_INVALID_USE       = "invalid use"_sv;
+	constexpr View STR_RTMIDI_DRIVER_ERROR      = "driver error"_sv;
+	constexpr View STR_RTMIDI_SYSTEM_ERROR      = "system error"_sv;
+	constexpr View STR_RTMIDI_THREAD_ERROR      = "thread error"_sv;
+
+
 }
 
 #endif
