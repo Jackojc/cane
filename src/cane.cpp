@@ -8,32 +8,14 @@
 #include <view.hpp>
 #include <lib.hpp>
 
-#include <rtmidi/RtMidi.h>
-
-constexpr decltype(auto) rtmidi2str(RtMidiError::Type t) {
-	cane::View sv;
-
-	switch (t) {
-		case RtMidiError::Type::WARNING:           { sv = cane::STR_RTMIDI_WARNING;           } break;
-		case RtMidiError::Type::DEBUG_WARNING:     { sv = cane::STR_RTMIDI_DEBUG_WARNING;     } break;
-		case RtMidiError::Type::UNSPECIFIED:       { sv = cane::STR_RTMIDI_UNSPECIFIED;       } break;
-		case RtMidiError::Type::NO_DEVICES_FOUND:  { sv = cane::STR_RTMIDI_NO_DEVICES_FOUND;  } break;
-		case RtMidiError::Type::INVALID_DEVICE:    { sv = cane::STR_RTMIDI_INVALID_DEVICE;    } break;
-		case RtMidiError::Type::MEMORY_ERROR:      { sv = cane::STR_RTMIDI_MEMORY_ERROR;      } break;
-		case RtMidiError::Type::INVALID_PARAMETER: { sv = cane::STR_RTMIDI_INVALID_PARAMETER; } break;
-		case RtMidiError::Type::INVALID_USE:       { sv = cane::STR_RTMIDI_INVALID_USE;       } break;
-		case RtMidiError::Type::DRIVER_ERROR:      { sv = cane::STR_RTMIDI_DRIVER_ERROR;      } break;
-		case RtMidiError::Type::SYSTEM_ERROR:      { sv = cane::STR_RTMIDI_SYSTEM_ERROR;      } break;
-		case RtMidiError::Type::THREAD_ERROR:      { sv = cane::STR_RTMIDI_THREAD_ERROR;      } break;
-	}
-
-	return sv;
-}
+#include <jack/jack.h>
+#include <jack/midiport.h>
+#include <jack/ringbuffer.h>
 
 
 int main(int, const char*[]) {
 	constexpr size_t bpm = 120;
-	constexpr std::string_view device = "Midi";
+	std::string device = "j2a";
 
 	try {
 		std::istreambuf_iterator<char> begin(std::cin), end;
@@ -60,23 +42,65 @@ int main(int, const char*[]) {
 
 		using namespace std::chrono_literals;
 
-		RtMidiOut midi { RtMidi::Api::UNSPECIFIED, cane::STR_EXE };
+		struct JackData {
+			jack_client_t* client = nullptr;
+			jack_port_t* port = nullptr;
+			std::vector<cane::Event> events;
 
-		for (size_t i = 0; i < midi.getPortCount(); ++i) {
-			auto name = midi.getPortName(i);
-			CANE_LOG(cane::LOG_SUCC, "{}: {}", i, name);
-
-			if (name.find(device) != std::string::npos) {
-				midi.openPort(i, cane::STR_EXE);
-				cane::general_notice(cane::STR_MIDI_FOUND, name);
-				break;
+			~JackData() {
+				jack_client_close(client);
 			}
-		}
+		};
 
-		if (not midi.isPortOpen()) {
-			cane::general_error(cane::STR_MIDI_NOT_FOUND);
-			return 1;
-		}
+		JackData midi {};
+
+		if (not (midi.client = jack_client_open(cane::CSTR_EXE, JackOptions::JackNullOption, nullptr)))
+			cane::general_error(cane::STR_MIDI_CONNECT_ERROR);
+
+		if (not (midi.port = jack_port_register(midi.client, cane::CSTR_PORT, JACK_DEFAULT_MIDI_TYPE, JackPortIsOutput, 0)))
+			cane::general_error(cane::STR_MIDI_PORT_ERROR);
+
+		jack_set_process_callback(midi.client, [] (jack_nframes_t nframes, void *arg) {
+			auto& [client, port, events] = *static_cast<JackData*>(arg);
+
+			void* out_buffer = jack_port_get_buffer(port, nframes);
+			jack_midi_clear_buffer(out_buffer);
+
+			uint8_t* buffer = nullptr;
+
+			for (cane::Event& ev: events) {
+				std::array msg = ev.message();
+
+				if (not (buffer = jack_midi_event_reserve(out_buffer, 0, msg.size())))
+					cane::general_error(cane::STR_MIDI_WRITE_ERROR);
+
+				std::memcpy(buffer, msg.data(), msg.size());
+			}
+
+			events.clear();
+
+			return 0;
+		}, static_cast<void*>(&midi));
+
+		if (jack_activate(midi.client))
+			cane::general_error(cane::STR_MIDI_ACTIVATE_ERROR);
+
+		const char** ports = nullptr;
+
+		if (not (ports = jack_get_ports(midi.client, device.c_str(), JACK_DEFAULT_MIDI_TYPE, JackPortIsInput)))
+			cane::general_error(cane::STR_MIDI_GET_PORTS_ERROR);
+
+		if (*ports == nullptr)
+			cane::general_error(cane::STR_MIDI_NOT_FOUND, device);
+
+		cane::general_notice(cane::STR_MIDI_FOUND, *ports);
+
+		if (jack_connect(midi.client, jack_port_name(midi.port), *ports))
+			cane::general_error(cane::STR_MIDI_PATCH_ERROR);
+
+		jack_free(ports);
+
+		cane::general_notice("waiting 3s");
 
 		size_t dt = 0;
 		for (auto it = ctx.timeline.begin(); it != ctx.timeline.end();) {
@@ -91,8 +115,7 @@ int main(int, const char*[]) {
 					ctx.timeline.size()
 				).flush();
 
-				auto msg = it->message();
-				midi.sendMessage(msg.data(), msg.size());
+				midi.events.emplace_back(*it);
 				++it;
 			}
 
@@ -106,11 +129,6 @@ int main(int, const char*[]) {
 	}
 
 	catch (cane::Error) {
-		return 1;
-	}
-
-	catch (RtMidiError& e) {
-		cane::general_error(rtmidi2str(e.getType()));
 		return 1;
 	}
 

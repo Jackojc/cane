@@ -45,8 +45,9 @@ inline void report_notice(Ts&&... args) {
 
 
 template <typename... Ts>
-inline void general_error(Ts&&... args) {
+[[noreturn]] inline void general_error(Ts&&... args) {
 	general_report<Reports::ERROR>(std::cerr, std::forward<Ts>(args)...);
+	throw Error {};
 }
 
 template <typename... Ts>
