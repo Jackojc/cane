@@ -5,6 +5,8 @@
 
 namespace cane {
 
+	constexpr View STR_EXE           = "cane"_sv;
+
 	constexpr View STR_ENCODING      = "malformed source encoding"_sv;
 	constexpr View STR_UNREACHABLE   = "unreachable code"_sv;
 
@@ -36,6 +38,9 @@ namespace cane {
 	constexpr View STR_REDEFINED     = "variable `{}` re-defined"_sv;
 
 	constexpr View STR_DEBUG         = "sequence is `{}` @{}bpm"_sv;
+
+	constexpr View STR_MIDI_FOUND     = "found device `{}`"_sv;
+	constexpr View STR_MIDI_NOT_FOUND = "no device found"_sv;
 
 	constexpr View STR_RTMIDI_WARNING           = "warning"_sv;
 	constexpr View STR_RTMIDI_DEBUG_WARNING     = "debug warning"_sv;

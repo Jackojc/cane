@@ -606,7 +606,7 @@ inline decltype(auto) prefix_bp(Lexer& lx, Token tok) {
 		Symbols::ROTR,
 		Symbols::INVERT
 	))
-		return std::pair { 0u, 51u };
+		return std::pair { 0u, 201u };
 
 	lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
 }

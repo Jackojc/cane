@@ -30,8 +30,6 @@ constexpr decltype(auto) rtmidi2str(RtMidiError::Type t) {
 	return sv;
 }
 
-inline void rtmidi_callback(RtMidiError::Type, const std::string&, void*) {}
-
 
 int main(int, const char*[]) {
 	constexpr size_t bpm = 120;
@@ -57,39 +55,42 @@ int main(int, const char*[]) {
 		auto t2 = clock::now();
 
 		time::duration<double, std::micro> t = t2 - t1;
-		cane::printlnfmt(CANE_ANSI_FG_YELLOW "took: {}µs" CANE_ANSI_RESET, t.count());
+		CANE_LOG(cane::LOG_SUCC, CANE_ANSI_FG_YELLOW "took: {}µs" CANE_ANSI_RESET, t.count());
 
 
 		using namespace std::chrono_literals;
 
-		RtMidiOut midi { RtMidi::Api::UNSPECIFIED, "cane" };
-		midi.setErrorCallback(&rtmidi_callback);
+		RtMidiOut midi { RtMidi::Api::UNSPECIFIED, cane::STR_EXE };
 
 		for (size_t i = 0; i < midi.getPortCount(); ++i) {
 			auto name = midi.getPortName(i);
-			cane::println(i, ": ", name);
+			CANE_LOG(cane::LOG_SUCC, "{}: {}", i, name);
 
 			if (name.find(device) != std::string::npos) {
-				midi.openPort(i, "cane");
-				cane::general_notice("found '{}'!", name);
+				midi.openPort(i, cane::STR_EXE);
+				cane::general_notice(cane::STR_MIDI_FOUND, name);
 				break;
 			}
 		}
 
 		if (not midi.isPortOpen()) {
-			cane::general_error("no device found!");
+			cane::general_error(cane::STR_MIDI_NOT_FOUND);
 			return 1;
 		}
-
-		cane::println("waiting 3s...");
-		std::this_thread::sleep_for(3s);
 
 		size_t dt = 0;
 		for (auto it = ctx.timeline.begin(); it != ctx.timeline.end();) {
 			auto begin = it;
 
 			while (it != ctx.timeline.end() and it->time < dt) {
-				cane::println(*it);
+				CANE_LOG(cane::LOG_INFO, "{}", *it);
+
+				cane::printfmt(
+					"\r" CANE_ANSI_FG_CYAN "  events " CANE_ANSI_FG_YELLOW "{}" CANE_ANSI_FG_CYAN "/{}" CANE_ANSI_RESET,
+					std::distance(ctx.timeline.begin(), it) + 1,
+					ctx.timeline.size()
+				).flush();
+
 				auto msg = it->message();
 				midi.sendMessage(msg.data(), msg.size());
 				++it;
@@ -100,6 +101,8 @@ int main(int, const char*[]) {
 
 			dt++;
 		}
+
+		cane::println();
 	}
 
 	catch (cane::Error) {

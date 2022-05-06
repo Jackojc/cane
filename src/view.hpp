@@ -2,6 +2,7 @@
 #define CANE_VIEW_HPP
 
 #include <iostream>
+#include <string_view>
 
 #include <cstdint>
 #include <cstddef>
@@ -26,6 +27,15 @@ namespace cane {
 
 		constexpr View(const char* begin_, size_t length):
 			begin(begin_), end(begin_ + length) {}
+
+
+		operator std::string() const {
+			return { begin, size() };
+		}
+
+		operator std::string_view() const {
+			return { begin, size() };
+		}
 
 
 		// Return size by getting the absolute difference between
