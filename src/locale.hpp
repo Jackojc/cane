@@ -5,7 +5,11 @@
 
 namespace cane {
 
+	constexpr const char* CSTR_EXE   = "cane";
+	constexpr const char* CSTR_PORT  = "midi out";
+
 	constexpr View STR_EXE           = "cane"_sv;
+	constexpr View STR_PORT          = "midi out"_sv;
 
 	constexpr View STR_ENCODING      = "malformed source encoding"_sv;
 	constexpr View STR_UNREACHABLE   = "unreachable code"_sv;
@@ -39,21 +43,14 @@ namespace cane {
 
 	constexpr View STR_DEBUG         = "sequence is `{}` @{}bpm"_sv;
 
-	constexpr View STR_MIDI_FOUND     = "found device `{}`"_sv;
-	constexpr View STR_MIDI_NOT_FOUND = "no device found"_sv;
-
-	constexpr View STR_RTMIDI_WARNING           = "warning"_sv;
-	constexpr View STR_RTMIDI_DEBUG_WARNING     = "debug warning"_sv;
-	constexpr View STR_RTMIDI_UNSPECIFIED       = "unspecified error"_sv;
-	constexpr View STR_RTMIDI_NO_DEVICES_FOUND  = "no devices found"_sv;
-	constexpr View STR_RTMIDI_INVALID_DEVICE    = "invalid device"_sv;
-	constexpr View STR_RTMIDI_MEMORY_ERROR      = "memory error"_sv;
-	constexpr View STR_RTMIDI_INVALID_PARAMETER = "invalid parameter"_sv;
-	constexpr View STR_RTMIDI_INVALID_USE       = "invalid use"_sv;
-	constexpr View STR_RTMIDI_DRIVER_ERROR      = "driver error"_sv;
-	constexpr View STR_RTMIDI_SYSTEM_ERROR      = "system error"_sv;
-	constexpr View STR_RTMIDI_THREAD_ERROR      = "thread error"_sv;
-
+	constexpr View STR_MIDI_FOUND           = "found port `{}`"_sv;
+	constexpr View STR_MIDI_NOT_FOUND       = "port `{}` not found"_sv;
+	constexpr View STR_MIDI_CONNECT_ERROR   = "could not connect to the JACK server"_sv;
+	constexpr View STR_MIDI_PORT_ERROR      = "could not register port"_sv;
+	constexpr View STR_MIDI_WRITE_ERROR     = "could not send MIDI event"_sv;
+	constexpr View STR_MIDI_ACTIVATE_ERROR  = "could not activate JACK client"_sv;
+	constexpr View STR_MIDI_GET_PORTS_ERROR = "could not get MIDI input ports from JACK"_sv;
+	constexpr View STR_MIDI_PATCH_ERROR     = "could not connect to port `{}`"_sv;
 
 }
 

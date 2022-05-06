@@ -10,7 +10,7 @@ SRCS=$(basename $(subst $(SRC_DIR),$(BUILD_DIR),$(wildcard $(SRC_DIR)/*.cpp)))
 
 # Libraries to include and link
 INC=-Isrc/
-LIBS=-lrtmidi
+LIBS=-ljack
 
 # Flags
 dbg ?= yes
