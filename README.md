@@ -24,6 +24,7 @@ The EBNF grammar is [here](doc/syntax.ebnf).
 ### Requirements
 - [RtMidi](https://github.com/thestk/rtmidi)
 - [JACK](https://jackaudio.org/) _or_ [PipeWire](https://pipewire.org/)
+- [a2jmidid](https://github.com/jackaudio/a2jmidid) (optional for ALSA MIDI support)
 
 ### Build & Run
 Make sure to use a c++-17 compliant compiler.
