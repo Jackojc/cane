@@ -76,8 +76,6 @@ inline void general_notice(Ts&&... args) {
 	/* Keywords & Grouping */ \
 	X(LPAREN, "(") \
 	X(RPAREN, ")") \
-	X(LSEQ,   "[") \
-	X(RSEQ,   "]") \
 	\
 	/* Operators */ \
 	X(CHAIN,  "=>") \
@@ -199,10 +197,6 @@ struct Lexer {
 		else if (c == '*')  { kind = Symbols::REPN;   src = cane::iter_next_char(src, c); }
 		else if (c == '!')  { kind = Symbols::BEAT;   src = cane::iter_next_char(src, c); }
 		else if (c == '.')  { kind = Symbols::SKIP;   src = cane::iter_next_char(src, c); }
-
-		else if (c == '[') { kind = Symbols::LSEQ;   src = cane::iter_next_char(src, c); }
-		else if (c == ']') { kind = Symbols::RSEQ;   src = cane::iter_next_char(src, c); }
-
 		else if (c == '(') { kind = Symbols::LPAREN; src = cane::iter_next_char(src, c); }
 		else if (c == ')') { kind = Symbols::RPAREN; src = cane::iter_next_char(src, c); }
 
@@ -596,12 +590,12 @@ constexpr auto is_step = partial_eq_any(
 constexpr auto is_expr = [] (auto x) {
 	return
 		is_prefix(x) or
+		is_step(x) or
 		eq_any(x,
 			Symbols::INT,
 			Symbols::HEX,
 			Symbols::BIN,
 			Symbols::IDENT,
-			Symbols::LSEQ,
 			Symbols::LPAREN
 		)
 	;
@@ -681,18 +675,13 @@ inline size_t literal(Context& ctx, Lexer& lx) {
 inline Sequence sequence(Context& ctx, Lexer& lx) {
 	CANE_LOG(LOG_INFO);
 
-	lx.expect(equal(Symbols::LSEQ), lx.peek().view, STR_EXPECT, sym2str(Symbols::LSEQ));
-	lx.next();  // skip `[`
+	lx.expect(is_step, lx.peek().view, STR_STEP);
+	lx.next();  // skip `!` or `.`
 
 	Sequence seq { ctx.default_bpm };
 
-	while (lx.peek().kind != Symbols::RSEQ) {
-		lx.expect(is_step, lx.peek().view, STR_STEP);
+	while (is_step(lx.peek().kind))
 		seq.emplace_back(sym2step(lx.next().kind));
-	}
-
-	lx.expect(equal(Symbols::RSEQ), lx.peek().view, STR_EXPECT, sym2str(Symbols::RSEQ));
-	lx.next();  // skip `]`
 
 	return seq;
 }
@@ -764,7 +753,9 @@ inline Sequence prefix(Context& ctx, Lexer& lx, size_t bp) {
 			case Symbols::HEX:
 			case Symbols::BIN:   { seq = euclide   (ctx, lx); } break;
 			case Symbols::IDENT: { seq = reference (ctx, lx); } break;
-			case Symbols::LSEQ:  { seq = sequence  (ctx, lx); } break;
+
+			case Symbols::SKIP:
+			case Symbols::BEAT: { seq = sequence(ctx, lx); } break;
 
 			case Symbols::LPAREN: {
 				lx.next();  // skip `(`

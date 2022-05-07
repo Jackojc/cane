@@ -2,8 +2,7 @@ literal ::= ? [0-9_]+ ? | ? 0x[0-9A-z_]+ ? | ? 0b[0-1_]+ ?
 identifier ::= ? \S+ ?
 comment ::= ? #.+$ ?
 
-step ::= '!' | '.'
-sequence ::= '[' <step>* ']'
+sequence ::= ( '!' | '.' )*
 euclidean ::= <literal> '/' <literal>
 
 infix_e ::= ( '|' | '&' | '^' | ',' | "sync" ) <expr>
