@@ -820,9 +820,11 @@ inline Sequence infix_literal(Context& ctx, Lexer& lx, Sequence seq, size_t bp) 
 			lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
 			auto [view, kind] = lx.next();  // get identifier
 
-			// Assign or error if re-assigned.
-			if (auto [it, succ] = ctx.symbols.try_emplace(view, seq); not succ)
-				lx.error(Phases::SEMANTIC, view, STR_REDEFINED, view);
+			// Assign or warn if re-assigned.
+			if (auto [it, succ] = ctx.symbols.try_emplace(view, seq); not succ) {
+				lx.warning(Phases::SEMANTIC, view, STR_REDEFINED, view);
+				it->second = seq;
+			}
 		} break;
 
 
