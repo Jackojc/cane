@@ -85,6 +85,7 @@ int main(int, const char*[]) {
 		if (jack_activate(midi.client))
 			cane::general_error(cane::STR_MIDI_ACTIVATE_ERROR);
 
+
 		const char** ports = nullptr;
 
 		if (not (ports = jack_get_ports(midi.client, device.c_str(), JACK_DEFAULT_MIDI_TYPE, JackPortIsInput)))
@@ -103,29 +104,46 @@ int main(int, const char*[]) {
 		size_t dt = 0;
 		auto it = ctx.timeline.begin();
 
-		while (it != ctx.timeline.end()) {
-			while (it != ctx.timeline.end() and it->time <= dt) {
-				CANE_LOG(cane::LOG_INFO, "{}", *it);
+		size_t counter = 0;
+		while (true) {
+			cane::print(counter, ": ");
 
-				cane::printfmt(
-					"\r" CANE_ANSI_FG_CYAN "  events " CANE_ANSI_FG_YELLOW "{}" CANE_ANSI_FG_CYAN "/{}" CANE_ANSI_RESET,
-					std::distance(ctx.timeline.begin(), it) + 1,
-					ctx.timeline.size()
-				).flush();
+			while (it != ctx.timeline.end() and it->time <= dt) {
+				// CANE_LOG(cane::LOG_INFO, "{}", *it);
+
+				if ((it->status >> 4 & cane::MIDI_NOTE_ON) == cane::MIDI_NOTE_ON) {
+					cane::printfmt(
+						CANE_ANSI_FG_YELLOW "{} " CANE_ANSI_RESET,
+						it->status & 0xf,
+						std::distance(ctx.timeline.begin(), it) / 2 + 1,
+						ctx.timeline.size() / 2
+					).flush();
+				}
 
 				midi.events.emplace_back(*it);
 				++it;
 			}
 
-			// auto target = std::chrono::steady_clock::now() + 1ms;
-			// while (std::chrono::steady_clock::now() < target);
+			cane::println();
 
-			std::this_thread::sleep_for(1ms);
+			if (it == ctx.timeline.end())
+				break;
 
-			dt++;
+			auto slpt = it->time - dt;
+			auto target = std::chrono::steady_clock::now() + std::chrono::milliseconds { slpt };
+
+			while (std::chrono::steady_clock::now() < target) {
+				slpt /= 2;
+
+				if (slpt < 10)
+					continue;
+
+				std::this_thread::sleep_for(std::chrono::milliseconds { slpt });
+			}
+
+			dt += (it->time - dt);
+			counter++;
 		}
-
-		cane::println();
 	}
 
 	catch (cane::Error) {

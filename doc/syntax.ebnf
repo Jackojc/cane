@@ -10,8 +10,8 @@ infix_e ::= ( '|' | '&' | '^' | ',' | "sync" ) <expr>
 infix_l ::= ( '<<' | '>>' | '*' | '@' ) <literal>
 infix ::= <expr> ( <infix_e> | <infix_l> )
 
-prefix ::= ( '~' | '<' | '>' | '\'' ) <expr>
-postfix ::= <expr> ( '~' | '<' | '>' | '\'' | '?' )
+prefix ::= ( '~' | '\'' ) <expr>
+postfix ::= <expr> ( '<' | '>' | '?' )
 
 chain ::= <expr> '=>' <identifier>
 

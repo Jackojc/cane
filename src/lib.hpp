@@ -409,6 +409,34 @@ inline std::ostream& operator<<(std::ostream& os, Sequence& s) {
 }
 
 
+#define MIDI \
+	X(MIDI_NOTE_OFF,         0b1000) \
+	X(MIDI_NOTE_ON,          0b1001) \
+	X(MIDI_KEY_PRESSURE,     0b1010) \
+	X(MIDI_CONTROL_CHANGE,   0b1011) \
+	X(MIDI_CHANNEL_PRESSURE, 0b1101) \
+	X(MIDI_PITCH_BEND,       0b1110)
+
+	#define X(name, value) name = value,
+		enum { MIDI };
+	#undef X
+
+	#define X(name, value) value,
+		constexpr uint8_t MIDI_TO_INT[] = { MIDI };
+	#undef X
+
+	constexpr decltype(auto) midi2int(uint8_t m) {
+		return MIDI_TO_INT[m];
+	}
+
+	#define X(name, value) x == value ? #name:
+		constexpr decltype(auto) int2midi(uint8_t x) {
+			return MIDI 0;
+		}
+	#undef X
+
+#undef MIDI
+
 struct Event {
 	size_t time;
 	uint8_t status;
@@ -958,6 +986,10 @@ inline Context compile(Lexer& lx) {
 
 	while (lx.peek().kind != Symbols::TERMINATOR)
 		statement(ctx, lx);
+
+	// Turn off all notes when finished.
+	for (auto& [channel, time]: ctx.times)
+		ctx.timeline.emplace_back(time, 0b1011, channel, 123, 0);
 
 	return ctx;
 }
