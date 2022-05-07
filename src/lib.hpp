@@ -531,8 +531,6 @@ constexpr auto is_literal = partial_eq_any(
 
 constexpr auto is_prefix = partial_eq_any(
 	Symbols::INVERT,
-	Symbols::ROTL,
-	Symbols::ROTR,
 	Symbols::REV
 );
 
@@ -556,32 +554,16 @@ constexpr auto is_infix = [] (auto x) {
 	return is_infix_expr(x) or is_infix_literal(x);
 };
 
-constexpr auto is_postfix = [] (auto x) {
-	return
-		is_prefix(x) or
-		eq_any(x,
-			Symbols::INVERT,
-			Symbols::ROTL,
-			Symbols::ROTR,
-			Symbols::REV,
-			Symbols::DBG
-		)
-	;
-};
+constexpr auto is_postfix = partial_eq_any(
+	Symbols::ROTL,
+	Symbols::ROTR,
+	Symbols::DBG
+);
 
 constexpr auto is_step = partial_eq_any(
 	Symbols::SKIP,
 	Symbols::BEAT
 );
-
-constexpr auto is_operator = [] (auto x) {
-	return
-		is_prefix(x) or
-		is_infix_literal(x) or
-		is_infix_expr(x) or
-		is_postfix(x)
-	;
-};
 
 constexpr auto is_expr = [] (auto x) {
 	return
@@ -603,8 +585,6 @@ inline decltype(auto) prefix_bp(Lexer& lx, Token tok) {
 	// Left value is unused.
 	if (eq_any(tok.kind,
 		Symbols::REV,
-		Symbols::ROTL,
-		Symbols::ROTR,
 		Symbols::INVERT
 	))
 		return std::pair { 0u, 201u };
@@ -642,10 +622,8 @@ inline decltype(auto) postfix_bp(Lexer& lx, Token tok) {
 		return std::pair { 1u, 0u };
 
 	else if (eq_any(tok.kind,
-		Symbols::REV,
 		Symbols::ROTL,
-		Symbols::ROTR,
-		Symbols::INVERT
+		Symbols::ROTR
 	))
 		return std::pair { 2u, 0u };
 
@@ -739,12 +717,10 @@ inline Sequence prefix(Context& ctx, Lexer& lx, size_t bp) {
 	// Prefix operators.
 	if (is_prefix(tok.kind)) {
 		auto [lbp, rbp] = prefix_bp(lx, tok);
-		lx.next();
+		lx.next();  // skip operator
 
 		switch (tok.kind) {
 			case Symbols::REV:    { seq = reverse (expression(ctx, lx, rbp)); } break;
-			case Symbols::ROTL:   { seq = rotl    (expression(ctx, lx, rbp)); } break;
-			case Symbols::ROTR:   { seq = rotr    (expression(ctx, lx, rbp)); } break;
 			case Symbols::INVERT: { seq = invert  (expression(ctx, lx, rbp)); } break;
 
 			default: {
@@ -842,7 +818,7 @@ inline Sequence infix_literal(Context& ctx, Lexer& lx, Sequence seq, size_t bp) 
 
 		case Symbols::CHAIN: {
 			lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
-			auto [view, kind] = lx.next();
+			auto [view, kind] = lx.next();  // get identifier
 
 			// Assign or error if re-assigned.
 			if (auto [it, succ] = ctx.symbols.try_emplace(view, seq); not succ)
@@ -864,10 +840,8 @@ inline Sequence postfix(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
 	Token tok = lx.next();  // skip operator.
 
 	switch (tok.kind) {
-		case Symbols::REV:    { seq = reverse (std::move(seq)); } break;
 		case Symbols::ROTL:   { seq = rotl    (std::move(seq)); } break;
 		case Symbols::ROTR:   { seq = rotr    (std::move(seq)); } break;
-		case Symbols::INVERT: { seq = invert  (std::move(seq)); } break;
 
 
 		case Symbols::DBG: {
@@ -889,7 +863,11 @@ inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 	Sequence seq = prefix(ctx, lx, 0);
 	Token tok = lx.peek();
 
-	while (is_operator(tok.kind)) {
+	while (
+		is_infix_literal(tok.kind) or
+		is_infix_expr(tok.kind) or
+		is_postfix(tok.kind)
+	) {
 		if (is_postfix(tok.kind)) {
 			auto [lbp, rbp] = postfix_bp(lx, tok);
 
@@ -913,6 +891,10 @@ inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
 
 			else
 				lx.error(Phases::SYNTACTIC, tok.view, STR_INFIX);
+		}
+
+		else {
+			lx.error(Phases::SYNTACTIC, tok.view, STR_EXPR);
 		}
 
 		tok = lx.peek();

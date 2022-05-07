@@ -14,7 +14,7 @@
 
 
 int main(int, const char*[]) {
-	constexpr size_t bpm = 120;
+	constexpr size_t bpm = 240;
 	std::string device = "j2a";
 
 	try {
@@ -100,13 +100,11 @@ int main(int, const char*[]) {
 
 		jack_free(ports);
 
-		cane::general_notice("waiting 3s");
-
 		size_t dt = 0;
-		for (auto it = ctx.timeline.begin(); it != ctx.timeline.end();) {
-			auto begin = it;
+		auto it = ctx.timeline.begin();
 
-			while (it != ctx.timeline.end() and it->time < dt) {
+		while (it != ctx.timeline.end()) {
+			while (it != ctx.timeline.end() and it->time <= dt) {
 				CANE_LOG(cane::LOG_INFO, "{}", *it);
 
 				cane::printfmt(
@@ -119,8 +117,10 @@ int main(int, const char*[]) {
 				++it;
 			}
 
-			auto target = std::chrono::steady_clock::now() + 1ms;
-			while (std::chrono::steady_clock::now() < target);
+			// auto target = std::chrono::steady_clock::now() + 1ms;
+			// while (std::chrono::steady_clock::now() < target);
+
+			std::this_thread::sleep_for(1ms);
 
 			dt++;
 		}
