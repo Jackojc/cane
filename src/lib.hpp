@@ -67,13 +67,14 @@ inline void general_notice(Ts&&... args) {
 	X(TERMINATOR, "eof") \
 	\
 	/* Special */ \
-	X(CLEAR, "clear") \
-	X(WAIT, "wait") \
-	X(SYNC,  "sync") \
-	X(IDENT, "ident") \
-	X(INT,   "int") \
-	X(HEX,   "hex") \
-	X(BIN,   "bin") \
+	X(CLEAR,  "clear") \
+	X(WAIT,   "wait") \
+	X(ALIAS,  "alias") \
+	X(SYNC,   "sync") \
+	X(IDENT,  "ident") \
+	X(INT,    "int") \
+	X(HEX,    "hex") \
+	X(BIN,    "bin") \
 	\
 	/* Keywords & Grouping */ \
 	X(LPAREN, "(") \
@@ -293,6 +294,9 @@ struct Lexer {
 
 			else if (view == "wait"_sv)
 				kind = Symbols::WAIT;
+
+			else if (view == "alias"_sv)
+				kind = Symbols::ALIAS;
 		}
 
 		// If the kind is still NONE by this point, we can assume we didn't find
@@ -300,9 +304,8 @@ struct Lexer {
 		// if-else chain is because some checks are nested and only fail after
 		// succeeding with the original check so we wouldn't fall through if this
 		// check was connected.
-		if (kind == Symbols::NONE) {
+		if (kind == Symbols::NONE)
 			report_error(Phases::LEXICAL, original, view, STR_UNKNOWN_CHAR, view);
-		}
 
 		Token out = peek_;
 		peek_ = tok;
@@ -456,7 +459,9 @@ struct Event {
 
 struct Context {
 	std::unordered_map<View, Sequence> symbols;
+	std::unordered_map<View, size_t> aliases;
 	std::unordered_map<size_t, size_t> times;
+
 	std::vector<Event> timeline;
 	size_t default_bpm = DEFAULT_BPM;
 };
@@ -944,11 +949,33 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence seq) {
 	lx.expect(equal(Symbols::SINK), lx.peek().view, STR_EXPECT, sym2str(Symbols::SINK));
 	lx.next();  // skip `~>`
 
-	View chan_v = lx.peek().view;
-	Channel channel = literal(ctx, lx);
+	View view = lx.peek().view;
+	Channel channel = 0;
 
+
+	// Sink can be either a literal number or an alias defined previously.
+	if (is_literal(lx.peek().kind)) {
+		channel = literal(ctx, lx);
+	}
+
+	else if (lx.peek().kind == Symbols::IDENT) {
+		lx.next();  // skip identifier
+
+		auto it = ctx.aliases.find(view);
+		if (it == ctx.aliases.end())
+			lx.error(Phases::SEMANTIC, view, STR_UNDEFINED, view);
+
+		channel = it->second;
+	}
+
+	else {
+		lx.error(Phases::SYNTACTIC, lx.peek().view, STR_IDENT_LITERAL);
+	}
+
+
+	// Generate timeline events.
 	if (channel > CHANNEL_MAX)
-		lx.error(Phases::SEMANTIC, chan_v, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
+		lx.error(Phases::SEMANTIC, view, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
 
 	size_t ms_per_note = 60'000 / seq.bpm;
 
@@ -956,18 +983,13 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence seq) {
 	size_t& time = it->second;
 
 	for (Step s: seq) {
-		// Beat
-		if (s) {
+		if (s) { // Note on
 			ctx.timeline.emplace_back(time, 0b1001, channel, 52, 0b01111111);
 			ctx.timeline.emplace_back(time + ms_per_note, 0b1000, channel, 52, 0b01111111);
 		}
 
 		time += ms_per_note;
 	}
-
-	std::stable_sort(ctx.timeline.begin(), ctx.timeline.end(), [] (auto& a, auto& b) {
-		return a.time < b.time;
-	});
 
 	return seq;
 }
@@ -977,6 +999,7 @@ inline void statement(Context& ctx, Lexer& lx) {
 
 	Token tok = lx.peek();
 
+	// Clear the timeline.
 	if (tok.kind == Symbols::CLEAR) {
 		lx.next();  // skip `clear`
 
@@ -984,18 +1007,45 @@ inline void statement(Context& ctx, Lexer& lx) {
 		ctx.times.clear();
 	}
 
+	// Synchronise all sinks.
 	else if (tok.kind == Symbols::WAIT) {
 		lx.next();  // skip `wait`
 
+		// Find the channel with the current maximum time
+		// and then set every channels timer to it so they
+		// sychronise.
 		auto it = std::max_element(ctx.times.begin(), ctx.times.end(), [] (auto& a, auto& b) {
 			return a.second < b.second;
 		});
 
-		if (it != ctx.times.end()) {
-			size_t max_time = it->second;
+		if (it == ctx.times.end())
+			return;
 
-			for (auto& [channel, time]: ctx.times)
-				time = max_time;
+		size_t max_time = it->second;
+		for (auto& [channel, time]: ctx.times)
+			time = max_time;
+	}
+
+	// Alias a sink.
+	else if (tok.kind == Symbols::ALIAS) {
+		lx.next();  // skip `alias`
+
+		lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
+		auto [view, kind] = lx.next();  // get identifier
+
+		lx.expect(equal(Symbols::SINK), lx.peek().view, STR_EXPECT, sym2str(Symbols::SINK));
+		lx.next();  // skip `~>`
+
+		View chan_v = lx.peek().view;
+		Channel channel = literal(ctx, lx);
+
+		if (channel > CHANNEL_MAX)
+			lx.error(Phases::SEMANTIC, chan_v, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
+
+		// Assign or warn if re-assigned.
+		if (auto [it, succ] = ctx.aliases.try_emplace(view, channel); not succ) {
+			lx.warning(Phases::SEMANTIC, view, STR_REDEFINED, view);
+			it->second = channel;
 		}
 	}
 
@@ -1012,14 +1062,14 @@ inline void statement(Context& ctx, Lexer& lx) {
 }
 
 inline Context compile(Lexer& lx) {
-	CANE_LOG(LOG_INFO);
+	CANE_LOG(LOG_WARN);
 
 	Context ctx;
 
 	while (lx.peek().kind != Symbols::TERMINATOR)
 		statement(ctx, lx);
 
-	// Turn off all notes when finished.
+	// Send "all notes off" message to channels in use.
 	for (auto& [channel, time]: ctx.times)
 		ctx.timeline.emplace_back(time, 0b1011, channel, 123, 0);
 

@@ -24,7 +24,7 @@ namespace cane {
 	constexpr View STR_LITERAL       = "expecting a literal"_sv;
 	constexpr View STR_STEP          = "expecting a step"_sv;
 	constexpr View STR_IDENT         = "expecting an identifier"_sv;
-
+	constexpr View STR_IDENT_LITERAL = "expecting an identifier or literal"_sv;
 	constexpr View STR_PREFIX        = "expecting a prefix operator"_sv;
 	constexpr View STR_POSTFIX       = "expecting a postfix operator"_sv;
 	constexpr View STR_INFIX         = "expecting an infix operator"_sv;
@@ -38,8 +38,8 @@ namespace cane {
 	constexpr View STR_UNKNOWN_CHAR  = "unknown character `{}`"_sv;
 	constexpr View STR_NOT_NUMBER    = "invalid digit `{}`"_sv;
 
-	constexpr View STR_UNDEFINED     = "undefined variable `{}`"_sv;
-	constexpr View STR_REDEFINED     = "variable `{}` re-defined"_sv;
+	constexpr View STR_UNDEFINED     = "`{}` is undefined"_sv;
+	constexpr View STR_REDEFINED     = "`{}` has been re-defined"_sv;
 
 	constexpr View STR_DEBUG         = "sequence is `{}` @{}bpm"_sv;
 
