@@ -676,8 +676,6 @@ inline Sequence sequence(Context& ctx, Lexer& lx) {
 	CANE_LOG(LOG_INFO);
 
 	lx.expect(is_step, lx.peek().view, STR_STEP);
-	lx.next();  // skip `!` or `.`
-
 	Sequence seq { ctx.default_bpm };
 
 	while (is_step(lx.peek().kind))
@@ -775,21 +773,39 @@ inline Sequence prefix(Context& ctx, Lexer& lx, size_t bp) {
 	return seq;
 }
 
-inline Sequence infix_expr(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
+inline Sequence infix_expr(Context& ctx, Lexer& lx, Sequence lhs, size_t bp) {
 	CANE_LOG(LOG_INFO);
 
 	Token tok = lx.next();  // skip operator.
 
 	switch (tok.kind) {
-		case Symbols::CAT: { seq = cat            (std::move(seq), expression(ctx, lx, bp)); } break;
-		case Symbols::OR:  { seq = disjunction    (std::move(seq), expression(ctx, lx, bp)); } break;
-		case Symbols::AND: { seq = conjunction    (std::move(seq), expression(ctx, lx, bp)); } break;
-		case Symbols::XOR: { seq = ex_disjunction (std::move(seq), expression(ctx, lx, bp)); } break;
+		case Symbols::CAT: { lhs = cat            (std::move(lhs), expression(ctx, lx, bp)); } break;
+		case Symbols::OR:  { lhs = disjunction    (std::move(lhs), expression(ctx, lx, bp)); } break;
+		case Symbols::AND: { lhs = conjunction    (std::move(lhs), expression(ctx, lx, bp)); } break;
+		case Symbols::XOR: { lhs = ex_disjunction (std::move(lhs), expression(ctx, lx, bp)); } break;
 
 
 		case Symbols::SYNC: {
+			// When it comes to polyrhythms or polymeters, sequences will tend
+			// to come in and out of alignment and re-align after a certain
+			// amount of time. Here, we calculate how long it will take for
+			// two sequences to re-align so we can avoid cutting either of
+			// them short. The algorithm is fairly simple: we just calculate
+			// the absolute time it takes for each sequence to complete and
+			// find the lowest common multiple. We then divide the LCM by
+			// the absolute length to find the number of repetitions for the
+			// `lhs` in order to come back in phase with the `rhs`.
 			Sequence rhs = expression(ctx, lx, bp);
-			// TODO: synchronise sequences with uneven steps and/or bpm
+
+			size_t lhs_length = 60'000 / lhs.bpm * lhs.size();
+			size_t rhs_length = 60'000 / rhs.bpm * rhs.size();
+
+			size_t lcm = std::lcm(lhs_length, rhs_length);
+
+			size_t lhs_reps = lcm / lhs_length;
+			size_t rhs_reps = lcm / rhs_length;
+
+			lhs = repeat(lhs, lhs_reps);
 		} break;
 
 
@@ -798,7 +814,7 @@ inline Sequence infix_expr(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
 		} break;
 	}
 
-	return seq;
+	return lhs;
 }
 
 inline Sequence infix_literal(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {

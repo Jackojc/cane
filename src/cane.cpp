@@ -17,6 +17,9 @@ int main(int, const char*[]) {
 	constexpr size_t bpm = 240;
 	std::string device = "j2a";
 
+	// TODO: use bitset for flags
+	bool run = false;
+
 	try {
 		std::istreambuf_iterator<char> begin(std::cin), end;
 		std::string in(begin, end);
@@ -39,7 +42,10 @@ int main(int, const char*[]) {
 		time::duration<double, std::micro> t = t2 - t1;
 		CANE_LOG(cane::LOG_SUCC, CANE_ANSI_FG_YELLOW "took: {}µs" CANE_ANSI_RESET, t.count());
 
+		if (not run)
+			return 0;
 
+		// Sequencer.
 		using namespace std::chrono_literals;
 
 		struct JackData {
@@ -77,7 +83,7 @@ int main(int, const char*[]) {
 				std::memcpy(buffer, msg.data(), msg.size());
 			}
 
-			events.clear();
+			events.clear();  // important so that we don't leak memory
 
 			return 0;
 		}, static_cast<void*>(&midi));
