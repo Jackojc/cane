@@ -67,6 +67,7 @@ inline void general_notice(Ts&&... args) {
 	X(TERMINATOR, "eof") \
 	\
 	/* Special */ \
+	X(CLEAR, "clear") \
 	X(SYNC,  "sync") \
 	X(IDENT, "ident") \
 	X(INT,   "int") \
@@ -285,6 +286,9 @@ struct Lexer {
 
 			if (view == "sync"_sv)
 				kind = Symbols::SYNC;
+
+			else if (view == "clear"_sv)
+				kind = Symbols::CLEAR;
 		}
 
 		// If the kind is still NONE by this point, we can assume we didn't find
@@ -797,8 +801,8 @@ inline Sequence infix_expr(Context& ctx, Lexer& lx, Sequence lhs, size_t bp) {
 			// `lhs` in order to come back in phase with the `rhs`.
 			Sequence rhs = expression(ctx, lx, bp);
 
-			size_t lhs_length = 60'000 / lhs.bpm * lhs.size();
-			size_t rhs_length = 60'000 / rhs.bpm * rhs.size();
+			size_t lhs_length = (1000 * 60) / lhs.bpm * lhs.size();
+			size_t rhs_length = (1000 * 60) / rhs.bpm * rhs.size();
 
 			size_t lcm = std::lcm(lhs_length, rhs_length);
 
@@ -977,13 +981,23 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence seq) {
 inline void statement(Context& ctx, Lexer& lx) {
 	CANE_LOG(LOG_WARN);
 
-	if (not is_expr(lx.peek().kind))
+	if (lx.peek().kind == Symbols::CLEAR) {
+		lx.next();  // skip `clear`
+
+		ctx.timeline.clear();
+		ctx.times.clear();
+	}
+
+	else if (is_expr(lx.peek().kind)) {
+		Sequence seq = expression(ctx, lx, 0);
+
+		while (lx.peek().kind == Symbols::SINK)
+			seq = sink(ctx, lx, std::move(seq));
+	}
+
+	else {
 		lx.error(Phases::SYNTACTIC, lx.peek().view, STR_STATEMENT);
-
-	Sequence seq = expression(ctx, lx, 0);
-
-	while (lx.peek().kind == Symbols::SINK)
-		seq = sink(ctx, lx, std::move(seq));
+	}
 }
 
 inline Context compile(Lexer& lx) {
