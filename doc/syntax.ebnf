@@ -16,7 +16,9 @@ chain ::= <expr> '=>' <identifier>
 
 expr ::= <identifier> | <sequence> | <prefix> | <infix> | <postfix> | <chain> | '(' <expr> ')'
 
-sink ::= <expr> ( '~>' <literal> )*
-stat ::= ( <sink> | "clear" ) *
+sink ::= <expr> ( '~>' ( <literal> | <identifier> ) )*
+alias ::= "alias" <identifier> '~>' <literal>
+
+stat ::= ( <sink> | <alias> | "clear" ) *
 
 program ::= <stat>*
