@@ -471,12 +471,12 @@ template <typename V> constexpr decltype(auto) reverse(V v) {
 }
 
 template <typename V> constexpr decltype(auto) rotl(V v, size_t n = 1) {
-	std::rotate(v.begin(), v.begin() + n, v.end());
+	std::rotate(v.begin(), v.begin() + (n % v.size()), v.end());
 	return v;
 }
 
 template <typename V> constexpr decltype(auto) rotr(V v, size_t n = 1) {
-	std::rotate(v.rbegin(), v.rbegin() + n, v.rend());
+	std::rotate(v.rbegin(), v.rbegin() + (n % v.size()), v.rend());
 	return v;
 }
 
