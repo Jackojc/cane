@@ -68,6 +68,7 @@ inline void general_notice(Ts&&... args) {
 	\
 	/* Special */ \
 	X(CLEAR, "clear") \
+	X(WAIT, "wait") \
 	X(SYNC,  "sync") \
 	X(IDENT, "ident") \
 	X(INT,   "int") \
@@ -289,6 +290,9 @@ struct Lexer {
 
 			else if (view == "clear"_sv)
 				kind = Symbols::CLEAR;
+
+			else if (view == "wait"_sv)
+				kind = Symbols::WAIT;
 		}
 
 		// If the kind is still NONE by this point, we can assume we didn't find
@@ -448,16 +452,6 @@ struct Event {
 		return std::array { status, note, velocity };
 	}
 };
-
-inline std::ostream& operator<<(std::ostream& os, Event& e) {
-	out(os, CANE_ANSI_FG_YELLOW, (e.status & 0xf0) >> 4 == 0b1001 ? "ON": "OFF", CANE_ANSI_RESET " ");
-	out(os, "time: " CANE_ANSI_FG_CYAN, e.time, CANE_ANSI_RESET " ");
-	out(os, "channel: " CANE_ANSI_FG_CYAN, (int)e.status & 0x0f, CANE_ANSI_RESET " ");
-	out(os, "event: " CANE_ANSI_FG_CYAN, (int)e.status & 0xf0, CANE_ANSI_RESET " ");
-	out(os, "note: " CANE_ANSI_FG_CYAN, (int)e.note, CANE_ANSI_RESET " ");
-	out(os, "velocity: " CANE_ANSI_FG_CYAN, (int)e.velocity, CANE_ANSI_RESET " ");
-	return os;
-}
 
 
 struct Context {
@@ -981,14 +975,31 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence seq) {
 inline void statement(Context& ctx, Lexer& lx) {
 	CANE_LOG(LOG_WARN);
 
-	if (lx.peek().kind == Symbols::CLEAR) {
+	Token tok = lx.peek();
+
+	if (tok.kind == Symbols::CLEAR) {
 		lx.next();  // skip `clear`
 
 		ctx.timeline.clear();
 		ctx.times.clear();
 	}
 
-	else if (is_expr(lx.peek().kind)) {
+	else if (tok.kind == Symbols::WAIT) {
+		lx.next();  // skip `wait`
+
+		auto it = std::max_element(ctx.times.begin(), ctx.times.end(), [] (auto& a, auto& b) {
+			return a.second < b.second;
+		});
+
+		if (it != ctx.times.end()) {
+			size_t max_time = it->second;
+
+			for (auto& [channel, time]: ctx.times)
+				time = max_time;
+		}
+	}
+
+	else if (is_expr(tok.kind)) {
 		Sequence seq = expression(ctx, lx, 0);
 
 		while (lx.peek().kind == Symbols::SINK)
@@ -996,7 +1007,7 @@ inline void statement(Context& ctx, Lexer& lx) {
 	}
 
 	else {
-		lx.error(Phases::SYNTACTIC, lx.peek().view, STR_STATEMENT);
+		lx.error(Phases::SYNTACTIC, tok.view, STR_STATEMENT);
 	}
 }
 

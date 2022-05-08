@@ -39,7 +39,11 @@ int main(int, const char*[]) {
 		time::duration<double, std::micro> t = t2 - t1;
 		CANE_LOG(cane::LOG_SUCC, CANE_ANSI_FG_YELLOW "took: {}µs" CANE_ANSI_RESET, t.count());
 
-		// Sequencer.
+		if (ctx.timeline.empty())
+			return 0;
+
+
+		// Setup JACK
 		using namespace std::chrono_literals;
 
 		struct JackData {
@@ -52,6 +56,7 @@ int main(int, const char*[]) {
 			}
 		};
 
+		// Connect to JACK, register a port and register our callback.
 		JackData midi {};
 
 		if (not (midi.client = jack_client_open(cane::CSTR_EXE, JackOptions::JackNullOption, nullptr)))
@@ -68,6 +73,7 @@ int main(int, const char*[]) {
 
 			uint8_t* buffer = nullptr;
 
+			// Copy every MIDI event into the buffer provided by JACK.
 			for (cane::Event& ev: events) {
 				std::array msg = ev.message();
 
@@ -86,12 +92,13 @@ int main(int, const char*[]) {
 			cane::general_error(cane::STR_MIDI_ACTIVATE_ERROR);
 
 
+		// Get an array of all MIDI input ports that we could potentially connect to.
 		const char** ports = nullptr;
 
 		if (not (ports = jack_get_ports(midi.client, device.c_str(), JACK_DEFAULT_MIDI_TYPE, JackPortIsInput)))
 			cane::general_error(cane::STR_MIDI_GET_PORTS_ERROR);
 
-		if (*ports == nullptr)
+		if (*ports == nullptr)  // No MIDI input ports.
 			cane::general_error(cane::STR_MIDI_NOT_FOUND, device);
 
 		cane::general_notice(cane::STR_MIDI_FOUND, *ports);
@@ -101,34 +108,24 @@ int main(int, const char*[]) {
 
 		jack_free(ports);
 
+
+		// Sequencer
 		size_t dt = 0;
 		auto it = ctx.timeline.begin();
 
-		size_t counter = 0;
 		while (true) {
-			cane::print(counter, ": ");
-
-			while (it != ctx.timeline.end() and it->time <= dt) {
-				// CANE_LOG(cane::LOG_INFO, "{}", *it);
-
-				if ((it->status >> 4 & cane::MIDI_NOTE_ON) == cane::MIDI_NOTE_ON) {
-					cane::printfmt(
-						CANE_ANSI_FG_YELLOW "{} " CANE_ANSI_RESET,
-						it->status & 0xf,
-						std::distance(ctx.timeline.begin(), it) / 2 + 1,
-						ctx.timeline.size() / 2
-					).flush();
-				}
-
+			// Gather all events we need to send now.
+			for (; it != ctx.timeline.end() and it->time <= dt; ++it)
 				midi.events.emplace_back(*it);
-				++it;
-			}
-
-			cane::println();
 
 			if (it == ctx.timeline.end())
 				break;
 
+			// Wait until the next event.
+			// We wait for successively shorter times until we apprach the
+			// target until we end up in a busy loop to make sure we keep
+			// latency from the OS scheduler to a minimum while also not
+			// turning the CPU into a glorified heater.
 			auto slpt = it->time - dt;
 			auto target = std::chrono::steady_clock::now() + std::chrono::milliseconds { slpt };
 
@@ -142,7 +139,6 @@ int main(int, const char*[]) {
 			}
 
 			dt += (it->time - dt);
-			counter++;
 		}
 	}
 
