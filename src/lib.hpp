@@ -808,7 +808,7 @@ inline Sequence infix_expr(Context& ctx, Lexer& lx, Sequence lhs, size_t bp) {
 			size_t lhs_reps = lcm / lhs_length;
 			size_t rhs_reps = lcm / rhs_length;
 
-			lhs = repeat(lhs, lhs_reps);
+			lhs = repeat(std::move(lhs), lhs_reps);
 		} break;
 
 
@@ -990,6 +990,12 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence seq) {
 
 		time += ms_per_note;
 	}
+
+	// This is important to make sure the timeline is ordered based on
+	// timestamp or else we get a garbled song.
+	std::stable_sort(ctx.timeline.begin(), ctx.timeline.end(), [] (auto& a, auto& b) {
+		return a.time < b.time;
+	});
 
 	return seq;
 }

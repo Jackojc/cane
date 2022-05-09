@@ -18,8 +18,8 @@ int main(int, const char*[]) {
 	std::string device = "j2a";
 
 	try {
-		std::istreambuf_iterator<char> begin(std::cin), end;
-		std::string in(begin, end);
+		std::istreambuf_iterator<char> begin { std::cin }, end;
+		std::string in { begin, end };
 
 		cane::View src { &*in.begin(), &*in.end() };
 		cane::Lexer lx { src };
