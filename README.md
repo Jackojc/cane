@@ -1,7 +1,8 @@
 # cane
 > The beatings will continue until a banger is made
 
-A small MIDI sequencer DSL designed around vectors and euclidean rhythms
+A small MIDI sequencer DSL designed around polymeters, polyrhythms
+and euclidean rhythms.
 
 ![c++](https://img.shields.io/badge/c%2B%2B-17-blue.svg?style=flat)
 [![issues](https://img.shields.io/github/issues/Jackojc/cane.svg?style=flat)](https://github.com/Jackojc/cane/issues)
@@ -11,8 +12,37 @@ A small MIDI sequencer DSL designed around vectors and euclidean rhythms
 
 ### Example
 ```
-4/8   => kick  => midi 0 @ 240
-4/8+2 => snare => midi 0 @ 240
+# Channels
+alias kick_chnl    ~> 0
+alias snare_chnl   ~> 3
+alias hihat_chnl   ~> 4
+alias hammer_chnl  ~> 6
+alias pop_chnl     ~> 7
+alias ride_chnl    ~> 8
+alias crunchy_chnl ~> 9
+
+# Sequences
+8/16              @240 => kick
+4/16 >> 2         @240 => pop
+3/8 >> 3, (.*8)   @240 => ride
+2/6 * 2, 3/4 >> 3 @240 => crunchy
+2/16              @240 => hammer
+
+# 2:3 Polyrhythm
+!*4 => a
+!*6 => b
+
+a fit b fit kick => hihat
+b fit b fit kick => snare
+
+# Send sequences to MIDI channels
+kick *4    ~> kick_chnl
+pop *4     ~> pop_chnl
+ride *4    ~> ride_chnl
+crunchy *4 ~> crunchy_chnl
+hammer *4  ~> hammer_chnl
+snare *4   ~> snare_chnl
+hihat *4   ~> hihat_chnl
 ```
 
 ### Introduction & Reference
