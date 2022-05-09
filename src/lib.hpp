@@ -283,9 +283,11 @@ struct Lexer {
 			begin = lbegin;  // Make sure to set the begin pointer here so that we handle the lone 0 case aswell.
 		}
 
-		else if (cane::is_letter(c)) {
+		else if (cane::is_letter(c) or c == '_') {
 			kind = Symbols::IDENT;
-			view = cane::consume_char(src, c, cane::is_alphanumeric);
+			view = cane::consume_char(src, c, [] (uint32_t c) {
+				return cane::is_alphanumeric(c) or c == '_';
+			});
 
 			if (view == "sync"_sv)
 				kind = Symbols::SYNC;
@@ -827,7 +829,7 @@ inline Sequence infix_expr(Context& ctx, Lexer& lx, Sequence lhs, size_t bp) {
 			// form polyrhythms. It is somewhat similar to SYNC but it
 			// doesn't align the sequences by repetition.
 			Sequence rhs = expression(ctx, lx, bp);
-			lhs.bpm = lhs.bpm * lhs.size() / rhs.size();
+			lhs.bpm = rhs.bpm * lhs.size() / rhs.size();
 		} break;
 
 
@@ -904,7 +906,7 @@ inline Sequence postfix(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
 
 
 		case Symbols::DBG: {
-			lx.notice(Phases::SEMANTIC, tok.view, STR_DEBUG, seq, seq.bpm);
+			lx.notice(Phases::SEMANTIC, tok.view, STR_DEBUG, seq, seq.bpm, ((60 * 1000) * seq.size() / seq.bpm) / 1000.f);
 		} break;
 
 

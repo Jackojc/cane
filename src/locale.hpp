@@ -41,7 +41,7 @@ namespace cane {
 	constexpr View STR_UNDEFINED     = "`{}` is undefined"_sv;
 	constexpr View STR_REDEFINED     = "`{}` has been re-defined"_sv;
 
-	constexpr View STR_DEBUG         = "sequence is `{}` @{}bpm"_sv;
+	constexpr View STR_DEBUG         = "sequence is `{}` @{}bpm/{}s"_sv;
 
 	constexpr View STR_MIDI_FOUND           = "found port `{}`"_sv;
 	constexpr View STR_MIDI_NOT_FOUND       = "port `{}` not found"_sv;
