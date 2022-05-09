@@ -112,9 +112,6 @@ namespace cane {
 		padding();
 		outln(os);
 
-		padding();
-		outlnfmt(os, " " CANE_ANSI_FG_CYAN "|" CANE_ANSI_RESET);
-
 		outfmt(os, " " CANE_ANSI_FG_CYAN "{}" CANE_ANSI_RESET " " CANE_ANSI_FG_CYAN "|" CANE_ANSI_RESET " ", line_n);
 
 		if (sv.is_eof())
@@ -122,8 +119,7 @@ namespace cane {
 		else
 			outlnfmt(os, "{}{}{}{}{}", before, highlight, sv, CANE_ANSI_RESET, after);
 
-		padding();
-		outlnfmt(os, " {}|{}\n", CANE_ANSI_FG_CYAN, CANE_ANSI_RESET);
+		outln(os);
 
 		return os;
 	}
