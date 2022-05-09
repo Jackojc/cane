@@ -71,6 +71,7 @@ inline void general_notice(Ts&&... args) {
 	X(WAIT,   "wait") \
 	X(ALIAS,  "alias") \
 	X(SYNC,   "sync") \
+	X(FIT,    "fit") \
 	X(IDENT,  "ident") \
 	X(INT,    "int") \
 	X(HEX,    "hex") \
@@ -297,6 +298,9 @@ struct Lexer {
 
 			else if (view == "alias"_sv)
 				kind = Symbols::ALIAS;
+
+			else if (view == "fit"_sv)
+				kind = Symbols::FIT;
 		}
 
 		// If the kind is still NONE by this point, we can assume we didn't find
@@ -564,7 +568,8 @@ constexpr auto is_infix_expr = partial_eq_any(
 	Symbols::AND,
 	Symbols::XOR,
 	Symbols::CAT,
-	Symbols::SYNC
+	Symbols::SYNC,
+	Symbols::FIT
 );
 
 constexpr auto is_infix_literal = partial_eq_any(
@@ -619,8 +624,7 @@ inline decltype(auto) prefix_bp(Lexer& lx, Token tok) {
 
 inline decltype(auto) infix_bp(Lexer& lx, Token tok) {
 	if (eq_any(tok.kind,
-		Symbols::CHAIN,
-		Symbols::SYNC
+		Symbols::CHAIN
 	))
 		return std::pair { 103u, 104u };
 
@@ -635,6 +639,12 @@ inline decltype(auto) infix_bp(Lexer& lx, Token tok) {
 		Symbols::REPN
 	))
 		return std::pair { 105u, 106u };
+
+	else if (eq_any(tok.kind,
+		Symbols::SYNC,
+		Symbols::FIT
+	))
+		return std::pair { 107u, 108u };
 
 	lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
 }
@@ -809,6 +819,15 @@ inline Sequence infix_expr(Context& ctx, Lexer& lx, Sequence lhs, size_t bp) {
 			size_t rhs_reps = lcm / rhs_length;
 
 			lhs = repeat(std::move(lhs), lhs_reps);
+		} break;
+
+		case Symbols::FIT: {
+			// This operator instead stretches or shrinks the sequence
+			// to fit within the time of the other sequence so you can
+			// form polyrhythms. It is somewhat similar to SYNC but it
+			// doesn't align the sequences by repetition.
+			Sequence rhs = expression(ctx, lx, bp);
+			lhs.bpm = lhs.bpm * lhs.size() / rhs.size();
 		} break;
 
 

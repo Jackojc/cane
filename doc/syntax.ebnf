@@ -5,7 +5,7 @@ comment ::= ? #.+$ ?
 sequence ::= ( '!' | '.' )*
 euclidean ::= <literal> '/' <literal>
 
-infix_e ::= ( '|' | '&' | '^' | ',' | "sync" ) <expr>
+infix_e ::= ( '|' | '&' | '^' | ',' | "sync" | "fit" ) <expr>
 infix_l ::= ( '<<' | '>>' | '*' | '@' ) <literal>
 infix ::= <expr> ( <infix_e> | <infix_l> )
 
