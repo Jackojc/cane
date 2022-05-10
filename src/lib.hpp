@@ -73,11 +73,15 @@ inline void general_notice(Ts&&... args) {
 	X(BIN,   "bin") \
 	\
 	/* Sequence Keywords */ \
-	X(CLEAR, "clear") \
-	X(WAIT,  "wait") \
-	X(ALIAS, "alias") \
-	X(SYNC,  "sync") \
-	X(FIT,   "fit") \
+	X(CLEAR,  "clear") \
+	X(WAIT,   "wait") \
+	X(ALIAS,  "alias") \
+	X(SYNC,   "sync") \
+	X(FIT,    "fit") \
+	X(PREFIX, "prefix") \
+	X(SUFFIX, "suffix") \
+	X(HEAD,   "head") \
+	X(TAIL,   "tail") \
 	\
 	/* Grouping */ \
 	X(LPAREN, "(") \
@@ -152,6 +156,7 @@ struct Lexer {
 	cane::View src {};
 
 	cane::Token peek_ {};
+	cane::Token prev_ {};
 
 	constexpr Lexer(cane::View src_): original(src_), src(src_) {
 		next();  // this can throw
@@ -180,6 +185,10 @@ struct Lexer {
 
 	inline Token peek() const {
 		return peek_;
+	}
+
+	inline Token prev() const {
+		return prev_;
 	}
 
 	inline Token next() {
@@ -315,30 +324,23 @@ struct Lexer {
 			begin = lbegin;  // Make sure to set the begin pointer here so that we handle the lone 0 case aswell.
 		}
 
-		else if (cane::is_visible(c)) {
+		else if (cane::is_letter(c) or c == '_') {
 			kind = Symbols::IDENT;
-			view = cane::consume_char(src, c, cane::is_visible);
+			view = cane::consume_char(src, c, [] (uint32_t c) {
+				return cane::is_alphanumeric(c) or c == '_';
+			});
 
-			if (view == "sync"_sv)
-				kind = Symbols::SYNC;
-
-			else if (view == "clear"_sv)
-				kind = Symbols::CLEAR;
-
-			else if (view == "wait"_sv)
-				kind = Symbols::WAIT;
-
-			else if (view == "alias"_sv)
-				kind = Symbols::ALIAS;
-
-			else if (view == "fit"_sv)
-				kind = Symbols::FIT;
-
-			else if (view == "len"_sv)
-				kind = Symbols::LEN;
-
-			else if (view == "let"_sv)
-				kind = Symbols::LET;
+			if      (view == "sync"_sv)   kind = Symbols::SYNC;
+			else if (view == "clear"_sv)  kind = Symbols::CLEAR;
+			else if (view == "wait"_sv)   kind = Symbols::WAIT;
+			else if (view == "alias"_sv)  kind = Symbols::ALIAS;
+			else if (view == "fit"_sv)    kind = Symbols::FIT;
+			else if (view == "len"_sv)    kind = Symbols::LEN;
+			else if (view == "let"_sv)    kind = Symbols::LET;
+			else if (view == "prefix"_sv) kind = Symbols::PREFIX;
+			else if (view == "suffix"_sv) kind = Symbols::SUFFIX;
+			else if (view == "head"_sv)   kind = Symbols::HEAD;
+			else if (view == "tail"_sv)   kind = Symbols::TAIL;
 		}
 
 		// If the kind is still NONE by this point, we can assume we didn't find
@@ -350,6 +352,7 @@ struct Lexer {
 			report_error(Phases::LEXICAL, original, view, STR_UNKNOWN_CHAR, view);
 
 		Token out = peek_;
+		prev_ = peek_;
 		peek_ = tok;
 
 		return out;
@@ -610,7 +613,15 @@ constexpr auto is_lit_infix = partial_eq_any(
 );
 
 constexpr auto is_seq_prefix = partial_eq_any(Symbols::INVERT, Symbols::REV);
-constexpr auto is_seq_postfix = partial_eq_any(Symbols::ROTL, Symbols::ROTR, Symbols::DBG);
+constexpr auto is_seq_postfix = partial_eq_any(
+	Symbols::PREFIX,
+	Symbols::SUFFIX,
+	Symbols::HEAD,
+	Symbols::TAIL,
+	Symbols::ROTL,
+	Symbols::ROTR,
+	Symbols::DBG
+);
 
 constexpr auto is_seq_infix_expr = partial_eq_any(
 	Symbols::OR,
@@ -729,6 +740,10 @@ inline decltype(auto) seq_postfix_bp(Lexer& lx, Token tok) {
 		return std::pair { 1u, 0u };
 
 	else if (eq_any(tok.kind,
+		Symbols::PREFIX,
+		Symbols::SUFFIX,
+		Symbols::HEAD,
+		Symbols::TAIL,
 		Symbols::ROTL,
 		Symbols::ROTR
 	))
@@ -772,23 +787,28 @@ inline Sequence sequence(Context& ctx, Lexer& lx) {
 inline Sequence euclide(Context& ctx, Lexer& lx) {
 	CANE_LOG(LOG_INFO);
 
-	View lv = lx.peek().view;
+	View lit_v = lx.peek().view;
 
 	size_t steps = 0;
 	size_t beats = lit_expression(ctx, lx, 0);
 
 	lx.expect(equal(Symbols::SEP), lx.peek().view, STR_EXPECT, sym2str(Symbols::SEP));
-	lx.next();  // skip `/`
+	lx.next();  // skip `:`
 
 	steps = lit_expression(ctx, lx, 0);
 
 	if (beats > steps)
-		lx.error(Phases::SEMANTIC, lv, STR_LESSER_EQ, steps);
+		lx.error(Phases::SEMANTIC, lit_v, STR_LESSER_EQ, steps);
 
 	Sequence seq { ctx.default_bpm };
 
 	for (size_t i = 0; i != steps; ++i)
 		seq.emplace_back(((i * beats) % steps) < beats);
+
+	View euc_v = lx.prev().view;
+
+	if (seq.empty())
+		lx.error(Phases::SEMANTIC, cane::overlap(lit_v, euc_v), STR_EMPTY);
 
 	return seq;
 }
@@ -1082,8 +1102,46 @@ inline Sequence seq_postfix(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
 	Token tok = lx.next();  // skip operator.
 
 	switch (tok.kind) {
-		case Symbols::ROTL:   { seq = rotl    (std::move(seq)); } break;
-		case Symbols::ROTR:   { seq = rotr    (std::move(seq)); } break;
+		case Symbols::ROTL: { seq = rotl (std::move(seq)); } break;
+		case Symbols::ROTR: { seq = rotr (std::move(seq)); } break;
+
+
+		case Symbols::PREFIX: {
+			auto it = seq.begin();
+
+			if (it == seq.end())
+				lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
+
+			seq.insert(seq.begin(), *it);
+			seq.erase(seq.begin() + 1, seq.end());
+		} break;
+
+		case Symbols::SUFFIX: {
+			auto it = seq.rbegin();
+
+			if (it == seq.rend())
+				lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
+
+			seq.insert(seq.begin(), *it);
+			seq.erase(seq.begin() + 1, seq.end());
+		} break;
+
+		case Symbols::HEAD: {
+			if (seq.empty())
+				lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
+
+			if (seq.size() > 1)
+				seq.pop_back();
+		} break;
+
+		case Symbols::TAIL: {
+			if (seq.empty())
+				lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
+
+			if (seq.size() > 1)
+				seq.erase(seq.begin());
+		} break;
+
 
 		case Symbols::DBG: {
 			lx.notice(Phases::SEMANTIC, tok.view, STR_DEBUG, seq, seq.bpm, ((60 * 1000) * seq.size() / seq.bpm) / 1000.f);

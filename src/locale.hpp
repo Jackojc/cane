@@ -44,6 +44,7 @@ namespace cane {
 	constexpr View STR_EXPECT        = "expecting `{}`"_sv;
 	constexpr View STR_UNKNOWN_CHAR  = "unknown character `{}`"_sv;
 	constexpr View STR_NOT_NUMBER    = "invalid digit `{}`"_sv;
+	constexpr View STR_EMPTY         = "empty sequence"_sv;
 
 	constexpr View STR_UNDEFINED     = "`{}` is undefined"_sv;
 	constexpr View STR_REDEFINED     = "`{}` has been re-defined"_sv;

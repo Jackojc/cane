@@ -576,9 +576,6 @@ namespace cane {
 
 	// Return a new view of the overlapping region of 2 other views.
 	constexpr View overlap(View a, View b) {
-		if (not overlapping_intervals(a.begin, a.end, b.begin, b.end))
-			return a;
-
 		return { a.begin, b.end };
 	}
 
