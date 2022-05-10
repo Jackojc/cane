@@ -1,24 +1,37 @@
+// Lexical Grammar
 literal ::= ? [0-9_]+ ? | ? 0x[0-9A-z_]+ ? | ? 0b[0-1_]+ ?
 identifier ::= ? \S+ ?
 comment ::= ? #.+$ ?
 
+
+// Sequences
 sequence ::= ( '!' | '.' )*
 euclidean ::= <literal> '/' <literal>
 
-infix_e ::= ( '|' | '&' | '^' | ',' | "sync" | "fit" ) <expr>
-infix_l ::= ( '<<' | '>>' | '*' | '@' ) <literal>
-infix ::= <expr> ( <infix_e> | <infix_l> )
 
-prefix ::= ( '~' | '\'' ) <expr>
-postfix ::= <expr> ( '<' | '>' | '?' )
+// Literal Operators
+lit_intrinsic ::= ( "len" ) <expr>
+lit_infix ::= <expr> ( '+' | '-' | '*' | '/' | '%' ) <lit_expr>
+lit_prefix ::= ( '+' | '-' ) <expr>
 
+lit_expr ::= <lit_intrinsic> | <lit_prefix> | <lit_infix>
+
+
+// Sequence Operators
+seq_infix_expr ::= <expr> ( '|' | '&' | '^' | ',' | "sync" | "fit" ) <expr>
+seq_infix_lit ::= <expr> ( '<<' | '>>' | '*' | '@' ) <lit_expr>
+seq_infix ::= <seq_infix_expr> | <seq_infix_lit>
+
+seq_prefix ::= ( '~' | '\'' ) <expr>
+seq_postfix ::= <expr> ( '<' | '>' | '?' )
 chain ::= <expr> '=>' <identifier>
 
-expr ::= <identifier> | <sequence> | <prefix> | <infix> | <postfix> | <chain> | '(' <expr> ')'
+expr ::= <identifier> | <sequence> | <seq_prefix> | <seq_infix> | <seq_postfix> | <chain> | '(' <expr> ')'
 
+
+// Statements
 sink ::= <expr> ( '~>' ( <literal> | <identifier> ) )*
 alias ::= "alias" <identifier> '~>' <literal>
 
 stat ::= ( <sink> | <alias> | "clear" ) *
-
 program ::= <stat>*
