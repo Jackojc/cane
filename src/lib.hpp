@@ -92,6 +92,7 @@ inline void general_notice(Ts&&... args) {
 	\
 	/* Literal Keywords */ \
 	X(LEN, "len") \
+	X(LET, "let") \
 	\
 	/* Sequence */ \
 	X(SEP,  ":") \
@@ -335,6 +336,9 @@ struct Lexer {
 
 			else if (view == "len"_sv)
 				kind = Symbols::LEN;
+
+			else if (view == "let"_sv)
+				kind = Symbols::LET;
 		}
 
 		// If the kind is still NONE by this point, we can assume we didn't find
@@ -499,6 +503,7 @@ struct Event {
 
 struct Context {
 	std::unordered_map<View, Sequence> symbols;
+	std::unordered_map<View, Literal> constants;
 	std::unordered_map<View, size_t> aliases;
 	std::unordered_map<size_t, size_t> times;
 
@@ -571,12 +576,13 @@ inline size_t literal (Context&, Lexer&);
 // Sequence expressions
 inline Sequence sequence  (Context&, Lexer&);
 inline Sequence euclide   (Context&, Lexer&);
-inline Sequence reference (Context&, Lexer&);
 
+inline Literal lit_reference (Context&, Lexer&);
 inline Literal lit_prefix     (Context&, Lexer&, size_t);
 inline Literal lit_infix      (Context&, Lexer&, Literal, size_t);
 inline Literal lit_expression (Context&, Lexer&, size_t);
 
+inline Sequence seq_reference (Context&, Lexer&);
 inline Sequence seq_prefix        (Context&, Lexer&, size_t);
 inline Sequence seq_infix_expr    (Context&, Lexer&, Sequence, size_t);
 inline Sequence seq_infix_literal (Context&, Lexer&, Sequence, size_t);
@@ -787,19 +793,30 @@ inline Sequence euclide(Context& ctx, Lexer& lx) {
 	return seq;
 }
 
-inline Sequence reference(Context& ctx, Lexer& lx) {
+inline Sequence seq_reference(Context& ctx, Lexer& lx) {
 	CANE_LOG(LOG_INFO);
 
 	lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
 	auto [view, kind] = lx.next();
 
 	// Lookup symbol
-	auto it = ctx.symbols.find(view);
+	if (auto it = ctx.symbols.find(view); it != ctx.symbols.end())
+		return it->second;
 
-	if (it == ctx.symbols.end())
-		lx.error(Phases::SEMANTIC, view, STR_UNDEFINED, view);
+	lx.error(Phases::SEMANTIC, view, STR_UNDEFINED, view);
+}
 
-	return it->second;
+inline Literal lit_reference(Context& ctx, Lexer& lx) {
+	CANE_LOG(LOG_INFO);
+
+	lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
+	auto [view, kind] = lx.next();
+
+	// Lookup constant
+	if (auto it = ctx.constants.find(view); it != ctx.constants.end())
+		return it->second;
+
+	lx.error(Phases::SEMANTIC, view, STR_UNDEFINED, view);
 }
 
 // Literals
@@ -814,7 +831,7 @@ inline Literal lit_prefix(Context& ctx, Lexer& lx, size_t bp) {
 		lx.next();  // skip operator
 
 		switch (tok.kind) {
-			case Symbols::ADD: { lit *= 1;  } break;
+			case Symbols::ADD: { lit *=  1; } break;
 			case Symbols::SUB: { lit *= -1; } break;
 
 			case Symbols::LEN: {
@@ -829,6 +846,10 @@ inline Literal lit_prefix(Context& ctx, Lexer& lx, size_t bp) {
 
 	else if (is_literal(tok.kind)) {
 		lit = literal(ctx, lx);
+	}
+
+	else if (tok.kind == Symbols::IDENT) {
+		lit = lit_reference(ctx, lx);
 	}
 
 	else {
@@ -924,8 +945,8 @@ inline Sequence seq_prefix(Context& ctx, Lexer& lx, size_t bp) {
 		switch (tok.kind) {
 			case Symbols::INT:
 			case Symbols::HEX:
-			case Symbols::BIN:   { seq = euclide   (ctx, lx); } break;
-			case Symbols::IDENT: { seq = reference (ctx, lx); } break;
+			case Symbols::BIN:   { seq = euclide       (ctx, lx); } break;
+			case Symbols::IDENT: { seq = seq_reference (ctx, lx); } break;
 
 			case Symbols::SKIP:
 			case Symbols::BEAT: { seq = sequence(ctx, lx); } break;
@@ -1239,6 +1260,21 @@ inline void statement(Context& ctx, Lexer& lx) {
 		if (auto [it, succ] = ctx.aliases.try_emplace(view, channel); not succ) {
 			lx.warning(Phases::SEMANTIC, view, STR_REDEFINED, view);
 			it->second = channel;
+		}
+	}
+
+	else if (tok.kind == Symbols::LET) {
+		lx.next();  // skip `const`
+
+		lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
+		auto [view, kind] = lx.next();  // get identifier
+
+		Literal lit = lit_expression(ctx, lx, 0);
+
+		// Assign or warn if re-assigned.
+		if (auto [it, succ] = ctx.constants.try_emplace(view, lit); not succ) {
+			lx.warning(Phases::SEMANTIC, view, STR_REDEFINED, view);
+			it->second = lit;
 		}
 	}
 

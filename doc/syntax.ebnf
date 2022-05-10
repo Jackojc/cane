@@ -30,7 +30,8 @@ expr ::= <identifier> | <sequence> | <seq_prefix> | <seq_infix> | <seq_postfix> 
 
 // Statements
 sink ::= <expr> ( '~>' ( <literal> | <identifier> ) )*
+let ::= "let" <identifier> <lit_expr>
 alias ::= "alias" <identifier> '~>' <literal>
 
-stat ::= ( <sink> | <alias> | "clear" ) *
+stat ::= ( <sink> | <lett> | <alias> | "clear" ) *
 program ::= <stat>*
