@@ -13,36 +13,36 @@ and euclidean rhythms.
 ### Example
 ```
 # Channels
-alias kick_chnl    ~> 0
-alias snare_chnl   ~> 3
-alias hihat_chnl   ~> 4
-alias hammer_chnl  ~> 6
-alias pop_chnl     ~> 7
-alias ride_chnl    ~> 8
-alias crunchy_chnl ~> 9
+alias kick    ~> 1
+alias snare   ~> 4
+alias hihat   ~> 5
+alias hammer  ~> 7
+alias pop     ~> 8
+alias ride    ~> 9
+alias crunchy ~> 10
 
 # Sequences
-8/16              @240 => kick
-4/16 >> 2         @240 => pop
-3/8 >> 3, (.*8)   @240 => ride
-2/6 * 2, 3/4 >> 3 @240 => crunchy
-2/16              @240 => hammer
+8:16               @240 => kick
+4:16 >> 2          @240 => pop
+3:8 >> 3, (.**8)   @240 => ride
+2:6 ** 2, 3:4 >> 3 @240 => crunchy
+2:16               @240 => hammer
 
 # 2:3 Polyrhythm
-!*4 => a
-!*6 => b
+!**4 => a
+!**6 => b
 
 a fit b fit kick => hihat
 b fit b fit kick => snare
 
 # Send sequences to MIDI channels
-kick *4    ~> kick_chnl
-pop *4     ~> pop_chnl
-ride *4    ~> ride_chnl
-crunchy *4 ~> crunchy_chnl
-hammer *4  ~> hammer_chnl
-snare *4   ~> snare_chnl
-hihat *4   ~> hihat_chnl
+kick **4    ~> kick
+pop **4     ~> pop
+ride **4    ~> ride
+crunchy **4 ~> crunchy
+hammer **4  ~> hammer
+snare **4   ~> snare
+hihat **4   ~> hihat
 ```
 
 ### Introduction & Reference
