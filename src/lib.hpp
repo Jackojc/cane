@@ -73,15 +73,13 @@ inline void general_notice(Ts&&... args) {
 	X(BIN,   "bin") \
 	\
 	/* Sequence Keywords */ \
-	X(CLEAR,  "clear") \
-	X(WAIT,   "wait") \
-	X(ALIAS,  "alias") \
-	X(SYNC,   "sync") \
-	X(FIT,    "fit") \
-	X(PREFIX, "prefix") \
-	X(SUFFIX, "suffix") \
-	X(HEAD,   "head") \
-	X(TAIL,   "tail") \
+	X(CLEAR, "clear") \
+	X(WAIT,  "wait") \
+	X(ALIAS, "alias") \
+	X(SYNC,  "sync") \
+	X(FIT,   "fit") \
+	X(CAR,   "car") \
+	X(CDR,   "cdr") \
 	\
 	/* Grouping */ \
 	X(LPAREN, "(") \
@@ -337,10 +335,8 @@ struct Lexer {
 			else if (view == "fit"_sv)    kind = Symbols::FIT;
 			else if (view == "len"_sv)    kind = Symbols::LEN;
 			else if (view == "let"_sv)    kind = Symbols::LET;
-			else if (view == "prefix"_sv) kind = Symbols::PREFIX;
-			else if (view == "suffix"_sv) kind = Symbols::SUFFIX;
-			else if (view == "head"_sv)   kind = Symbols::HEAD;
-			else if (view == "tail"_sv)   kind = Symbols::TAIL;
+			else if (view == "car"_sv)   kind = Symbols::CAR;
+			else if (view == "cdr"_sv)   kind = Symbols::CDR;
 		}
 
 		// If the kind is still NONE by this point, we can assume we didn't find
@@ -614,10 +610,8 @@ constexpr auto is_lit_infix = partial_eq_any(
 
 constexpr auto is_seq_prefix = partial_eq_any(Symbols::INVERT, Symbols::REV);
 constexpr auto is_seq_postfix = partial_eq_any(
-	Symbols::PREFIX,
-	Symbols::SUFFIX,
-	Symbols::HEAD,
-	Symbols::TAIL,
+	Symbols::CAR,
+	Symbols::CDR,
 	Symbols::ROTL,
 	Symbols::ROTR,
 	Symbols::DBG
@@ -740,10 +734,8 @@ inline decltype(auto) seq_postfix_bp(Lexer& lx, Token tok) {
 		return std::pair { 1u, 0u };
 
 	else if (eq_any(tok.kind,
-		Symbols::PREFIX,
-		Symbols::SUFFIX,
-		Symbols::HEAD,
-		Symbols::TAIL,
+		Symbols::CAR,
+		Symbols::CDR,
 		Symbols::ROTL,
 		Symbols::ROTR
 	))
@@ -787,7 +779,7 @@ inline Sequence sequence(Context& ctx, Lexer& lx) {
 inline Sequence euclide(Context& ctx, Lexer& lx) {
 	CANE_LOG(LOG_INFO);
 
-	View lit_v = lx.peek().view;
+	View before_v = lx.peek().view;
 
 	size_t steps = 0;
 	size_t beats = lit_expression(ctx, lx, 0);
@@ -798,17 +790,17 @@ inline Sequence euclide(Context& ctx, Lexer& lx) {
 	steps = lit_expression(ctx, lx, 0);
 
 	if (beats > steps)
-		lx.error(Phases::SEMANTIC, lit_v, STR_LESSER_EQ, steps);
+		lx.error(Phases::SEMANTIC, before_v, STR_LESSER_EQ, steps);
 
 	Sequence seq { ctx.default_bpm };
 
 	for (size_t i = 0; i != steps; ++i)
 		seq.emplace_back(((i * beats) % steps) < beats);
 
-	View euc_v = lx.prev().view;
+	View after_v = lx.prev().view;
 
 	if (seq.empty())
-		lx.error(Phases::SEMANTIC, cane::overlap(lit_v, euc_v), STR_EMPTY);
+		lx.error(Phases::SEMANTIC, overlap(before_v, after_v), STR_EMPTY);
 
 	return seq;
 }
@@ -1054,23 +1046,25 @@ inline Sequence seq_infix_literal(Context& ctx, Lexer& lx, Sequence seq, size_t 
 
 
 		case Symbols::REPN: {
-			View lv = lx.peek().view;
+			View before_v = lx.peek().view;
 			size_t n = lit_expression(ctx, lx, 0);
+			View after_v = lx.prev().view;
 
 			// We don't want to shrink the sequence, it can only grow.
 			if (n == 0)
-				lx.error(Phases::SEMANTIC, lv, STR_GREATER, 0);
+				lx.error(Phases::SEMANTIC, overlap(before_v, after_v), STR_GREATER, 0);
 
 			seq = repeat(std::move(seq), n);
 		} break;
 
 
 		case Symbols::BPM: {
-			View bpm_v = lx.peek().view;
+			View before_v = lx.peek().view;
 			size_t bpm = lit_expression(ctx, lx, 0);
+			View after_v = lx.prev().view;
 
 			if (bpm == BPM_MIN)
-				lx.error(Phases::SEMANTIC, bpm_v, STR_GREATER, BPM_MIN);
+				lx.error(Phases::SEMANTIC, overlap(before_v, after_v), STR_GREATER, BPM_MIN);
 
 			seq.bpm = bpm;
 		} break;
@@ -1106,7 +1100,7 @@ inline Sequence seq_postfix(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
 		case Symbols::ROTR: { seq = rotr (std::move(seq)); } break;
 
 
-		case Symbols::PREFIX: {
+		case Symbols::CAR: {
 			auto it = seq.begin();
 
 			if (it == seq.end())
@@ -1116,25 +1110,7 @@ inline Sequence seq_postfix(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
 			seq.erase(seq.begin() + 1, seq.end());
 		} break;
 
-		case Symbols::SUFFIX: {
-			auto it = seq.rbegin();
-
-			if (it == seq.rend())
-				lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
-
-			seq.insert(seq.begin(), *it);
-			seq.erase(seq.begin() + 1, seq.end());
-		} break;
-
-		case Symbols::HEAD: {
-			if (seq.empty())
-				lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
-
-			if (seq.size() > 1)
-				seq.pop_back();
-		} break;
-
-		case Symbols::TAIL: {
+		case Symbols::CDR: {
 			if (seq.empty())
 				lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
 
@@ -1306,11 +1282,10 @@ inline void statement(Context& ctx, Lexer& lx) {
 		lx.expect(equal(Symbols::SINK), lx.peek().view, STR_EXPECT, sym2str(Symbols::SINK));
 		lx.next();  // skip `~>`
 
-		View chan_v = lx.peek().view;
 		Channel channel = literal(ctx, lx);
 
 		if (channel > CHANNEL_MAX or channel < CHANNEL_MIN)
-			lx.error(Phases::SEMANTIC, chan_v, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
+			lx.error(Phases::SEMANTIC, lx.prev().view, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
 
 		channel--;  // 0-15 range
 
