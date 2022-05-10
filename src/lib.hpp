@@ -18,8 +18,8 @@
 namespace cane {
 
 // Constants
-constexpr size_t CHANNEL_MIN = 0u;
-constexpr size_t CHANNEL_MAX = 15u;
+constexpr size_t CHANNEL_MIN = 1u;
+constexpr size_t CHANNEL_MAX = 16u;
 constexpr size_t BPM_MIN     = 0u;
 constexpr size_t DEFAULT_BPM = 120u;
 
@@ -971,7 +971,7 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence seq) {
 	lx.next();  // skip `~>`
 
 	View view = lx.peek().view;
-	Channel channel = 0;
+	Channel channel = 1;
 
 
 	// Sink can be either a literal number or an alias defined previously.
@@ -986,7 +986,7 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence seq) {
 		if (it == ctx.aliases.end())
 			lx.error(Phases::SEMANTIC, view, STR_UNDEFINED, view);
 
-		channel = it->second;
+		channel = it->second + 1;
 	}
 
 	else {
@@ -995,8 +995,10 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence seq) {
 
 
 	// Generate timeline events.
-	if (channel > CHANNEL_MAX)
+	if (channel > CHANNEL_MAX or channel < CHANNEL_MIN)
 		lx.error(Phases::SEMANTIC, view, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
+
+	channel--; // 0-15 range
 
 	size_t ms_per_note = 60'000 / seq.bpm;
 
@@ -1066,8 +1068,10 @@ inline void statement(Context& ctx, Lexer& lx) {
 		View chan_v = lx.peek().view;
 		Channel channel = literal(ctx, lx);
 
-		if (channel > CHANNEL_MAX)
+		if (channel > CHANNEL_MAX or channel < CHANNEL_MIN)
 			lx.error(Phases::SEMANTIC, chan_v, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
+
+		channel--;  // 0-15 range
 
 		// Assign or warn if re-assigned.
 		if (auto [it, succ] = ctx.aliases.try_emplace(view, channel); not succ) {
