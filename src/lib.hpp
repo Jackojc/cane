@@ -67,45 +67,59 @@ inline void general_notice(Ts&&... args) {
 	X(TERMINATOR, "eof") \
 	\
 	/* Special */ \
-	X(CLEAR,  "clear") \
-	X(WAIT,   "wait") \
-	X(ALIAS,  "alias") \
-	X(SYNC,   "sync") \
-	X(FIT,    "fit") \
-	X(IDENT,  "ident") \
-	X(INT,    "int") \
-	X(HEX,    "hex") \
-	X(BIN,    "bin") \
+	X(IDENT, "ident") \
+	X(INT,   "int") \
+	X(HEX,   "hex") \
+	X(BIN,   "bin") \
 	\
-	/* Keywords & Grouping */ \
+	/* Sequence Keywords */ \
+	X(CLEAR, "clear") \
+	X(WAIT,  "wait") \
+	X(ALIAS, "alias") \
+	X(SYNC,  "sync") \
+	X(FIT,   "fit") \
+	\
+	/* Grouping */ \
 	X(LPAREN, "(") \
 	X(RPAREN, ")") \
 	\
-	/* Operators */ \
-	X(CHAIN,  "=>") \
-	X(SINK,   "~>") \
-	X(SEP,    "/") \
-	X(SKIP,   ".") \
-	X(BEAT,   "!") \
+	/* Literal Operators */ \
+	X(ADD, "+") \
+	X(SUB, "-") \
+	X(MUL, "*") \
+	X(DIV, "/") \
+	X(MOD, "%") \
 	\
-	/* Argument Infix Operators */ \
+	/* Literal Keywords */ \
+	X(LEN, "len") \
+	\
+	/* Sequence */ \
+	X(SEP,  ":") \
+	X(SKIP, ".") \
+	X(BEAT, "!") \
+	\
+	/* Argument Sequence Operators */ \
+	X(CHAIN, "=>") \
+	X(SINK,  "~>") \
 	X(ROTLN, "<<") \
 	X(ROTRN, ">>") \
-	X(REPN,  "*") \
+	X(REPN,  "**") \
 	X(BPM,   "@") \
 	\
-	/* Binary Sequence Operators */ \
+	/* Bitwise Sequence Operators */ \
 	X(OR,  "|") \
 	X(AND, "&") \
 	X(XOR, "^") \
 	X(CAT, ",") \
 	\
-	/* Postfix Sequence Operators */ \
+	/* Prefix Sequence Operators */ \
 	X(INVERT, "~") \
-	X(ROTL,   "<") \
-	X(ROTR,   ">") \
 	X(REV,    "'") \
-	X(DBG,    "?")
+	\
+	/* Postfix Sequence Operators */ \
+	X(ROTL, "<") \
+	X(ROTR, ">") \
+	X(DBG,  "?")
 
 	#define X(name, str) name,
 		enum class Symbols: int { SYMBOL_TYPES };
@@ -190,19 +204,36 @@ struct Lexer {
 			return next();
 		}
 
-		else if (c == '?')  { kind = Symbols::DBG;    src = cane::iter_next_char(src, c); }
-		else if (c == '\'') { kind = Symbols::REV;    src = cane::iter_next_char(src, c); }
-		else if (c == '/')  { kind = Symbols::SEP;    src = cane::iter_next_char(src, c); }
-		else if (c == '@')  { kind = Symbols::BPM;    src = cane::iter_next_char(src, c); }
-		else if (c == '|')  { kind = Symbols::OR;     src = cane::iter_next_char(src, c); }
-		else if (c == '&')  { kind = Symbols::AND;    src = cane::iter_next_char(src, c); }
-		else if (c == '^')  { kind = Symbols::XOR;    src = cane::iter_next_char(src, c); }
-		else if (c == ',')  { kind = Symbols::CAT;    src = cane::iter_next_char(src, c); }
-		else if (c == '*')  { kind = Symbols::REPN;   src = cane::iter_next_char(src, c); }
-		else if (c == '!')  { kind = Symbols::BEAT;   src = cane::iter_next_char(src, c); }
-		else if (c == '.')  { kind = Symbols::SKIP;   src = cane::iter_next_char(src, c); }
 		else if (c == '(') { kind = Symbols::LPAREN; src = cane::iter_next_char(src, c); }
 		else if (c == ')') { kind = Symbols::RPAREN; src = cane::iter_next_char(src, c); }
+
+		else if (c == '!') { kind = Symbols::BEAT; src = cane::iter_next_char(src, c); }
+		else if (c == '.') { kind = Symbols::SKIP; src = cane::iter_next_char(src, c); }
+		else if (c == ':') { kind = Symbols::SEP;  src = cane::iter_next_char(src, c); }
+
+		else if (c == '?')  { kind = Symbols::DBG;  src = cane::iter_next_char(src, c); }
+		else if (c == '\'') { kind = Symbols::REV;  src = cane::iter_next_char(src, c); }
+		else if (c == '@')  { kind = Symbols::BPM;  src = cane::iter_next_char(src, c); }
+		else if (c == '|')  { kind = Symbols::OR;   src = cane::iter_next_char(src, c); }
+		else if (c == '&')  { kind = Symbols::AND;  src = cane::iter_next_char(src, c); }
+		else if (c == '^')  { kind = Symbols::XOR;  src = cane::iter_next_char(src, c); }
+		else if (c == ',')  { kind = Symbols::CAT;  src = cane::iter_next_char(src, c); }
+		else if (c == '#')  { kind = Symbols::REPN; src = cane::iter_next_char(src, c); }
+
+		else if (c == '+') { kind = Symbols::ADD; src = cane::iter_next_char(src, c); }
+		else if (c == '-') { kind = Symbols::SUB; src = cane::iter_next_char(src, c); }
+		else if (c == '/') { kind = Symbols::DIV; src = cane::iter_next_char(src, c); }
+
+		else if (c == '*') {
+			kind = Symbols::MUL;
+			src = cane::iter_next_char(src, c);
+
+			if (as_char(src) == '*') {
+				kind = Symbols::REPN;
+				view = overlap(view, as_view(src));
+				src = cane::iter_next_char(src, c);
+			}
+		}
 
 		else if (c == '<') {
 			kind = Symbols::ROTL;
@@ -283,11 +314,9 @@ struct Lexer {
 			begin = lbegin;  // Make sure to set the begin pointer here so that we handle the lone 0 case aswell.
 		}
 
-		else if (cane::is_letter(c) or c == '_') {
+		else if (cane::is_visible(c)) {
 			kind = Symbols::IDENT;
-			view = cane::consume_char(src, c, [] (uint32_t c) {
-				return cane::is_alphanumeric(c) or c == '_';
-			});
+			view = cane::consume_char(src, c, cane::is_visible);
 
 			if (view == "sync"_sv)
 				kind = Symbols::SYNC;
@@ -303,6 +332,9 @@ struct Lexer {
 
 			else if (view == "fit"_sv)
 				kind = Symbols::FIT;
+
+			else if (view == "len"_sv)
+				kind = Symbols::LEN;
 		}
 
 		// If the kind is still NONE by this point, we can assume we didn't find
@@ -418,6 +450,8 @@ inline std::ostream& operator<<(std::ostream& os, Sequence& s) {
 
 	return out(os, CANE_ANSI_RESET);
 }
+
+using Literal = int64_t;
 
 
 #define MIDI \
@@ -535,16 +569,19 @@ template <typename V1, typename V2> constexpr decltype(auto) ex_disjunction(V1 a
 inline size_t literal (Context&, Lexer&);
 
 // Sequence expressions
-inline Sequence sequence      (Context&, Lexer&);
-inline Sequence euclide       (Context&, Lexer&);
-inline Sequence reference     (Context&, Lexer&);
+inline Sequence sequence  (Context&, Lexer&);
+inline Sequence euclide   (Context&, Lexer&);
+inline Sequence reference (Context&, Lexer&);
 
-inline Sequence prefix        (Context&, Lexer&, size_t);
-inline Sequence infix_expr    (Context&, Lexer&, Sequence, size_t);
-inline Sequence infix_literal (Context&, Lexer&, Sequence, size_t);
-inline Sequence postfix       (Context&, Lexer&, Sequence, size_t);
+inline Literal lit_prefix     (Context&, Lexer&, size_t);
+inline Literal lit_infix      (Context&, Lexer&, Literal, size_t);
+inline Literal lit_expression (Context&, Lexer&, size_t);
 
-inline Sequence expression    (Context&, Lexer&, size_t);
+inline Sequence seq_prefix        (Context&, Lexer&, size_t);
+inline Sequence seq_infix_expr    (Context&, Lexer&, Sequence, size_t);
+inline Sequence seq_infix_literal (Context&, Lexer&, Sequence, size_t);
+inline Sequence seq_postfix       (Context&, Lexer&, Sequence, size_t);
+inline Sequence seq_expression    (Context&, Lexer&, size_t);
 
 // Statements
 inline Sequence sink      (Context&, Lexer&, Sequence);
@@ -554,18 +591,22 @@ inline Context compile (Lexer&);
 
 
 // Predicates
-constexpr auto is_literal = partial_eq_any(
-	Symbols::INT,
-	Symbols::HEX,
-	Symbols::BIN
+constexpr auto is_literal = partial_eq_any(Symbols::INT, Symbols::HEX, Symbols::BIN);
+constexpr auto is_step = partial_eq_any(Symbols::SKIP, Symbols::BEAT);
+
+constexpr auto is_lit_prefix = partial_eq_any(Symbols::ADD, Symbols::SUB, Symbols::LEN);
+constexpr auto is_lit_infix = partial_eq_any(
+	Symbols::ADD,
+	Symbols::SUB,
+	Symbols::MUL,
+	Symbols::DIV,
+	Symbols::MOD
 );
 
-constexpr auto is_prefix = partial_eq_any(
-	Symbols::INVERT,
-	Symbols::REV
-);
+constexpr auto is_seq_prefix = partial_eq_any(Symbols::INVERT, Symbols::REV);
+constexpr auto is_seq_postfix = partial_eq_any(Symbols::ROTL, Symbols::ROTR, Symbols::DBG);
 
-constexpr auto is_infix_expr = partial_eq_any(
+constexpr auto is_seq_infix_expr = partial_eq_any(
 	Symbols::OR,
 	Symbols::AND,
 	Symbols::XOR,
@@ -574,7 +615,7 @@ constexpr auto is_infix_expr = partial_eq_any(
 	Symbols::FIT
 );
 
-constexpr auto is_infix_literal = partial_eq_any(
+constexpr auto is_seq_infix_literal = partial_eq_any(
 	Symbols::ROTLN,
 	Symbols::ROTRN,
 	Symbols::REPN,
@@ -582,38 +623,61 @@ constexpr auto is_infix_literal = partial_eq_any(
 	Symbols::CHAIN
 );
 
-constexpr auto is_infix = [] (auto x) {
-	return is_infix_expr(x) or is_infix_literal(x);
+constexpr auto is_seq_infix = [] (auto x) {
+	return is_seq_infix_expr(x) or is_seq_infix_literal(x);
 };
 
-constexpr auto is_postfix = partial_eq_any(
-	Symbols::ROTL,
-	Symbols::ROTR,
-	Symbols::DBG
-);
+constexpr auto is_primary = [] (auto x) {
+	return is_step(x) or eq_any(x,
+		Symbols::INT,
+		Symbols::HEX,
+		Symbols::BIN,
+		Symbols::IDENT,
+		Symbols::LPAREN
+	);
+};
 
-constexpr auto is_step = partial_eq_any(
-	Symbols::SKIP,
-	Symbols::BEAT
-);
-
-constexpr auto is_expr = [] (auto x) {
-	return
-		is_prefix(x) or
-		is_step(x) or
-		eq_any(x,
-			Symbols::INT,
-			Symbols::HEX,
-			Symbols::BIN,
-			Symbols::IDENT,
-			Symbols::LPAREN
-		)
-	;
+constexpr auto is_seq_expr = [] (auto x) {
+	return is_seq_prefix(x) or is_primary(x);
 };
 
 
 // Operator precedence lookup
-inline decltype(auto) prefix_bp(Lexer& lx, Token tok) {
+inline decltype(auto) lit_prefix_bp(Lexer& lx, Token tok) {
+	// Left value is unused.
+	if (eq_any(tok.kind,
+		Symbols::ADD,
+		Symbols::SUB
+	))
+		return std::pair { 0u, 201u };
+
+	else if (eq_any(tok.kind,
+		Symbols::LEN
+	))
+		return std::pair { 0u, 202u };
+
+	lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
+}
+
+inline decltype(auto) lit_infix_bp(Lexer& lx, Token tok) {
+	if (eq_any(tok.kind,
+		Symbols::ADD,
+		Symbols::SUB
+	))
+		return std::pair { 103u, 104u };
+
+	else if (eq_any(tok.kind,
+		Symbols::MUL,
+		Symbols::DIV,
+		Symbols::MOD
+	))
+		return std::pair { 105u, 106u };
+
+	lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
+}
+
+
+inline decltype(auto) seq_prefix_bp(Lexer& lx, Token tok) {
 	// Left value is unused.
 	if (eq_any(tok.kind,
 		Symbols::REV,
@@ -624,7 +688,7 @@ inline decltype(auto) prefix_bp(Lexer& lx, Token tok) {
 	lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
 }
 
-inline decltype(auto) infix_bp(Lexer& lx, Token tok) {
+inline decltype(auto) seq_infix_bp(Lexer& lx, Token tok) {
 	if (eq_any(tok.kind,
 		Symbols::CHAIN
 	))
@@ -651,7 +715,7 @@ inline decltype(auto) infix_bp(Lexer& lx, Token tok) {
 	lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
 }
 
-inline decltype(auto) postfix_bp(Lexer& lx, Token tok) {
+inline decltype(auto) seq_postfix_bp(Lexer& lx, Token tok) {
 	// Right value is unused.
 	if (eq_any(tok.kind,
 		Symbols::DBG
@@ -668,7 +732,7 @@ inline decltype(auto) postfix_bp(Lexer& lx, Token tok) {
 }
 
 
-// Defs
+// Parser
 inline size_t literal(Context& ctx, Lexer& lx) {
 	CANE_LOG(LOG_INFO);
 
@@ -705,12 +769,12 @@ inline Sequence euclide(Context& ctx, Lexer& lx) {
 	View lv = lx.peek().view;
 
 	size_t steps = 0;
-	size_t beats = literal(ctx, lx);
+	size_t beats = lit_expression(ctx, lx, 0);
 
 	lx.expect(equal(Symbols::SEP), lx.peek().view, STR_EXPECT, sym2str(Symbols::SEP));
 	lx.next();  // skip `/`
 
-	steps = literal(ctx, lx);
+	steps = lit_expression(ctx, lx, 0);
 
 	if (beats > steps)
 		lx.error(Phases::SEMANTIC, lv, STR_LESSER_EQ, steps);
@@ -738,23 +802,119 @@ inline Sequence reference(Context& ctx, Lexer& lx) {
 	return it->second;
 }
 
-inline Sequence prefix(Context& ctx, Lexer& lx, size_t bp) {
+// Literals
+inline Literal lit_prefix(Context& ctx, Lexer& lx, size_t bp) {
+	CANE_LOG(LOG_INFO);
+
+	Literal lit {};
+	Token tok = lx.peek();
+
+	if (is_lit_prefix(tok.kind)) {
+		auto [lbp, rbp] = lit_prefix_bp(lx, tok);
+		lx.next();  // skip operator
+
+		switch (tok.kind) {
+			case Symbols::ADD: { lit *= 1;  } break;
+			case Symbols::SUB: { lit *= -1; } break;
+
+			case Symbols::LEN: {
+				lit = seq_expression(ctx, lx, 0).size();
+			} break;
+
+			default: {
+				lx.error(Phases::SYNTACTIC, tok.view, STR_LIT_PREFIX);
+			} break;
+		}
+	}
+
+	else if (is_literal(tok.kind)) {
+		lit = literal(ctx, lx);
+	}
+
+	else {
+		lx.error(Phases::SYNTACTIC, tok.view, STR_LIT_PREFIX_LITERAL);
+	}
+
+	return lit;
+}
+
+inline Literal lit_infix(Context& ctx, Lexer& lx, Literal lit, size_t bp) {
+	CANE_LOG(LOG_INFO);
+
+	Token tok = lx.next();
+
+	switch (tok.kind) {
+		case Symbols::ADD: { lit = lit + lit_expression(ctx, lx, bp); } break;
+		case Symbols::SUB: { lit = lit - lit_expression(ctx, lx, bp); } break;
+		case Symbols::MUL: { lit = lit * lit_expression(ctx, lx, bp); } break;
+		case Symbols::DIV: { lit = lit / lit_expression(ctx, lx, bp); } break;
+		case Symbols::MOD: { lit = lit % lit_expression(ctx, lx, bp); } break;
+
+		default: {
+			lx.error(Phases::SYNTACTIC, tok.view, STR_LIT_INFIX);
+		} break;
+	}
+
+	return lit;
+}
+
+inline Literal lit_expression(Context& ctx, Lexer& lx, size_t bp) {
+	CANE_LOG(LOG_WARN);
+
+	Literal lit = lit_prefix(ctx, lx, 0);
+	Token tok = lx.peek();
+
+	while (is_lit_infix(tok.kind)) {
+		// Handle postfix operators
+		// For future use...
+		// if (is_lit_postfix(tok.kind)) {
+		// 	auto [lbp, rbp] = lit_postfix_bp(lx, tok);
+
+		// 	if (lbp < bp)
+		// 		break;
+
+		// 	lit = lit_postfix(ctx, lx, lit, 0);
+		// }
+
+		// Handle infix operators
+		if (is_lit_infix(tok.kind)) {
+			auto [lbp, rbp] = lit_infix_bp(lx, tok);
+
+			if (lbp < bp)
+				break;
+
+			lit = lit_infix(ctx, lx, lit, rbp);
+		}
+
+		// Error if not operator
+		else {
+			lx.error(Phases::SYNTACTIC, tok.view, STR_LIT_EXPR);
+		}
+
+		tok = lx.peek();
+	}
+
+	return lit;
+}
+
+// Sequences
+inline Sequence seq_prefix(Context& ctx, Lexer& lx, size_t bp) {
 	CANE_LOG(LOG_INFO);
 
 	Sequence seq { ctx.default_bpm };
 	Token tok = lx.peek();
 
 	// Prefix operators.
-	if (is_prefix(tok.kind)) {
-		auto [lbp, rbp] = prefix_bp(lx, tok);
+	if (is_seq_prefix(tok.kind)) {
+		auto [lbp, rbp] = seq_prefix_bp(lx, tok);
 		lx.next();  // skip operator
 
 		switch (tok.kind) {
-			case Symbols::REV:    { seq = reverse (expression(ctx, lx, rbp)); } break;
-			case Symbols::INVERT: { seq = invert  (expression(ctx, lx, rbp)); } break;
+			case Symbols::REV:    { seq = reverse (seq_expression(ctx, lx, rbp)); } break;
+			case Symbols::INVERT: { seq = invert  (seq_expression(ctx, lx, rbp)); } break;
 
 			default: {
-				lx.error(Phases::SYNTACTIC, tok.view, STR_PREFIX);
+				lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_PREFIX);
 			} break;
 		}
 	}
@@ -773,14 +933,14 @@ inline Sequence prefix(Context& ctx, Lexer& lx, size_t bp) {
 			case Symbols::LPAREN: {
 				lx.next();  // skip `(`
 
-				seq = expression(ctx, lx, 0);  // Reset binding power.
+				seq = seq_expression(ctx, lx, 0);  // Reset binding power.
 
 				lx.expect(equal(Symbols::RPAREN), lx.peek().view, STR_EXPECT, sym2str(Symbols::RPAREN));
 				lx.next();  // skip `)`
 			} break;
 
 			default: {
-				lx.error(Phases::SYNTACTIC, tok.view, STR_EXPR);
+				lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_EXPR);
 			} break;
 		}
 	}
@@ -788,16 +948,16 @@ inline Sequence prefix(Context& ctx, Lexer& lx, size_t bp) {
 	return seq;
 }
 
-inline Sequence infix_expr(Context& ctx, Lexer& lx, Sequence lhs, size_t bp) {
+inline Sequence seq_infix_expr(Context& ctx, Lexer& lx, Sequence lhs, size_t bp) {
 	CANE_LOG(LOG_INFO);
 
 	Token tok = lx.next();  // skip operator.
 
 	switch (tok.kind) {
-		case Symbols::CAT: { lhs = cat            (std::move(lhs), expression(ctx, lx, bp)); } break;
-		case Symbols::OR:  { lhs = disjunction    (std::move(lhs), expression(ctx, lx, bp)); } break;
-		case Symbols::AND: { lhs = conjunction    (std::move(lhs), expression(ctx, lx, bp)); } break;
-		case Symbols::XOR: { lhs = ex_disjunction (std::move(lhs), expression(ctx, lx, bp)); } break;
+		case Symbols::CAT: { lhs = cat            (std::move(lhs), seq_expression(ctx, lx, bp)); } break;
+		case Symbols::OR:  { lhs = disjunction    (std::move(lhs), seq_expression(ctx, lx, bp)); } break;
+		case Symbols::AND: { lhs = conjunction    (std::move(lhs), seq_expression(ctx, lx, bp)); } break;
+		case Symbols::XOR: { lhs = ex_disjunction (std::move(lhs), seq_expression(ctx, lx, bp)); } break;
 
 
 		case Symbols::SYNC: {
@@ -810,7 +970,7 @@ inline Sequence infix_expr(Context& ctx, Lexer& lx, Sequence lhs, size_t bp) {
 			// find the lowest common multiple. We then divide the LCM by
 			// the absolute length to find the number of repetitions for the
 			// `lhs` in order to come back in phase with the `rhs`.
-			Sequence rhs = expression(ctx, lx, bp);
+			Sequence rhs = seq_expression(ctx, lx, bp);
 
 			size_t lhs_length = (1000 * 60) / lhs.bpm * lhs.size();
 			size_t rhs_length = (1000 * 60) / rhs.bpm * rhs.size();
@@ -828,33 +988,33 @@ inline Sequence infix_expr(Context& ctx, Lexer& lx, Sequence lhs, size_t bp) {
 			// to fit within the time of the other sequence so you can
 			// form polyrhythms. It is somewhat similar to SYNC but it
 			// doesn't align the sequences by repetition.
-			Sequence rhs = expression(ctx, lx, bp);
+			Sequence rhs = seq_expression(ctx, lx, bp);
 			lhs.bpm = rhs.bpm * lhs.size() / rhs.size();
 		} break;
 
 
 		default: {
-			lx.error(Phases::SYNTACTIC, tok.view, STR_INFIX_EXPR);
+			lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_INFIX_EXPR);
 		} break;
 	}
 
 	return lhs;
 }
 
-inline Sequence infix_literal(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
+inline Sequence seq_infix_literal(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
 	CANE_LOG(LOG_INFO);
 
 	Token tok = lx.next();  // skip operator.
 
 	switch (tok.kind) {
 		// Infix with literal
-		case Symbols::ROTLN: { seq = rotl(std::move(seq), literal(ctx, lx)); } break;
-		case Symbols::ROTRN: { seq = rotr(std::move(seq), literal(ctx, lx)); } break;
+		case Symbols::ROTLN: { seq = rotl(std::move(seq), lit_expression(ctx, lx, 0)); } break;
+		case Symbols::ROTRN: { seq = rotr(std::move(seq), lit_expression(ctx, lx, 0)); } break;
 
 
 		case Symbols::REPN: {
 			View lv = lx.peek().view;
-			size_t n = literal(ctx, lx);
+			size_t n = lit_expression(ctx, lx, 0);
 
 			// We don't want to shrink the sequence, it can only grow.
 			if (n == 0)
@@ -866,7 +1026,7 @@ inline Sequence infix_literal(Context& ctx, Lexer& lx, Sequence seq, size_t bp) 
 
 		case Symbols::BPM: {
 			View bpm_v = lx.peek().view;
-			size_t bpm = literal(ctx, lx);
+			size_t bpm = lit_expression(ctx, lx, 0);
 
 			if (bpm == BPM_MIN)
 				lx.error(Phases::SEMANTIC, bpm_v, STR_GREATER, BPM_MIN);
@@ -888,14 +1048,14 @@ inline Sequence infix_literal(Context& ctx, Lexer& lx, Sequence seq, size_t bp) 
 
 
 		default: {
-			lx.error(Phases::SYNTACTIC, tok.view, STR_INFIX_LITERAL);
+			lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_INFIX_LITERAL);
 		} break;
 	}
 
 	return seq;
 }
 
-inline Sequence postfix(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
+inline Sequence seq_postfix(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
 	CANE_LOG(LOG_INFO);
 
 	Token tok = lx.next();  // skip operator.
@@ -904,58 +1064,60 @@ inline Sequence postfix(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
 		case Symbols::ROTL:   { seq = rotl    (std::move(seq)); } break;
 		case Symbols::ROTR:   { seq = rotr    (std::move(seq)); } break;
 
-
 		case Symbols::DBG: {
 			lx.notice(Phases::SEMANTIC, tok.view, STR_DEBUG, seq, seq.bpm, ((60 * 1000) * seq.size() / seq.bpm) / 1000.f);
 		} break;
 
-
 		default: {
-			lx.error(Phases::SYNTACTIC, tok.view, STR_POSTFIX);
+			lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_POSTFIX);
 		} break;
 	}
 
 	return seq;
 }
 
-inline Sequence expression(Context& ctx, Lexer& lx, size_t bp) {
+inline Sequence seq_expression(Context& ctx, Lexer& lx, size_t bp) {
 	CANE_LOG(LOG_WARN);
 
-	Sequence seq = prefix(ctx, lx, 0);
+	Sequence seq = seq_prefix(ctx, lx, 0);
 	Token tok = lx.peek();
 
+	// Continue while we have a non-prefix operator.
 	while (
-		is_infix_literal(tok.kind) or
-		is_infix_expr(tok.kind) or
-		is_postfix(tok.kind)
+		is_seq_infix_literal(tok.kind) or
+		is_seq_infix_expr(tok.kind) or
+		is_seq_postfix(tok.kind)
 	) {
-		if (is_postfix(tok.kind)) {
-			auto [lbp, rbp] = postfix_bp(lx, tok);
+		// Handle postfix operators
+		if (is_seq_postfix(tok.kind)) {
+			auto [lbp, rbp] = seq_postfix_bp(lx, tok);
 
 			if (lbp < bp)
 				break;
 
-			seq = postfix(ctx, lx, std::move(seq), 0);
+			seq = seq_postfix(ctx, lx, std::move(seq), 0);
 		}
 
-		else if (is_infix(tok.kind)) {
-			auto [lbp, rbp] = infix_bp(lx, tok);
+		// Handle infix operators
+		else if (is_seq_infix(tok.kind)) {
+			auto [lbp, rbp] = seq_infix_bp(lx, tok);
 
 			if (lbp < bp)
 				break;
 
-			if (is_infix_literal(tok.kind))
-				seq = infix_literal(ctx, lx, std::move(seq), rbp);
+			if (is_seq_infix_literal(tok.kind))
+				seq = seq_infix_literal(ctx, lx, std::move(seq), rbp);
 
-			else if (is_infix_expr(tok.kind))
-				seq = infix_expr(ctx, lx, std::move(seq), rbp);
+			else if (is_seq_infix_expr(tok.kind))
+				seq = seq_infix_expr(ctx, lx, std::move(seq), rbp);
 
 			else
-				lx.error(Phases::SYNTACTIC, tok.view, STR_INFIX);
+				lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_INFIX);
 		}
 
+		// Error if not operator
 		else {
-			lx.error(Phases::SYNTACTIC, tok.view, STR_EXPR);
+			lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_EXPR);
 		}
 
 		tok = lx.peek();
@@ -1080,8 +1242,8 @@ inline void statement(Context& ctx, Lexer& lx) {
 		}
 	}
 
-	else if (is_expr(tok.kind)) {
-		Sequence seq = expression(ctx, lx, 0);
+	else if (is_seq_expr(tok.kind)) {
+		Sequence seq = seq_expression(ctx, lx, 0);
 
 		while (lx.peek().kind == Symbols::SINK)
 			seq = sink(ctx, lx, std::move(seq));

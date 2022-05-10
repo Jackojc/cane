@@ -25,13 +25,20 @@ namespace cane {
 	constexpr View STR_STEP          = "expecting a step"_sv;
 	constexpr View STR_IDENT         = "expecting an identifier"_sv;
 	constexpr View STR_IDENT_LITERAL = "expecting an identifier or literal"_sv;
-	constexpr View STR_PREFIX        = "expecting a prefix operator"_sv;
-	constexpr View STR_POSTFIX       = "expecting a postfix operator"_sv;
-	constexpr View STR_INFIX         = "expecting an infix operator"_sv;
-	constexpr View STR_INFIX_EXPR    = "expecting an infix expression operator"_sv;
-	constexpr View STR_INFIX_LITERAL = "expecting an infix literal operator"_sv;
 
-	constexpr View STR_EXPR          = "expecting an expression"_sv;
+	constexpr View STR_LIT_PREFIX         = "expecting a literal prefix operator"_sv;
+	constexpr View STR_LIT_INFIX          = "expecting a literal infix operator"_sv;
+	constexpr View STR_LIT_PREFIX_LITERAL = "expecting a literal or prefix literal operator"_sv;
+
+	constexpr View STR_SEQ_PREFIX        = "expecting a sequence prefix operator"_sv;
+	constexpr View STR_SEQ_POSTFIX       = "expecting a sequence postfix operator"_sv;
+	constexpr View STR_SEQ_INFIX         = "expecting a sequence infix operator"_sv;
+	constexpr View STR_SEQ_INFIX_EXPR    = "expecting a sequence infix expression operator"_sv;
+	constexpr View STR_SEQ_INFIX_LITERAL = "expecting a sequence infix literal operator"_sv;
+
+	constexpr View STR_SEQ_EXPR          = "expecting a sequence expression"_sv;
+	constexpr View STR_LIT_EXPR          = "expecting a literal expression"_sv;
+
 	constexpr View STR_STATEMENT     = "expecting a statement"_sv;
 
 	constexpr View STR_EXPECT        = "expecting `{}`"_sv;
