@@ -73,10 +73,17 @@ int main(int argc, const char* argv[]) {
 	};
 
 	parser.apply_defaults();
-	auto st = parser.parse(argc - 1, argv + 1);
+	auto status = parser.parse(argc - 1, argv + 1);
 
 	try {
-		conflict::default_report(st);
+		// Handle argument parsing errors.
+		switch (status.err) {
+			case conflict::error::invalid_option: cane::general_error(cane::STR_OPT_INVALID_OPTION, status.what1);
+			case conflict::error::invalid_argument: cane::general_error(cane::STR_OPT_INVALID_ARG, status.what1, status.what2);
+			case conflict::error::missing_argument: cane::general_error(cane::STR_OPT_MISSING_ARG, status.what1);
+			case::conflict::error::ok: break;
+		}
+
 
 		if (flags & OPT_HELP) {
 			parser.print_help();
@@ -166,9 +173,6 @@ int main(int argc, const char* argv[]) {
 
 
 		// Compiler
-		if (filename.empty())
-			cane::general_error(cane::STR_NO_FILE);
-
 		auto path = std::filesystem::current_path() / std::filesystem::path { filename };
 		std::filesystem::current_path(path.parent_path());
 
