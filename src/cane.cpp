@@ -8,10 +8,11 @@
 #include <view.hpp>
 #include <lib.hpp>
 
-#include <jack/jack.h>
-#include <jack/midiport.h>
-#include <jack/ringbuffer.h>
-
+extern "C" {
+	#include <jack/jack.h>
+	#include <jack/midiport.h>
+	#include <jack/ringbuffer.h>
+}
 
 int main(int, const char*[]) {
 	std::string device = "j2a";

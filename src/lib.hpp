@@ -20,7 +20,7 @@ namespace cane {
 // Constants
 constexpr size_t CHANNEL_MIN = 1u;
 constexpr size_t CHANNEL_MAX = 16u;
-constexpr size_t BPM_MIN     = 0u;
+constexpr size_t BPM_MIN     = 1u;
 
 
 // Errors/Warnings/Notices
@@ -453,6 +453,32 @@ struct Sequence: public std::vector<Step> {
 		std::vector<Step>::vector(), bpm(0), flags(FLAG_NONE) {}
 };
 
+// Identifies repeating pattern in a sequence
+// and attempts to minify it so we don't spam
+// the stdout for large sequences.
+template <typename V>
+inline decltype(auto) minify(V v) {
+	for (size_t f = 1; f != v.size(); ++f) {
+		if (v.size() % f != 0)
+			continue;
+
+		bool all_eq = false;
+		for (size_t i = 1; i != (v.size() / f); ++i) {
+			all_eq = std::equal(v.begin(), v.begin() + f, v.begin() + (f * i));
+
+			if (not all_eq)
+				break;
+		}
+
+		if (all_eq) {
+			v.erase(v.begin() + f, v.end());
+			return v;
+		}
+	}
+
+	return v;
+}
+
 template <typename... Ts>
 inline size_t bpm(const Sequence& seq, Lexer& lx, View sv, Ts&&... args) {
 	if ((seq.flags & FLAG_BPM_SET) != FLAG_BPM_SET)
@@ -689,6 +715,9 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 
 		CHAIN,
 
+		SYNC,
+		FIT = SYNC,
+
 		CAT,
 		OR    = CAT,
 		AND   = CAT,
@@ -697,9 +726,6 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 		ROTLN = CAT,
 		ROTRN = CAT,
 		REPN  = CAT,
-
-		SYNC,
-		FIT = SYNC,
 
 		REV,
 		INVERT = REV,
@@ -927,17 +953,6 @@ inline Literal lit_expression(Context& ctx, Lexer& lx, size_t bp) {
 	Token tok = lx.peek();
 
 	while (is_lit_infix(tok.kind)) {
-		// Handle postfix operators
-		// For future use...
-		// if (is_lit_postfix(tok.kind)) {
-		// 	auto [lbp, rbp] = binding_power(lx, tok, OpFix::LIT_POSTFIX);
-
-		// 	if (lbp < bp)
-		// 		break;
-
-		// 	lit = lit_postfix(ctx, lx, lit, 0);
-		// }
-
 		// Handle infix operators
 		if (is_lit_infix(tok.kind)) {
 			auto [lbp, rbp] = binding_power(lx, tok, OpFix::LIT_INFIX);
@@ -1034,8 +1049,11 @@ inline Sequence seq_infix_expr(Context& ctx, Lexer& lx, Sequence lhs, size_t bp)
 			// `lhs` in order to come back in phase with the `rhs`.
 			Sequence rhs = seq_expression(ctx, lx, bp);
 
-			size_t lhs_length = (1000 * 60) / lhs.bpm * lhs.size();
-			size_t rhs_length = (1000 * 60) / rhs.bpm * rhs.size();
+			size_t lhs_bpm = bpm(lhs, lx, tok.view);
+			size_t rhs_bpm = bpm(rhs, lx, tok.view);
+
+			size_t lhs_length = (1000 * 60) / lhs_bpm * lhs.size();
+			size_t rhs_length = (1000 * 60) / rhs_bpm * rhs.size();
 
 			size_t lcm = std::lcm(lhs_length, rhs_length);
 
@@ -1092,8 +1110,8 @@ inline Sequence seq_infix_literal(Context& ctx, Lexer& lx, Sequence seq, size_t 
 			size_t bpm = lit_expression(ctx, lx, 0);
 			View after_v = lx.prev().view;
 
-			if (bpm == BPM_MIN)
-				lx.error(Phases::SEMANTIC, overlap(before_v, after_v), STR_GREATER, BPM_MIN);
+			if (bpm < BPM_MIN)
+				lx.error(Phases::SEMANTIC, overlap(before_v, after_v), STR_GREATER_EQ, BPM_MIN);
 
 			seq.bpm = bpm;
 			seq.flags |= FLAG_BPM_SET;
@@ -1151,7 +1169,12 @@ inline Sequence seq_postfix(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
 
 		case Symbols::DBG: {
 			size_t tempo = bpm(seq, lx, tok.view);
-			lx.notice(Phases::SEMANTIC, tok.view, STR_DEBUG, seq, tempo, ((60 * 1000) * seq.size() / tempo) / 1000.f);
+			size_t dur = ((60 * 1000) * seq.size() / tempo) / 1000.f;
+
+			auto mini = minify(seq);
+			size_t count = seq.size() / mini.size();
+
+			lx.notice(Phases::SEMANTIC, tok.view, STR_DEBUG, mini, count, tempo, dur);
 		} break;
 
 		default: {
