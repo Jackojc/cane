@@ -666,95 +666,111 @@ constexpr auto is_seq_expr = [] (auto x) {
 };
 
 
-// Operator precedence lookup
-inline decltype(auto) lit_prefix_bp(Lexer& lx, Token tok) {
-	// Left value is unused.
-	if (eq_any(tok.kind,
-		Symbols::ADD,
-		Symbols::SUB
-	))
-		return std::pair { 0u, 201u };
+// Precedence table
+enum class OpFix {
+	LIT_PREFIX,
+	LIT_INFIX,
+	SEQ_PREFIX,
+	SEQ_INFIX,
+	SEQ_POSTFIX,
+};
 
-	else if (eq_any(tok.kind,
-		Symbols::LEN
-	))
-		return std::pair { 0u, 202u };
+inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) {
+	auto [view, kind] = tok;
 
-	lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
-}
+	enum { LEFT = 1, RIGHT = 0, };
+	enum {
+		DBG,
 
-inline decltype(auto) lit_infix_bp(Lexer& lx, Token tok) {
-	if (eq_any(tok.kind,
-		Symbols::ADD,
-		Symbols::SUB
-	))
-		return std::pair { 103u, 104u };
+		CAR,
+		CDR  = CAR,
+		ROTL = CAR,
+		ROTR = CAR,
 
-	else if (eq_any(tok.kind,
-		Symbols::MUL,
-		Symbols::DIV,
-		Symbols::MOD
-	))
-		return std::pair { 105u, 106u };
+		CHAIN,
 
-	lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
-}
+		CAT,
+		OR    = CAT,
+		AND   = CAT,
+		XOR   = CAT,
+		BPM   = CAT,
+		ROTLN = CAT,
+		ROTRN = CAT,
+		REPN  = CAT,
 
+		SYNC,
+		FIT = SYNC,
 
-inline decltype(auto) seq_prefix_bp(Lexer& lx, Token tok) {
-	// Left value is unused.
-	if (eq_any(tok.kind,
-		Symbols::REV,
-		Symbols::INVERT
-	))
-		return std::pair { 0u, 201u };
+		REV,
+		INVERT = REV,
 
-	lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
-}
+		ADD,
+		SUB = ADD,
 
-inline decltype(auto) seq_infix_bp(Lexer& lx, Token tok) {
-	if (eq_any(tok.kind,
-		Symbols::CHAIN
-	))
-		return std::pair { 103u, 104u };
+		MUL,
+		DIV = MUL,
+		MOD = MUL,
 
-	else if (eq_any(tok.kind,
-		Symbols::CAT,
-		Symbols::OR,
-		Symbols::AND,
-		Symbols::XOR,
-		Symbols::BPM,
-		Symbols::ROTLN,
-		Symbols::ROTRN,
-		Symbols::REPN
-	))
-		return std::pair { 105u, 106u };
+		POS,
+		NEG = POS,
 
-	else if (eq_any(tok.kind,
-		Symbols::SYNC,
-		Symbols::FIT
-	))
-		return std::pair { 107u, 108u };
+		LEN,
+	};
 
-	lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
-}
+	switch (fix) {
+		// Literals
+		case OpFix::LIT_PREFIX: switch (kind) {
+			case Symbols::ADD: return { 0u, POS + RIGHT };
+			case Symbols::SUB: return { 0u, NEG + RIGHT };
+			case Symbols::LEN: return { 0u, LEN + RIGHT };
+			default: break;
+		} break;
 
-inline decltype(auto) seq_postfix_bp(Lexer& lx, Token tok) {
-	// Right value is unused.
-	if (eq_any(tok.kind,
-		Symbols::DBG
-	))
-		return std::pair { 1u, 0u };
+		case OpFix::LIT_INFIX: switch (kind) {
+			case Symbols::ADD: return { ADD, ADD + LEFT };
+			case Symbols::SUB: return { SUB, SUB + LEFT };
+			case Symbols::MUL: return { MUL, MUL + LEFT };
+			case Symbols::DIV: return { DIV, DIV + LEFT };
+			case Symbols::MOD: return { MOD, MOD + LEFT };
+			default: break;
+		} break;
 
-	else if (eq_any(tok.kind,
-		Symbols::CAR,
-		Symbols::CDR,
-		Symbols::ROTL,
-		Symbols::ROTR
-	))
-		return std::pair { 2u, 0u };
+		// Sequences
+		case OpFix::SEQ_PREFIX: switch (kind) {
+			case Symbols::REV:    return { 0u, REV    + RIGHT };
+			case Symbols::INVERT: return { 0u, INVERT + RIGHT };
+			default: break;
+		} break;
 
-	lx.error(Phases::INTERNAL, tok.view, STR_UNREACHABLE);
+		case OpFix::SEQ_INFIX: switch (kind) {
+			case Symbols::CHAIN: return { CHAIN, CHAIN + LEFT };
+
+			case Symbols::CAT:   return { CAT,   CAT   + LEFT };
+			case Symbols::OR:    return { OR,    OR    + LEFT };
+			case Symbols::AND:   return { AND,   AND   + LEFT };
+			case Symbols::XOR:   return { XOR,   XOR   + LEFT };
+
+			case Symbols::REPN:  return { REPN,  REPN  + LEFT };
+			case Symbols::ROTLN: return { ROTLN, ROTLN + LEFT };
+			case Symbols::ROTRN: return { ROTRN, ROTRN + LEFT };
+
+			case Symbols::BPM:   return { BPM,   BPM   + LEFT };
+			case Symbols::SYNC:  return { SYNC,  SYNC  + LEFT };
+			case Symbols::FIT:   return { FIT,   FIT   + LEFT };
+			default: break;
+		} break;
+
+		case OpFix::SEQ_POSTFIX: switch(kind) {
+			case Symbols::DBG:  return { DBG,  DBG  + LEFT };
+			case Symbols::CAR:  return { CAR,  CAR  + LEFT };
+			case Symbols::CDR:  return { CDR,  CDR  + LEFT };
+			case Symbols::ROTL: return { ROTL, ROTL + LEFT };
+			case Symbols::ROTR: return { ROTR, ROTR + LEFT };
+			default: break;
+		} break;
+	}
+
+	lx.error(Phases::INTERNAL, view, STR_UNREACHABLE);
 }
 
 
@@ -781,7 +797,7 @@ inline Sequence sequence(Context& ctx, Lexer& lx) {
 	CANE_LOG(LOG_INFO);
 
 	lx.expect(is_step, lx.peek().view, STR_STEP);
-	Sequence seq { };
+	Sequence seq {};
 
 	while (is_step(lx.peek().kind))
 		seq.emplace_back(sym2step(lx.next().kind));
@@ -805,7 +821,7 @@ inline Sequence euclide(Context& ctx, Lexer& lx) {
 	if (beats > steps)
 		lx.error(Phases::SEMANTIC, before_v, STR_LESSER_EQ, steps);
 
-	Sequence seq { };
+	Sequence seq {};
 
 	for (size_t i = 0; i != steps; ++i)
 		seq.emplace_back(((i * beats) % steps) < beats);
@@ -852,7 +868,7 @@ inline Literal lit_prefix(Context& ctx, Lexer& lx, size_t bp) {
 	Token tok = lx.peek();
 
 	if (is_lit_prefix(tok.kind)) {
-		auto [lbp, rbp] = lit_prefix_bp(lx, tok);
+		auto [lbp, rbp] = binding_power(lx, tok, OpFix::LIT_PREFIX);
 		lx.next();  // skip operator
 
 		switch (tok.kind) {
@@ -914,7 +930,7 @@ inline Literal lit_expression(Context& ctx, Lexer& lx, size_t bp) {
 		// Handle postfix operators
 		// For future use...
 		// if (is_lit_postfix(tok.kind)) {
-		// 	auto [lbp, rbp] = lit_postfix_bp(lx, tok);
+		// 	auto [lbp, rbp] = binding_power(lx, tok, OpFix::LIT_POSTFIX);
 
 		// 	if (lbp < bp)
 		// 		break;
@@ -924,7 +940,7 @@ inline Literal lit_expression(Context& ctx, Lexer& lx, size_t bp) {
 
 		// Handle infix operators
 		if (is_lit_infix(tok.kind)) {
-			auto [lbp, rbp] = lit_infix_bp(lx, tok);
+			auto [lbp, rbp] = binding_power(lx, tok, OpFix::LIT_INFIX);
 
 			if (lbp < bp)
 				break;
@@ -947,12 +963,12 @@ inline Literal lit_expression(Context& ctx, Lexer& lx, size_t bp) {
 inline Sequence seq_prefix(Context& ctx, Lexer& lx, size_t bp) {
 	CANE_LOG(LOG_INFO);
 
-	Sequence seq { };
+	Sequence seq {};
 	Token tok = lx.peek();
 
 	// Prefix operators.
 	if (is_seq_prefix(tok.kind)) {
-		auto [lbp, rbp] = seq_prefix_bp(lx, tok);
+		auto [lbp, rbp] = binding_power(lx, tok, OpFix::SEQ_PREFIX);
 		lx.next();  // skip operator
 
 		switch (tok.kind) {
@@ -1160,7 +1176,7 @@ inline Sequence seq_expression(Context& ctx, Lexer& lx, size_t bp) {
 	) {
 		// Handle postfix operators
 		if (is_seq_postfix(tok.kind)) {
-			auto [lbp, rbp] = seq_postfix_bp(lx, tok);
+			auto [lbp, rbp] = binding_power(lx, tok, OpFix::SEQ_POSTFIX);
 
 			if (lbp < bp)
 				break;
@@ -1170,7 +1186,7 @@ inline Sequence seq_expression(Context& ctx, Lexer& lx, size_t bp) {
 
 		// Handle infix operators
 		else if (is_seq_infix(tok.kind)) {
-			auto [lbp, rbp] = seq_infix_bp(lx, tok);
+			auto [lbp, rbp] = binding_power(lx, tok, OpFix::SEQ_INFIX);
 
 			if (lbp < bp)
 				break;
