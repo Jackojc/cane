@@ -14,7 +14,6 @@
 
 
 int main(int, const char*[]) {
-	constexpr size_t bpm = 240;
 	std::string device = "j2a";
 
 	try {

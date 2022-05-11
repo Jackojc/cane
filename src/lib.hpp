@@ -21,7 +21,6 @@ namespace cane {
 constexpr size_t CHANNEL_MIN = 1u;
 constexpr size_t CHANNEL_MAX = 16u;
 constexpr size_t BPM_MIN     = 0u;
-constexpr size_t DEFAULT_BPM = 120u;
 
 
 // Errors/Warnings/Notices
@@ -440,12 +439,27 @@ using Step = uint8_t;
 
 using Channel = uint8_t;
 
+using SequenceFlags = uint8_t;
+enum: SequenceFlags {
+	FLAG_NONE    = 0b0,
+	FLAG_BPM_SET = 0b1,
+};
+
 struct Sequence: public std::vector<Step> {
 	size_t bpm;
+	SequenceFlags flags;
 
-	Sequence(size_t bpm_):
-		std::vector<Step>::vector {}, bpm(bpm_) {}
+	Sequence():
+		std::vector<Step>::vector(), bpm(0), flags(FLAG_NONE) {}
 };
+
+template <typename... Ts>
+inline size_t bpm(const Sequence& seq, Lexer& lx, View sv, Ts&&... args) {
+	if ((seq.flags & FLAG_BPM_SET) != FLAG_BPM_SET)
+		lx.error(Phases::SEMANTIC, sv, STR_NO_BPM, std::forward<Ts>(args)...);
+
+	return seq.bpm;
+}
 
 inline std::ostream& operator<<(std::ostream& os, Sequence& s) {
 	for (Step x: s)
@@ -507,7 +521,6 @@ struct Context {
 	std::unordered_map<size_t, size_t> times;
 
 	std::vector<Event> timeline;
-	size_t default_bpm = DEFAULT_BPM;
 };
 
 
@@ -768,7 +781,7 @@ inline Sequence sequence(Context& ctx, Lexer& lx) {
 	CANE_LOG(LOG_INFO);
 
 	lx.expect(is_step, lx.peek().view, STR_STEP);
-	Sequence seq { ctx.default_bpm };
+	Sequence seq { };
 
 	while (is_step(lx.peek().kind))
 		seq.emplace_back(sym2step(lx.next().kind));
@@ -792,7 +805,7 @@ inline Sequence euclide(Context& ctx, Lexer& lx) {
 	if (beats > steps)
 		lx.error(Phases::SEMANTIC, before_v, STR_LESSER_EQ, steps);
 
-	Sequence seq { ctx.default_bpm };
+	Sequence seq { };
 
 	for (size_t i = 0; i != steps; ++i)
 		seq.emplace_back(((i * beats) % steps) < beats);
@@ -934,7 +947,7 @@ inline Literal lit_expression(Context& ctx, Lexer& lx, size_t bp) {
 inline Sequence seq_prefix(Context& ctx, Lexer& lx, size_t bp) {
 	CANE_LOG(LOG_INFO);
 
-	Sequence seq { ctx.default_bpm };
+	Sequence seq { };
 	Token tok = lx.peek();
 
 	// Prefix operators.
@@ -1067,6 +1080,7 @@ inline Sequence seq_infix_literal(Context& ctx, Lexer& lx, Sequence seq, size_t 
 				lx.error(Phases::SEMANTIC, overlap(before_v, after_v), STR_GREATER, BPM_MIN);
 
 			seq.bpm = bpm;
+			seq.flags |= FLAG_BPM_SET;
 		} break;
 
 
@@ -1120,7 +1134,8 @@ inline Sequence seq_postfix(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
 
 
 		case Symbols::DBG: {
-			lx.notice(Phases::SEMANTIC, tok.view, STR_DEBUG, seq, seq.bpm, ((60 * 1000) * seq.size() / seq.bpm) / 1000.f);
+			size_t tempo = bpm(seq, lx, tok.view);
+			lx.notice(Phases::SEMANTIC, tok.view, STR_DEBUG, seq, tempo, ((60 * 1000) * seq.size() / tempo) / 1000.f);
 		} break;
 
 		default: {
@@ -1185,7 +1200,7 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence seq) {
 	CANE_LOG(LOG_INFO);
 
 	lx.expect(equal(Symbols::SINK), lx.peek().view, STR_EXPECT, sym2str(Symbols::SINK));
-	lx.next();  // skip `~>`
+	View sink_v = lx.next().view;  // skip `~>`
 
 	View view = lx.peek().view;
 	Channel channel = 1;
@@ -1217,7 +1232,7 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence seq) {
 
 	channel--; // 0-15 range
 
-	size_t ms_per_note = 60'000 / seq.bpm;
+	size_t ms_per_note = 60'000 / bpm(seq, lx, sink_v);
 
 	auto [it, succ] = ctx.times.try_emplace(channel, 0);
 	size_t& time = it->second;
