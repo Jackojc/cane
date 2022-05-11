@@ -1,12 +1,17 @@
 #include <iostream>
+#include <sstream>
+#include <fstream>
 #include <string>
 #include <string_view>
 #include <chrono>
 #include <thread>
+#include <filesystem>
 
 #include <report.hpp>
 #include <view.hpp>
 #include <lib.hpp>
+
+#include <conflict/conflict.hpp>
 
 extern "C" {
 	#include <jack/jack.h>
@@ -14,33 +19,69 @@ extern "C" {
 	#include <jack/ringbuffer.h>
 }
 
-int main(int, const char*[]) {
-	std::string device = "j2a";
+enum {
+	OPT_HELP = 0b01,
+	OPT_LIST = 0b10,
+};
+
+inline std::string read_file(std::filesystem::path path) {
+	try {
+		std::filesystem::path cur = path;
+
+		while (std::filesystem::is_symlink(cur)) {
+			std::filesystem::path tmp = std::filesystem::read_symlink(cur);
+
+			if (tmp == cur)
+				cane::general_error(cane::STR_SYMLINK_ERROR, path);
+
+			cur = tmp;
+		}
+
+		if (std::filesystem::is_directory(cur) or std::filesystem::is_other(cur))
+			cane::general_error(cane::STR_NOT_FILE_ERROR, path);
+
+		if (not std::filesystem::exists(cur))
+			cane::general_error(cane::STR_FILE_NOT_FOUND_ERROR, path);
+
+		std::ifstream is(cur, std::ios::binary);
+
+		if (not is.is_open())
+			cane::general_error(cane::STR_FILE_READ_ERROR, path);
+
+		std::stringstream ss;
+		ss << is.rdbuf();
+
+		return ss.str();
+	}
+
+	catch (const std::filesystem::filesystem_error&) {
+		cane::general_error(cane::STR_FILE_READ_ERROR, path);
+	}
+}
+
+int main(int argc, const char* argv[]) {
+	std::string_view device;
+	std::string_view filename;
+	uint64_t flags;
+
+	auto parser = conflict::parser {
+		conflict::option { { 'h', "help", "show help" }, flags, OPT_HELP },
+		conflict::option { { 'l', "list", "list available midi devices" }, flags, OPT_LIST },
+
+		conflict::string_option { { 'f', "file", "input file" }, "filename", filename },
+		conflict::string_option { { 'm', "midi", "midi device to connect to" }, "device", device },
+	};
+
+	parser.apply_defaults();
+	auto st = parser.parse(argc - 1, argv + 1);
 
 	try {
-		std::istreambuf_iterator<char> begin { std::cin }, end;
-		std::string in { begin, end };
+		conflict::default_report(st);
 
-		cane::View src { &*in.begin(), &*in.end() };
-		cane::Lexer lx { src };
-
-		if (not cane::utf_validate(src))
-			lx.error(cane::Phases::ENCODING, src, cane::STR_ENCODING);
-
-		namespace time = std::chrono;
-
-		using clock = time::steady_clock;
-		using unit = time::microseconds;
-
-		auto t1 = clock::now();
-		cane::Context ctx = cane::compile(lx);
-		auto t2 = clock::now();
-
-		time::duration<double, std::micro> t = t2 - t1;
-		CANE_LOG(cane::LOG_SUCC, CANE_ANSI_FG_YELLOW "took: {}µs" CANE_ANSI_RESET, t.count());
-
-		if (ctx.timeline.empty())
+		if (flags & OPT_HELP) {
+			parser.print_help();
 			return 0;
+		}
 
 
 		// Setup JACK
@@ -92,21 +133,67 @@ int main(int, const char*[]) {
 			cane::general_error(cane::STR_MIDI_ACTIVATE_ERROR);
 
 
+		// If no device is specified _and_ `-l` is not passed,
+		// throw an error. It's perfectly valid to give an empty
+		// string to JACK here and it will give us back a list
+		// of ports regardless.
+		if (device.empty() and (flags & OPT_LIST) != OPT_LIST)
+			cane::general_error(cane::STR_MIDI_NO_DEVICE);
+
+
 		// Get an array of all MIDI input ports that we could potentially connect to.
 		const char** ports = nullptr;
 
-		if (not (ports = jack_get_ports(midi.client, device.c_str(), JACK_DEFAULT_MIDI_TYPE, JackPortIsInput)))
+		if (not (ports = jack_get_ports(midi.client, std::string{ device }.c_str(), JACK_DEFAULT_MIDI_TYPE, JackPortIsInput)))
 			cane::general_error(cane::STR_MIDI_GET_PORTS_ERROR);
 
 		if (*ports == nullptr)  // No MIDI input ports.
 			cane::general_error(cane::STR_MIDI_NOT_FOUND, device);
+
+		if (flags & OPT_LIST) {
+			for (; *ports != nullptr; ++ports)
+				cane::general_notice(cane::STR_MIDI_DEVICE, *ports);
+
+			return 0;
+		}
 
 		cane::general_notice(cane::STR_MIDI_FOUND, *ports);
 
 		if (jack_connect(midi.client, jack_port_name(midi.port), *ports))
 			cane::general_error(cane::STR_MIDI_PATCH_ERROR);
 
-		jack_free(ports);
+		jack_free(ports);  // TODO: free this on error.
+
+
+		// Compiler
+		if (filename.empty())
+			cane::general_error(cane::STR_NO_FILE);
+
+		auto path = std::filesystem::current_path() / std::filesystem::path { filename };
+		std::filesystem::current_path(path.parent_path());
+
+		std::string in = read_file(path);
+
+		cane::View src { &*in.begin(), &*in.end() };
+		cane::Lexer lx { src };
+
+		if (not cane::utf_validate(src))
+			lx.error(cane::Phases::ENCODING, src, cane::STR_ENCODING);
+
+		namespace time = std::chrono;
+
+		using clock = time::steady_clock;
+		using unit = time::microseconds;
+
+		auto t1 = clock::now();
+			cane::Context ctx = cane::compile(lx);
+		auto t2 = clock::now();
+
+		time::duration<double, std::micro> t = t2 - t1;
+		CANE_LOG(cane::LOG_SUCC, CANE_ANSI_FG_YELLOW "took: {}µs" CANE_ANSI_RESET, t.count());
+
+		if (ctx.timeline.empty())
+			return 0;
 
 
 		// Sequencer

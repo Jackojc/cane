@@ -52,6 +52,10 @@ namespace cane {
 
 	constexpr View STR_DEBUG         = "`{}`(x{}) @{}bpm/{}s"_sv;
 
+	constexpr View STR_NO_FILE = "no file specified"_sv;
+
+	constexpr View STR_MIDI_NO_DEVICE       = "no MIDI device specified"_sv;
+	constexpr View STR_MIDI_DEVICE          = "device `{}`"_sv;
 	constexpr View STR_MIDI_FOUND           = "found port `{}`"_sv;
 	constexpr View STR_MIDI_NOT_FOUND       = "port `{}` not found"_sv;
 	constexpr View STR_MIDI_CONNECT_ERROR   = "could not connect to the JACK server"_sv;
@@ -60,6 +64,11 @@ namespace cane {
 	constexpr View STR_MIDI_ACTIVATE_ERROR  = "could not activate JACK client"_sv;
 	constexpr View STR_MIDI_GET_PORTS_ERROR = "could not get MIDI input ports from JACK"_sv;
 	constexpr View STR_MIDI_PATCH_ERROR     = "could not connect to port `{}`"_sv;
+
+	constexpr View STR_SYMLINK_ERROR        = "symlink `{}` resolves to itself"_sv;
+	constexpr View STR_NOT_FILE_ERROR       = "`{}` is not a file"_sv;
+	constexpr View STR_FILE_NOT_FOUND_ERROR = "file `{}` not found"_sv;
+	constexpr View STR_FILE_READ_ERROR      = "cannot read `{}`"_sv;
 
 }
 

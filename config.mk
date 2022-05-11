@@ -9,7 +9,7 @@ SRC_DIR=src
 SRCS=$(basename $(subst $(SRC_DIR),$(BUILD_DIR),$(wildcard $(SRC_DIR)/*.cpp)))
 
 # Libraries to include and link
-INC=-Isrc/
+INC=-Isrc/ -Imodules/conflict/include/
 LIBS=-ljack
 
 # Flags
