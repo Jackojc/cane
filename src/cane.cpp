@@ -173,6 +173,9 @@ int main(int argc, const char* argv[]) {
 
 
 		// Compiler
+		if (filename.empty())
+			cane::general_error(cane::STR_OPT_NO_FILE);
+
 		auto path = std::filesystem::current_path() / std::filesystem::path { filename };
 		std::filesystem::current_path(path.parent_path());
 

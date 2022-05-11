@@ -52,6 +52,7 @@ namespace cane {
 
 	constexpr View STR_DEBUG         = "`{}`(x{}) @{}bpm/{}s"_sv;
 
+	constexpr View STR_OPT_NO_FILE        = "no file specified"_sv;
 	constexpr View STR_OPT_INVALID_OPTION = "invalid option `{}`"_sv;
 	constexpr View STR_OPT_INVALID_ARG    = "invalid argument `{}` for `{}`"_sv;
 	constexpr View STR_OPT_MISSING_ARG    = "missing argument for `{}`"_sv;
