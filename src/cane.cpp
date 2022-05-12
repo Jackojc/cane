@@ -106,38 +106,45 @@ int main(int argc, const char* argv[]) {
 		struct JackData {
 			jack_client_t* client = nullptr;
 			jack_port_t* port = nullptr;
+
 			std::vector<cane::Event> events;
 
 			~JackData() {
+				jack_port_unregister(client, port);
+				jack_deactivate(client);
 				jack_client_close(client);
 			}
-		};
+		} midi {};
 
 		// Connect to JACK, register a port and register our callback.
-		JackData midi {};
-
-		if (not (midi.client = jack_client_open(cane::CSTR_EXE, JackOptions::JackNullOption, nullptr)))
+		if (not (midi.client = jack_client_open(cane::CSTR_EXE, JackOptions::JackNoStartServer, nullptr)))
 			cane::general_error(cane::STR_MIDI_CONNECT_ERROR);
 
 		if (not (midi.port = jack_port_register(midi.client, cane::CSTR_PORT, JACK_DEFAULT_MIDI_TYPE, JackPortIsOutput, 0)))
 			cane::general_error(cane::STR_MIDI_PORT_ERROR);
 
+		midi.events.reserve(midi.events.capacity() + jack_get_buffer_size(midi.client));
+
+
+		// MIDI out callback
 		jack_set_process_callback(midi.client, [] (jack_nframes_t nframes, void *arg) {
 			auto& [client, port, events] = *static_cast<JackData*>(arg);
 
 			void* out_buffer = jack_port_get_buffer(port, nframes);
 			jack_midi_clear_buffer(out_buffer);
 
-			uint8_t* buffer = nullptr;
+			jack_nframes_t f = events.size() < nframes ? events.size() : nframes;
 
 			// Copy every MIDI event into the buffer provided by JACK.
 			for (cane::Event& ev: events) {
 				std::array msg = ev.message();
 
-				if (not (buffer = jack_midi_event_reserve(out_buffer, 0, msg.size())))
+				if (jack_midi_event_write(out_buffer, f, msg.data(), msg.size()))
 					cane::general_error(cane::STR_MIDI_WRITE_ERROR);
 
-				std::memcpy(buffer, msg.data(), msg.size());
+				size_t lost = 0;
+				if ((lost = jack_midi_get_lost_event_count(out_buffer)))
+					cane::general_warning(cane::STR_MIDI_LOST_EVENT, lost);
 			}
 
 			events.clear();  // important so that we don't leak memory

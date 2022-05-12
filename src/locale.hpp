@@ -57,6 +57,7 @@ namespace cane {
 	constexpr View STR_OPT_INVALID_ARG    = "invalid argument `{}` for `{}`"_sv;
 	constexpr View STR_OPT_MISSING_ARG    = "missing argument for `{}`"_sv;
 
+	constexpr View STR_MIDI_LOST_EVENT      = "`{}` MIDI event(s) lost"_sv;
 	constexpr View STR_MIDI_NO_DEVICE       = "no MIDI device specified"_sv;
 	constexpr View STR_MIDI_DEVICE          = "device `{}`"_sv;
 	constexpr View STR_MIDI_FOUND           = "found port `{}`"_sv;
