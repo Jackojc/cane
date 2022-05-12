@@ -6,6 +6,7 @@
 #include <chrono>
 #include <thread>
 #include <filesystem>
+#include <memory>
 
 #include <report.hpp>
 #include <view.hpp>
@@ -18,6 +19,8 @@ extern "C" {
 	#include <jack/midiport.h>
 	#include <jack/ringbuffer.h>
 }
+
+using JackPorts = std::unique_ptr<const char*[], decltype(&jack_free)>;
 
 enum {
 	OPT_HELP = 0b01,
@@ -149,27 +152,28 @@ int main(int argc, const char* argv[]) {
 
 
 		// Get an array of all MIDI input ports that we could potentially connect to.
-		const char** ports = nullptr;
+		JackPorts ports {
+			jack_get_ports(midi.client, std::string { device }.c_str(), JACK_DEFAULT_MIDI_TYPE, JackPortIsInput),
+			jack_free
+		};
 
-		if (not (ports = jack_get_ports(midi.client, std::string{ device }.c_str(), JACK_DEFAULT_MIDI_TYPE, JackPortIsInput)))
+		if (not ports)
 			cane::general_error(cane::STR_MIDI_GET_PORTS_ERROR);
 
-		if (*ports == nullptr)  // No MIDI input ports.
+		if (not ports[0])  // No MIDI input ports.
 			cane::general_error(cane::STR_MIDI_NOT_FOUND, device);
 
 		if (flags & OPT_LIST) {
-			for (; *ports != nullptr; ++ports)
-				cane::general_notice(cane::STR_MIDI_DEVICE, *ports);
+			for (size_t i = 0; ports[i] != nullptr; ++i)
+				cane::general_notice(cane::STR_MIDI_DEVICE, ports[i]);
 
 			return 0;
 		}
 
-		cane::general_notice(cane::STR_MIDI_FOUND, *ports);
+		cane::general_notice(cane::STR_MIDI_FOUND, ports[0]);
 
-		if (jack_connect(midi.client, jack_port_name(midi.port), *ports))
+		if (jack_connect(midi.client, jack_port_name(midi.port), ports[0]))
 			cane::general_error(cane::STR_MIDI_PATCH_ERROR);
-
-		jack_free(ports);  // TODO: free this on error.
 
 
 		// Compiler
