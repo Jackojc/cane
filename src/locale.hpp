@@ -57,17 +57,30 @@ namespace cane {
 	constexpr View STR_OPT_INVALID_ARG    = "invalid argument `{}` for `{}`"_sv;
 	constexpr View STR_OPT_MISSING_ARG    = "missing argument for `{}`"_sv;
 
-	constexpr View STR_MIDI_LOST_EVENT      = "`{}` MIDI event(s) lost"_sv;
-	constexpr View STR_MIDI_NO_DEVICE       = "no MIDI device specified"_sv;
-	constexpr View STR_MIDI_DEVICE          = "device `{}`"_sv;
-	constexpr View STR_MIDI_FOUND           = "found port `{}`"_sv;
-	constexpr View STR_MIDI_NOT_FOUND       = "port `{}` not found"_sv;
-	constexpr View STR_MIDI_CONNECT_ERROR   = "could not connect to the JACK server"_sv;
-	constexpr View STR_MIDI_PORT_ERROR      = "could not register port"_sv;
-	constexpr View STR_MIDI_WRITE_ERROR     = "could not send MIDI event"_sv;
-	constexpr View STR_MIDI_ACTIVATE_ERROR  = "could not activate JACK client"_sv;
-	constexpr View STR_MIDI_GET_PORTS_ERROR = "could not get MIDI input ports from JACK"_sv;
-	constexpr View STR_MIDI_PATCH_ERROR     = "could not connect to port `{}`"_sv;
+	constexpr View STR_SAMPLE_RATE_CALLBACK_ERROR       = "could not register sample rate callback"_sv;
+	constexpr View STR_PROCESS_CALLBACK_ERROR           = "could not register process callback"_sv;
+	constexpr View STR_PORT_RENAME_CALLBACK_ERROR       = "could not register port rename callback"_sv;
+	constexpr View STR_PORT_REGISTRATION_CALLBACK_ERROR = "could not register port registration callback"_sv;
+	constexpr View STR_PORT_CONNECT_CALLBACK_ERROR      = "could not register port connect callback"_sv;
+	constexpr View STR_BUFFER_SIZE_CALLBACK_ERROR       = "could not register buffer size callback"_sv;
+
+	constexpr View STR_BUFFER_SIZE_CHANGE = "buffer size changed from `{}` to `{}` frames"_sv;
+	constexpr View STR_PORT_CONNECT       = "port `{}` connect to port `{}`"_sv;
+	constexpr View STR_PORT_REGISTER      = "port `{}` registered"_sv;
+	constexpr View STR_PORT_UNREGISTER    = "port `{}` unregistered"_sv;
+	constexpr View STR_PORT_RENAME        = "port `{}` renamed to `{}`"_sv;
+	constexpr View STR_SAMPLE_RATE_CHANGE = "sample rate changed from `{}` to `{}`Hz"_sv;
+	constexpr View STR_LOST_EVENT         = "`{}` MIDI event(s) lost"_sv;
+	constexpr View STR_NO_DEVICE          = "no MIDI device specified"_sv;
+	constexpr View STR_DEVICE             = "device `{}`"_sv;
+	constexpr View STR_FOUND              = "found port `{}`"_sv;
+	constexpr View STR_NOT_FOUND          = "port `{}` not found"_sv;
+	constexpr View STR_CONNECT_ERROR      = "could not connect to the JACK server"_sv;
+	constexpr View STR_PORT_ERROR         = "could not register port"_sv;
+	constexpr View STR_WRITE_ERROR        = "could not send MIDI event"_sv;
+	constexpr View STR_ACTIVATE_ERROR     = "could not activate JACK client"_sv;
+	constexpr View STR_GET_PORTS_ERROR    = "could not get MIDI input ports from JACK"_sv;
+	constexpr View STR_PATCH_ERROR        = "could not connect to port `{}`"_sv;
 
 	constexpr View STR_SYMLINK_ERROR        = "symlink `{}` resolves to itself"_sv;
 	constexpr View STR_NOT_FILE_ERROR       = "`{}` is not a file"_sv;

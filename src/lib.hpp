@@ -1385,10 +1385,6 @@ inline Context compile(Lexer& lx) {
 	while (lx.peek().kind != Symbols::TERMINATOR)
 		statement(ctx, lx);
 
-	// Send "all notes off" message to channels in use.
-	for (auto& [channel, time]: ctx.times)
-		ctx.timeline.emplace_back(time, 0b1011, channel, 123, 0);
-
 	return ctx;
 }
 

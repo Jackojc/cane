@@ -107,53 +107,116 @@ int main(int argc, const char* argv[]) {
 			jack_client_t* client = nullptr;
 			jack_port_t* port = nullptr;
 
+			jack_nframes_t sample_rate = 0;
+			jack_nframes_t buffer_size = 0;
+			size_t time = 0;
+
+			std::vector<cane::Event>::iterator it;
+			std::vector<cane::Event>::const_iterator end;
+
 			std::vector<cane::Event> events;
 
 			~JackData() {
-				jack_port_unregister(client, port);
 				jack_deactivate(client);
+				jack_port_unregister(client, port);
 				jack_client_close(client);
 			}
 		} midi {};
 
-		// Connect to JACK, register a port and register our callback.
+
+		// Connect to JACK
 		if (not (midi.client = jack_client_open(cane::CSTR_EXE, JackOptions::JackNoStartServer, nullptr)))
-			cane::general_error(cane::STR_MIDI_CONNECT_ERROR);
+			cane::general_error(cane::STR_CONNECT_ERROR);
 
-		if (not (midi.port = jack_port_register(midi.client, cane::CSTR_PORT, JACK_DEFAULT_MIDI_TYPE, JackPortIsOutput, 0)))
-			cane::general_error(cane::STR_MIDI_PORT_ERROR);
 
-		midi.events.reserve(midi.events.capacity() + jack_get_buffer_size(midi.client));
+		// Sample rate changed callback. We use the sample rate to determine timing
+		// information so this is crucial.
+		if (jack_set_sample_rate_callback(midi.client, [] (jack_nframes_t sample_rate, void* arg) {
+			JackData& midi = *static_cast<JackData*>(arg);
+
+			cane::general_warning(cane::STR_SAMPLE_RATE_CHANGE, midi.sample_rate, sample_rate);
+			midi.sample_rate = sample_rate;
+
+			return 0;
+		}, static_cast<void*>(&midi)))
+			cane::general_error(cane::STR_SAMPLE_RATE_CALLBACK_ERROR);
+
+
+		// Notify of buffer size changes
+		if (jack_set_buffer_size_callback(midi.client, [] (jack_nframes_t buffer_size, void* arg) {
+			JackData& midi = *static_cast<JackData*>(arg);
+
+			cane::general_warning(cane::STR_BUFFER_SIZE_CHANGE, midi.buffer_size, buffer_size);
+			midi.buffer_size = buffer_size;
+
+			return 0;
+		}, static_cast<void*>(&midi)))
+			cane::general_error(cane::STR_BUFFER_SIZE_CALLBACK_ERROR);
+
+
+		// Notify of port connections
+		if (jack_set_port_connect_callback(midi.client, [] (
+			jack_port_id_t a, jack_port_id_t b, int connect, void* arg
+		) {
+			JackData& midi = *static_cast<JackData*>(arg);
+
+			const char* name_a = jack_port_name(jack_port_by_id(midi.client, a));
+			const char* name_b = jack_port_name(jack_port_by_id(midi.client, b));
+
+			if (connect)
+				cane::general_warning(cane::STR_PORT_CONNECT, name_a, name_b);
+		}, static_cast<void*>(&midi)))
+			cane::general_error(cane::STR_PORT_CONNECT_CALLBACK_ERROR);
+
+
+		// Notify of port register or unregister
+		if (jack_set_port_registration_callback(midi.client, [] (
+			jack_port_id_t port, int reg, void* arg
+		) {
+			JackData& midi = *static_cast<JackData*>(arg);
+
+			const char* name = jack_port_name(jack_port_by_id(midi.client, port));
+			cane::View str = reg ? cane::STR_PORT_REGISTER: cane::STR_PORT_UNREGISTER;
+
+			cane::general_warning(str, name);
+		}, static_cast<void*>(&midi)))
+			cane::general_error(cane::STR_PORT_REGISTRATION_CALLBACK_ERROR);
+
+
+		// Notify of port rename
+		if (jack_set_port_rename_callback(midi.client, [] (
+			jack_port_id_t port, const char* old_name, const char* new_name, void* arg
+		) {
+			JackData& midi = *static_cast<JackData*>(arg);
+			cane::general_warning(cane::STR_PORT_RENAME, old_name, new_name);
+		}, static_cast<void*>(&midi)))
+			cane::general_error(cane::STR_PORT_RENAME_CALLBACK_ERROR);
 
 
 		// MIDI out callback
-		jack_set_process_callback(midi.client, [] (jack_nframes_t nframes, void *arg) {
-			auto& [client, port, events] = *static_cast<JackData*>(arg);
+		if (jack_set_process_callback(midi.client, [] (jack_nframes_t nframes, void *arg) {
+			auto& [client, port, sample_rate, buffer_size, time, it, end, events] = *static_cast<JackData*>(arg);
 
 			void* out_buffer = jack_port_get_buffer(port, nframes);
 			jack_midi_clear_buffer(out_buffer);
 
-			jack_nframes_t f = events.size() < nframes ? events.size() : nframes;
-
 			// Copy every MIDI event into the buffer provided by JACK.
-			for (cane::Event& ev: events) {
-				std::array msg = ev.message();
+			for (; it != end and it->time <= time; ++it) {
+				std::array msg = it->message();
 
-				if (jack_midi_event_write(out_buffer, f, msg.data(), msg.size()))
-					cane::general_error(cane::STR_MIDI_WRITE_ERROR);
+				if (jack_midi_event_write(out_buffer, 0, msg.data(), msg.size()))
+					cane::general_error(cane::STR_WRITE_ERROR);
 
 				size_t lost = 0;
 				if ((lost = jack_midi_get_lost_event_count(out_buffer)))
-					cane::general_warning(cane::STR_MIDI_LOST_EVENT, lost);
+					cane::general_warning(cane::STR_LOST_EVENT, lost);
 			}
 
-			events.clear();  // important so that we don't leak memory
+			time += 1000 / (sample_rate / nframes);  // Update time (in ms)
 
 			return 0;
-		}, static_cast<void*>(&midi));
-
-		if (jack_activate(midi.client))
-			cane::general_error(cane::STR_MIDI_ACTIVATE_ERROR);
+		}, static_cast<void*>(&midi)))
+			cane::general_error(cane::STR_PROCESS_CALLBACK_ERROR);
 
 
 		// If no device is specified _and_ `-l` is not passed,
@@ -161,29 +224,37 @@ int main(int argc, const char* argv[]) {
 		// string to JACK here and it will give us back a list
 		// of ports regardless.
 		if (device.empty() and (flags & OPT_LIST) != OPT_LIST)
-			cane::general_error(cane::STR_MIDI_NO_DEVICE);
+			cane::general_error(cane::STR_NO_DEVICE);
+
+
+		// Register port and get information.
+		if (not (midi.port = jack_port_register(midi.client, cane::CSTR_PORT, JACK_DEFAULT_MIDI_TYPE, JackPortIsOutput, 0)))
+			cane::general_error(cane::STR_PORT_ERROR);
+
+		midi.buffer_size = jack_get_buffer_size(midi.client);
+		midi.sample_rate = jack_get_sample_rate(midi.client);
 
 
 		// Get an array of all MIDI input ports that we could potentially connect to.
 		JackPorts ports { jack_get_ports(midi.client, std::string { device }.c_str(), JACK_DEFAULT_MIDI_TYPE, JackPortIsInput) };
 
 		if (not ports)
-			cane::general_error(cane::STR_MIDI_GET_PORTS_ERROR);
+			cane::general_error(cane::STR_GET_PORTS_ERROR);
 
 		if (not ports[0])  // No MIDI input ports.
-			cane::general_error(cane::STR_MIDI_NOT_FOUND, device);
+			cane::general_error(cane::STR_NOT_FOUND, device);
 
 		if (flags & OPT_LIST) {
 			for (size_t i = 0; ports[i] != nullptr; ++i)
-				cane::general_notice(cane::STR_MIDI_DEVICE, ports[i]);
+				cane::general_notice(cane::STR_DEVICE, ports[i]);
 
 			return 0;
 		}
 
-		cane::general_notice(cane::STR_MIDI_FOUND, ports[0]);
+		cane::general_notice(cane::STR_FOUND, ports[0]);
 
 		if (jack_connect(midi.client, jack_port_name(midi.port), ports[0]))
-			cane::general_error(cane::STR_MIDI_PATCH_ERROR);
+			cane::general_error(cane::STR_PATCH_ERROR);
 
 
 		// Compiler
@@ -216,37 +287,19 @@ int main(int argc, const char* argv[]) {
 		if (ctx.timeline.empty())
 			return 0;
 
+		// Setup MIDI events.
+		midi.events = ctx.timeline;
 
-		// Sequencer
-		size_t dt = 0;
-		auto it = ctx.timeline.begin();
+		midi.it = ctx.timeline.begin();
+		midi.end = ctx.timeline.cend();
 
-		while (true) {
-			// Gather all events we need to send now.
-			for (; it != ctx.timeline.end() and it->time <= dt; ++it)
-				midi.events.emplace_back(*it);
+		// Call this or else our callback is never called.
+		if (jack_activate(midi.client))
+			cane::general_error(cane::STR_ACTIVATE_ERROR);
 
-			if (it == ctx.timeline.end())
-				break;
-
-			// Wait until the next event.
-			// We wait for successively shorter times until we apprach the
-			// target until we end up in a busy loop to make sure we keep
-			// latency from the OS scheduler to a minimum while also not
-			// turning the CPU into a glorified heater.
-			auto slpt = it->time - dt;
-			auto target = std::chrono::steady_clock::now() + std::chrono::milliseconds { slpt };
-
-			while (std::chrono::steady_clock::now() < target) {
-				slpt /= 2;
-
-				if (slpt < 10)
-					continue;
-
-				std::this_thread::sleep_for(std::chrono::milliseconds { slpt });
-			}
-
-			dt += (it->time - dt);
+		// Sleep until timeline is completed.
+		while (midi.it != midi.end) {
+			std::this_thread::sleep_for(1ms);
 		}
 	}
 
