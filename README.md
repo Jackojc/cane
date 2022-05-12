@@ -67,6 +67,10 @@ make dbg=no
 - [Gwion](https://github.com/Gwion/Gwion)
 - [Prop](https://pbat.ch/proj/prop.html)
 
+### Tools
+- [LMMS](https://lmms.io/)
+- [Hydrogen](http://hydrogen-music.org/)
+
 ### Resources
 - [Euclidean Rhythms](http://cgm.cs.mcgill.ca/~godfried/publications/banff.pdf)
 - [Euclidean Rhythms (Extended Paper)](http://cgm.cs.mcgill.ca/~godfried/publications/banff-extended.pdf)
