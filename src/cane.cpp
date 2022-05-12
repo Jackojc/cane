@@ -20,7 +20,13 @@ extern "C" {
 	#include <jack/ringbuffer.h>
 }
 
-using JackPorts = std::unique_ptr<const char*[], decltype(&jack_free)>;
+struct jack_deleter {
+	template <typename T> constexpr void operator()(T arg) const {
+		jack_free(arg);
+	}
+};
+
+using JackPorts = std::unique_ptr<const char*[], jack_deleter>;
 
 enum {
 	OPT_HELP = 0b01,
@@ -152,10 +158,7 @@ int main(int argc, const char* argv[]) {
 
 
 		// Get an array of all MIDI input ports that we could potentially connect to.
-		JackPorts ports {
-			jack_get_ports(midi.client, std::string { device }.c_str(), JACK_DEFAULT_MIDI_TYPE, JackPortIsInput),
-			jack_free
-		};
+		JackPorts ports { jack_get_ports(midi.client, std::string { device }.c_str(), JACK_DEFAULT_MIDI_TYPE, JackPortIsInput) };
 
 		if (not ports)
 			cane::general_error(cane::STR_MIDI_GET_PORTS_ERROR);
