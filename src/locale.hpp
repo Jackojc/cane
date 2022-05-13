@@ -14,6 +14,8 @@ namespace cane {
 	constexpr View STR_ENCODING      = "malformed source encoding"_sv;
 	constexpr View STR_UNREACHABLE   = "unreachable code"_sv;
 
+	constexpr View STR_COMPILED = "compiled in {}ms"_sv;
+
 	constexpr View STR_GREATER       = "value must be > `{}`"_sv;
 	constexpr View STR_LESSER        = "value must be < `{}`"_sv;
 	constexpr View STR_GREATER_EQ    = "value must be >= `{}`"_sv;

@@ -87,10 +87,17 @@ int main(int argc, const char* argv[]) {
 	try {
 		// Handle argument parsing errors.
 		switch (status.err) {
-			case conflict::error::invalid_option: cane::general_error(cane::STR_OPT_INVALID_OPTION, status.what1);
-			case conflict::error::invalid_argument: cane::general_error(cane::STR_OPT_INVALID_ARG, status.what1, status.what2);
-			case conflict::error::missing_argument: cane::general_error(cane::STR_OPT_MISSING_ARG, status.what1);
-			case::conflict::error::ok: break;
+			case conflict::error::invalid_option:
+				cane::general_error(cane::STR_OPT_INVALID_OPTION, status.what1);
+
+			case conflict::error::invalid_argument:
+				cane::general_error(cane::STR_OPT_INVALID_ARG, status.what1, status.what2);
+
+			case conflict::error::missing_argument:
+				cane::general_error(cane::STR_OPT_MISSING_ARG, status.what1);
+
+			case::conflict::error::ok:
+				break;
 		}
 
 
@@ -204,11 +211,11 @@ int main(int argc, const char* argv[]) {
 			for (; it != end and it->time <= time; ++it) {
 				if (jack_midi_event_write(out_buffer, 0, it->data.data(), it->data.size()))
 					cane::general_error(cane::STR_WRITE_ERROR);
-
-				size_t lost = 0;
-				if ((lost = jack_midi_get_lost_event_count(out_buffer)))
-					cane::general_warning(cane::STR_LOST_EVENT, lost);
 			}
+
+			size_t lost = 0;
+			if ((lost = jack_midi_get_lost_event_count(out_buffer)))
+				cane::general_warning(cane::STR_LOST_EVENT, lost);
 
 			time += std::chrono::duration_cast<cane::Unit>(std::chrono::seconds { nframes }) / sample_rate;
 
@@ -236,12 +243,13 @@ int main(int argc, const char* argv[]) {
 		// Get an array of all MIDI input ports that we could potentially connect to.
 		JackPorts ports { jack_get_ports(midi.client, std::string { device }.c_str(), JACK_DEFAULT_MIDI_TYPE, JackPortIsInput) };
 
-		if (not ports)
+		if (not ports)  // Error occured
 			cane::general_error(cane::STR_GET_PORTS_ERROR);
 
 		if (not ports[0])  // No MIDI input ports.
 			cane::general_error(cane::STR_NOT_FOUND, device);
 
+		// Print all devices if list option passed
 		if (flags & OPT_LIST) {
 			for (size_t i = 0; ports[i] != nullptr; ++i)
 				cane::general_notice(cane::STR_DEVICE, ports[i]);
@@ -249,6 +257,7 @@ int main(int argc, const char* argv[]) {
 			return 0;
 		}
 
+		// Print port that we're going to use.
 		cane::general_notice(cane::STR_FOUND, ports[0]);
 
 		if (jack_connect(midi.client, jack_port_name(midi.port), ports[0]))
@@ -270,22 +279,28 @@ int main(int argc, const char* argv[]) {
 		if (not cane::utf_validate(src))
 			lx.error(cane::Phases::ENCODING, src, cane::STR_ENCODING);
 
+
 		namespace time = std::chrono;
 
 		using clock = time::steady_clock;
 		using unit = time::microseconds;
 
+		// Compile
 		auto t1 = clock::now();
 			cane::Context ctx = cane::compile(lx);
 		auto t2 = clock::now();
 
-		time::duration<double, std::micro> t = t2 - t1;
-		CANE_LOG(cane::LOG_SUCC, CANE_ANSI_FG_YELLOW "took: {}µs" CANE_ANSI_RESET, t.count());
+		std::cerr << std::fixed << std::setprecision(2);
+		cane::general_notice(cane::STR_COMPILED, time::duration<double, std::milli> { t2 - t1 }.count());
 
 		if (ctx.timeline.empty())
 			return 0;
 
+
 		// Setup MIDI events.
+		// Very important that we assign these here or else
+		// the sequencer will not run, or worse- start
+		// sequencing garbage values.
 		midi.events = ctx.timeline;
 
 		midi.it = ctx.timeline.begin();
@@ -296,9 +311,8 @@ int main(int argc, const char* argv[]) {
 			cane::general_error(cane::STR_ACTIVATE_ERROR);
 
 		// Sleep until timeline is completed.
-		while (midi.it != midi.end) {
+		while (midi.it != midi.end)
 			std::this_thread::sleep_for(1ms);
-		}
 	}
 
 	catch (cane::Error) {

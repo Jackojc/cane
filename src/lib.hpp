@@ -1174,10 +1174,7 @@ inline Sequence seq_postfix(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
 
 		case Symbols::DBG: {
 			size_t tempo = bpm(seq, lx, tok.view);
-			// size_t dur = ((60 * 1000 * 1000) * seq.size() / tempo) / 1000.f / 1000.f;
-			auto dur = std::chrono::duration<double> {
-				(ONE_MIN * seq.size() / tempo)
-			};
+			auto dur = std::chrono::duration<double> { (ONE_MIN * seq.size() / tempo) };
 
 			auto mini = minify(seq);
 			size_t count = seq.size() / mini.size();
