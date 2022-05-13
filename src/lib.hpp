@@ -527,16 +527,16 @@ using Literal = int64_t;
 
 struct Event {
 	size_t time;
-	uint8_t status;
-	uint8_t note;
-	uint8_t velocity;
+	std::array<uint8_t, 3> data;
 
 	constexpr Event(size_t time_, uint8_t kind, uint8_t channel, uint8_t note_, uint8_t velocity_):
-		time(time_), status((kind << 4) | channel), note(note_), velocity(velocity_) {}
-
-	constexpr decltype(auto) message() const {
-		return std::array { status, note, velocity };
-	}
+		time(time_),
+		data {
+			(uint8_t)((kind << 4u) | channel),
+			note_,
+			velocity_
+		}
+	{}
 };
 
 

@@ -202,9 +202,7 @@ int main(int argc, const char* argv[]) {
 
 			// Copy every MIDI event into the buffer provided by JACK.
 			for (; it != end and it->time <= time; ++it) {
-				std::array msg = it->message();
-
-				if (jack_midi_event_write(out_buffer, 0, msg.data(), msg.size()))
+				if (jack_midi_event_write(out_buffer, 0, it->data.data(), it->data.size()))
 					cane::general_error(cane::STR_WRITE_ERROR);
 
 				size_t lost = 0;
