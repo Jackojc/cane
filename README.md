@@ -70,6 +70,7 @@ make dbg=no
 ### Tools
 - [LMMS](https://lmms.io/)
 - [Hydrogen](http://hydrogen-music.org/)
+- [JACK Applications](https://jackaudio.org/applications/)
 
 ### Resources
 - [Euclidean Rhythms](http://cgm.cs.mcgill.ca/~godfried/publications/banff.pdf)
