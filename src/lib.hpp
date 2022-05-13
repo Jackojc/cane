@@ -525,11 +525,14 @@ using Literal = int64_t;
 
 #undef MIDI
 
+using Unit = std::chrono::microseconds;
+constexpr auto ONE_MIN = std::chrono::duration_cast<Unit>(std::chrono::minutes { 1 });
+
 struct Event {
-	size_t time;
+	Unit time;
 	std::array<uint8_t, 3> data;
 
-	constexpr Event(size_t time_, uint8_t kind, uint8_t channel, uint8_t note_, uint8_t velocity_):
+	constexpr Event(Unit time_, uint8_t kind, uint8_t channel, uint8_t note_, uint8_t velocity_):
 		time(time_),
 		data {
 			(uint8_t)((kind << 4u) | channel),
@@ -544,7 +547,7 @@ struct Context {
 	std::unordered_map<View, Sequence> symbols;
 	std::unordered_map<View, Literal> constants;
 	std::unordered_map<View, size_t> aliases;
-	std::unordered_map<size_t, size_t> times;
+	std::unordered_map<size_t, Unit> times;
 
 	std::vector<Event> timeline;
 };
@@ -1052,13 +1055,13 @@ inline Sequence seq_infix_expr(Context& ctx, Lexer& lx, Sequence lhs, size_t bp)
 			size_t lhs_bpm = bpm(lhs, lx, tok.view);
 			size_t rhs_bpm = bpm(rhs, lx, tok.view);
 
-			size_t lhs_length = (1000 * 60) / lhs_bpm * lhs.size();
-			size_t rhs_length = (1000 * 60) / rhs_bpm * rhs.size();
+			Unit lhs_length = ONE_MIN / lhs_bpm * lhs.size();
+			Unit rhs_length = ONE_MIN / rhs_bpm * rhs.size();
 
-			size_t lcm = std::lcm(lhs_length, rhs_length);
+			size_t lcm = std::lcm(lhs_length.count(), rhs_length.count());
 
-			size_t lhs_reps = lcm / lhs_length;
-			size_t rhs_reps = lcm / rhs_length;
+			size_t lhs_reps = lcm / lhs_length.count();
+			size_t rhs_reps = lcm / rhs_length.count();
 
 			lhs = repeat(std::move(lhs), lhs_reps);
 		} break;
@@ -1069,7 +1072,9 @@ inline Sequence seq_infix_expr(Context& ctx, Lexer& lx, Sequence lhs, size_t bp)
 			// form polyrhythms. It is somewhat similar to SYNC but it
 			// doesn't align the sequences by repetition.
 			Sequence rhs = seq_expression(ctx, lx, bp);
+
 			lhs.bpm = rhs.bpm * lhs.size() / rhs.size();
+			lhs.flags |= FLAG_BPM_SET;  // Important: record that we have set the BPM of the lhs
 		} break;
 
 
@@ -1169,12 +1174,15 @@ inline Sequence seq_postfix(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
 
 		case Symbols::DBG: {
 			size_t tempo = bpm(seq, lx, tok.view);
-			size_t dur = ((60 * 1000) * seq.size() / tempo) / 1000.f;
+			// size_t dur = ((60 * 1000 * 1000) * seq.size() / tempo) / 1000.f / 1000.f;
+			auto dur = std::chrono::duration<double> {
+				(ONE_MIN * seq.size() / tempo)
+			};
 
 			auto mini = minify(seq);
 			size_t count = seq.size() / mini.size();
 
-			lx.notice(Phases::SEMANTIC, tok.view, STR_DEBUG, mini, count, tempo, dur);
+			lx.notice(Phases::SEMANTIC, tok.view, STR_DEBUG, mini, count, tempo, dur.count());
 		} break;
 
 		default: {
@@ -1271,18 +1279,18 @@ inline Sequence sink(Context& ctx, Lexer& lx, Sequence seq) {
 
 	channel--; // 0-15 range
 
-	size_t ms_per_note = 60'000 / bpm(seq, lx, sink_v);
+	auto time_per_note = ONE_MIN / bpm(seq, lx, sink_v);
 
 	auto [it, succ] = ctx.times.try_emplace(channel, 0);
-	size_t& time = it->second;
+	auto& time = it->second;
 
 	for (Step s: seq) {
 		if (s) { // Note on
 			ctx.timeline.emplace_back(time, 0b1001, channel, 52, 0b01111111);
-			ctx.timeline.emplace_back(time + ms_per_note, 0b1000, channel, 52, 0b01111111);
+			ctx.timeline.emplace_back(time + time_per_note, 0b1000, channel, 52, 0b01111111);
 		}
 
-		time += ms_per_note;
+		time += time_per_note;
 	}
 
 	// This is important to make sure the timeline is ordered based on
@@ -1321,7 +1329,7 @@ inline void statement(Context& ctx, Lexer& lx) {
 		if (it == ctx.times.end())
 			return;
 
-		size_t max_time = it->second;
+		auto max_time = it->second;
 		for (auto& [channel, time]: ctx.times)
 			time = max_time;
 	}

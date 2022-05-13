@@ -109,7 +109,7 @@ int main(int argc, const char* argv[]) {
 
 			jack_nframes_t sample_rate = 0;
 			jack_nframes_t buffer_size = 0;
-			size_t time = 0;
+			cane::Unit time = 0us;
 
 			std::vector<cane::Event>::iterator it;
 			std::vector<cane::Event>::const_iterator end;
@@ -210,7 +210,7 @@ int main(int argc, const char* argv[]) {
 					cane::general_warning(cane::STR_LOST_EVENT, lost);
 			}
 
-			time += 1000 / (sample_rate / nframes);  // Update time (in ms)
+			time += std::chrono::duration_cast<cane::Unit>(std::chrono::seconds { nframes }) / sample_rate;
 
 			return 0;
 		}, static_cast<void*>(&midi)))
