@@ -48,6 +48,7 @@ namespace cane {
 	constexpr View STR_NOT_NUMBER    = "invalid digit `{}`"_sv;
 	constexpr View STR_EMPTY         = "empty sequence"_sv;
 	constexpr View STR_NO_BPM        = "sequence has no tempo"_sv;
+	constexpr View STR_NO_NOTE       = "sequence has no note(s)"_sv;
 
 	constexpr View STR_UNDEFINED     = "`{}` is undefined"_sv;
 	constexpr View STR_REDEFINED     = "`{}` has been re-defined"_sv;

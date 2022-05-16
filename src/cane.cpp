@@ -41,21 +41,21 @@ inline std::string read_file(std::filesystem::path path) {
 			std::filesystem::path tmp = std::filesystem::read_symlink(cur);
 
 			if (tmp == cur)
-				cane::general_error(cane::STR_SYMLINK_ERROR, path);
+				cane::general_error(cane::STR_SYMLINK_ERROR, path.string());
 
 			cur = tmp;
 		}
 
 		if (std::filesystem::is_directory(cur) or std::filesystem::is_other(cur))
-			cane::general_error(cane::STR_NOT_FILE_ERROR, path);
+			cane::general_error(cane::STR_NOT_FILE_ERROR, path.string());
 
 		if (not std::filesystem::exists(cur))
-			cane::general_error(cane::STR_FILE_NOT_FOUND_ERROR, path);
+			cane::general_error(cane::STR_FILE_NOT_FOUND_ERROR, path.string());
 
 		std::ifstream is(cur, std::ios::binary);
 
 		if (not is.is_open())
-			cane::general_error(cane::STR_FILE_READ_ERROR, path);
+			cane::general_error(cane::STR_FILE_READ_ERROR, path.string());
 
 		std::stringstream ss;
 		ss << is.rdbuf();
@@ -64,7 +64,7 @@ inline std::string read_file(std::filesystem::path path) {
 	}
 
 	catch (const std::filesystem::filesystem_error&) {
-		cane::general_error(cane::STR_FILE_READ_ERROR, path);
+		cane::general_error(cane::STR_FILE_READ_ERROR, path.string());
 	}
 }
 
@@ -268,10 +268,7 @@ int main(int argc, const char* argv[]) {
 		if (filename.empty())
 			cane::general_error(cane::STR_OPT_NO_FILE);
 
-		auto path = std::filesystem::current_path() / std::filesystem::path { filename };
-		std::filesystem::current_path(path.parent_path());
-
-		std::string in = read_file(path);
+		std::string in = read_file(filename);
 
 		cane::View src { &*in.begin(), &*in.end() };
 		cane::Lexer lx { src };
@@ -287,13 +284,13 @@ int main(int argc, const char* argv[]) {
 
 		// Compile
 		auto t1 = clock::now();
-			cane::Context ctx = cane::compile(lx);
+			cane::Timeline timeline = cane::compile(lx);
 		auto t2 = clock::now();
 
 		std::cerr << std::fixed << std::setprecision(2);
 		cane::general_notice(cane::STR_COMPILED, time::duration<double, std::milli> { t2 - t1 }.count());
 
-		if (ctx.timeline.empty())
+		if (timeline.empty())
 			return 0;
 
 
@@ -301,10 +298,13 @@ int main(int argc, const char* argv[]) {
 		// Very important that we assign these here or else
 		// the sequencer will not run, or worse- start
 		// sequencing garbage values.
-		midi.events = ctx.timeline;
+		midi.events = timeline;
 
-		midi.it = ctx.timeline.begin();
-		midi.end = ctx.timeline.cend();
+		midi.it = timeline.begin();
+		midi.end = timeline.cend();
+
+		cane::general_notice("length {}s", std::chrono::duration<double> { timeline.back().time }.count());
+
 
 		// Call this or else our callback is never called.
 		if (jack_activate(midi.client))
