@@ -15,7 +15,7 @@ provide-module -override cane %{
 	add-highlighter shared/cane/other/ regex "!|\." 0:value              # steps
 
 	# keywords and operators
-	add-highlighter shared/cane/other/ regex "\b(on|car|cdr|let|bpm|len|fit|alias|wait|clear|sync)\b" 0:keyword
+	add-highlighter shared/cane/other/ regex "\b(repeat|car|cdr|let|bpm|len|fit|alias|sync)\b" 0:keyword
 	add-highlighter shared/cane/other/ regex "\+|-|\*|/|'|\?|~>|=>|@|:|\||&|\^|,|~|<<|>>|<|>|\*\*" 0:operator
 }
 
