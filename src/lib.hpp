@@ -559,7 +559,7 @@ using Unit = std::chrono::microseconds;
 constexpr auto ONE_MIN = std::chrono::duration_cast<Unit>(std::chrono::minutes { 1 });
 
 struct Event {
-	Unit time;
+	Unit time = Unit::zero();
 	std::array<uint8_t, 3> data;
 
 	constexpr Event(Unit time_, uint8_t kind, uint8_t chan, uint8_t note_, uint8_t velocity_):
@@ -580,8 +580,8 @@ struct Context {
 	std::unordered_map<View, Literal> constants;
 	std::unordered_map<View, size_t> aliases;
 	std::unordered_map<size_t, Unit> times;
-	Unit base_time = Unit::zero();  // Time at which to begin new channels
 
+	Unit base_time = Unit::zero();  // Time at which to begin new channels
 	Timeline timeline;
 };
 
@@ -1339,7 +1339,26 @@ inline void layer(Context& ctx, Lexer& lx, Sequence seq) {
 
 	Channel chan = channel(ctx, lx);
 
+	auto time_per_note = ONE_MIN / bpm(seq, lx, layer_v);
 
+	auto [it, succ] = ctx.times.try_emplace(chan, ctx.base_time);
+	auto& ctime = it->second;
+	auto time = ctx.base_time;
+
+	auto& ns = notes(seq, lx, layer_v);
+	size_t i = 0;
+
+	for (Step s: seq) {
+		if (s) { // Note on
+			ctx.timeline.emplace_back(time, 0b1001, chan, ns[i], 0b01111111);
+			ctx.timeline.emplace_back(time + time_per_note, 0b1000, chan, ns[i], 0b01111111);
+			i = (i + 1) % ns.size();
+		}
+
+		time += time_per_note;
+	}
+
+	ctime = time;
 }
 
 inline void sink(Context& ctx, Lexer& lx, Sequence seq) {
@@ -1452,9 +1471,8 @@ inline void statement(Context& ctx, Lexer& lx) {
 		});
 	}
 
-	else {
+	else
 		lx.error(Phases::SYNTACTIC, tok.view, STR_STATEMENT);
-	}
 }
 
 inline Timeline compile(Lexer& lx) {
