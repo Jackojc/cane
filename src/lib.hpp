@@ -72,8 +72,7 @@ inline void general_notice(Ts&&... args) {
 	X(BIN,   "bin") \
 	\
 	/* Sequence Keywords */ \
-	X(CLEAR,  "clear") \
-	X(WAIT,   "wait") \
+	X(REPEAT, "repeat") \
 	X(ALIAS,  "alias") \
 	X(SYNC,   "sync") \
 	X(FIT,    "fit") \
@@ -85,6 +84,8 @@ inline void general_notice(Ts&&... args) {
 	X(RPAREN,   ")") \
 	X(LBRACKET, "[") \
 	X(RBRACKET, "]") \
+	X(LBRACE,   "{") \
+	X(RBRACE,   "}") \
 	\
 	/* Literal Operators */ \
 	X(ADD, "+") \
@@ -219,6 +220,8 @@ struct Lexer {
 		else if (c == ')') { kind = Symbols::RPAREN;   src = cane::iter_next_char(src, c); }
 		else if (c == '[') { kind = Symbols::LBRACKET; src = cane::iter_next_char(src, c); }
 		else if (c == ']') { kind = Symbols::RBRACKET; src = cane::iter_next_char(src, c); }
+		else if (c == '{') { kind = Symbols::LBRACE;   src = cane::iter_next_char(src, c); }
+		else if (c == '}') { kind = Symbols::RBRACE;   src = cane::iter_next_char(src, c); }
 
 		else if (c == '!') { kind = Symbols::BEAT; src = cane::iter_next_char(src, c); }
 		else if (c == '.') { kind = Symbols::SKIP; src = cane::iter_next_char(src, c); }
@@ -343,16 +346,15 @@ struct Lexer {
 				return cane::is_alphanumeric(c) or c == '_';
 			});
 
-			if      (view == "sync"_sv)  kind = Symbols::SYNC;
-			else if (view == "clear"_sv) kind = Symbols::CLEAR;
-			else if (view == "wait"_sv)  kind = Symbols::WAIT;
-			else if (view == "alias"_sv) kind = Symbols::ALIAS;
-			else if (view == "fit"_sv)   kind = Symbols::FIT;
-			else if (view == "len"_sv)   kind = Symbols::LEN_OF;
-			else if (view == "bpm"_sv)   kind = Symbols::BPM_OF;
-			else if (view == "let"_sv)   kind = Symbols::LET;
-			else if (view == "car"_sv)   kind = Symbols::CAR;
-			else if (view == "cdr"_sv)   kind = Symbols::CDR;
+			if      (view == "sync"_sv)   kind = Symbols::SYNC;
+			else if (view == "repeat"_sv) kind = Symbols::REPEAT;
+			else if (view == "alias"_sv)  kind = Symbols::ALIAS;
+			else if (view == "fit"_sv)    kind = Symbols::FIT;
+			else if (view == "len"_sv)    kind = Symbols::LEN_OF;
+			else if (view == "bpm"_sv)    kind = Symbols::BPM_OF;
+			else if (view == "let"_sv)    kind = Symbols::LET;
+			else if (view == "car"_sv)    kind = Symbols::CAR;
+			else if (view == "cdr"_sv)    kind = Symbols::CDR;
 		}
 
 		// If the kind is still NONE by this point, we can assume we didn't find
@@ -364,6 +366,7 @@ struct Lexer {
 			report_error(Phases::LEXICAL, original, view, STR_UNKNOWN_CHAR, view);
 
 		Token out = peek_;
+
 		prev_ = peek_;
 		peek_ = tok;
 
@@ -1406,18 +1409,35 @@ inline void statement(Context& ctx, Lexer& lx) {
 
 	Token tok = lx.peek();
 
-	// Clear the timeline.
-	if (tok.kind == Symbols::CLEAR) {
-		lx.next();  // skip `clear`
+	// Block
+	if (is_seq_expr(tok.kind) or tok.kind == Symbols::LBRACE) {
+		bool is_block = lx.peek().kind == Symbols::LBRACE;
 
-		ctx.timeline.clear();
-		ctx.times.clear();
-		ctx.base_time = Unit::zero();
-	}
+		if (is_block) {
+			lx.next();  // skip `{`
+			lx.expect(is_seq_expr, lx.peek().view, STR_SEQ_EXPR);
+		}
 
-	// // Synchronise all sinks.
-	else if (tok.kind == Symbols::WAIT) {
-		lx.next();  // skip `wait`
+		do {
+			Sequence seq = seq_expression(ctx, lx, 0);
+
+			if (lx.peek().kind == Symbols::SINK)
+				sink(ctx, lx, std::move(seq));
+
+			else if(lx.peek().kind == Symbols::LAYER)
+				layer(ctx, lx, std::move(seq));
+
+			// This is important to make sure the timeline is ordered based on
+			// timestamp or else we get a garbled song.
+			std::stable_sort(ctx.timeline.begin(), ctx.timeline.end(), [] (auto& a, auto& b) {
+				return a.time < b.time;
+			});
+		} while (is_block and lx.peek().kind != Symbols::RBRACE);
+
+		if (is_block) {
+			lx.expect(equal(Symbols::RBRACE), lx.peek().view, STR_EXPECT, sym2str(Symbols::RBRACE));
+			lx.next();  // skip `}`
+		}
 
 		// Find the channel with the current maximum time
 		// and then set every channels timer to it so they
@@ -1432,6 +1452,23 @@ inline void statement(Context& ctx, Lexer& lx) {
 
 			for (auto& [chan, time]: ctx.times)
 				time = max_time;
+		}
+	}
+
+	// Repeat block N times.
+	else if (tok.kind == Symbols::REPEAT) {
+		lx.next();  // skip `repeat`
+
+		// Slightly hacky but essentially we just
+		// re-parse the statement N times to
+		// repeat it by resetting the lexer after
+		// each iteration.
+		size_t lit = lit_expression(ctx, lx, 0);
+		Lexer lx_back = lx;
+
+		while (--lit) {
+			statement(ctx, lx);
+			lx = lx_back;
 		}
 	}
 
@@ -1467,22 +1504,6 @@ inline void statement(Context& ctx, Lexer& lx) {
 			lx.warning(Phases::SEMANTIC, view, STR_REDEFINED, view);
 			it->second = lit;
 		}
-	}
-
-	else if (is_seq_expr(tok.kind)) {
-		Sequence seq = seq_expression(ctx, lx, 0);
-
-		if (lx.peek().kind == Symbols::SINK)
-			sink(ctx, lx, std::move(seq));
-
-		else if(lx.peek().kind == Symbols::LAYER)
-			layer(ctx, lx, std::move(seq));
-
-		// This is important to make sure the timeline is ordered based on
-		// timestamp or else we get a garbled song.
-		std::stable_sort(ctx.timeline.begin(), ctx.timeline.end(), [] (auto& a, auto& b) {
-			return a.time < b.time;
-		});
 	}
 
 	else
