@@ -11,7 +11,7 @@ euclidean ::= [ ':' ] <lit_expr> ':' <lit_expr>
 
 // Literal Operators
 lit_infix ::= <expr> ( '+' | '-' | '*' | '/' | '%' ) <lit_expr>
-lit_prefix ::= ( '+' | '-' | "len" ) <expr>
+lit_prefix ::= ( '+' | '-' | "len" | "bpm" ) <expr>
 
 lit_expr ::= <lit_prefix> | <lit_infix>
 
@@ -38,10 +38,17 @@ expr ::=
 	'(' <expr> ')'
 
 // Statements
-sink ::= <expr> '~>' ( <literal> | <identifier> )
+sink ::= <expr> '~>' [ <literal> | <identifier> ]
 
 let ::= "let" <identifier> <lit_expr>
 alias ::= "alias" <identifier> <literal>
+repeat ::= "repeat" <lit_expr> <stat>
 
-stat ::= ( <sink> | <let> | <alias> | "clear" )
+stat ::=
+	<sink> |
+	<let> |
+	<alias> |
+	<repeat> |
+	'{' <expr>+ '}'
+
 program ::= <stat>*

@@ -94,8 +94,9 @@ inline void general_notice(Ts&&... args) {
 	X(MOD, "%") \
 	\
 	/* Literal Keywords */ \
-	X(LEN, "len") \
-	X(LET, "let") \
+	X(LEN_OF, "len") \
+	X(BPM_OF, "bpm") \
+	X(LET,    "let") \
 	\
 	/* Sequence */ \
 	X(SEP,  ":") \
@@ -347,7 +348,8 @@ struct Lexer {
 			else if (view == "wait"_sv)  kind = Symbols::WAIT;
 			else if (view == "alias"_sv) kind = Symbols::ALIAS;
 			else if (view == "fit"_sv)   kind = Symbols::FIT;
-			else if (view == "len"_sv)   kind = Symbols::LEN;
+			else if (view == "len"_sv)   kind = Symbols::LEN_OF;
+			else if (view == "bpm"_sv)   kind = Symbols::BPM_OF;
 			else if (view == "let"_sv)   kind = Symbols::LET;
 			else if (view == "car"_sv)   kind = Symbols::CAR;
 			else if (view == "cdr"_sv)   kind = Symbols::CDR;
@@ -676,7 +678,13 @@ inline Timeline compile (Lexer&);
 constexpr auto is_literal = partial_eq_any(Symbols::INT, Symbols::HEX, Symbols::BIN);
 constexpr auto is_step = partial_eq_any(Symbols::SKIP, Symbols::BEAT);
 
-constexpr auto is_lit_prefix = partial_eq_any(Symbols::ADD, Symbols::SUB, Symbols::LEN);
+constexpr auto is_lit_prefix = partial_eq_any(
+	Symbols::ADD,
+	Symbols::SUB,
+	Symbols::LEN_OF,
+	Symbols::BPM_OF
+);
+
 constexpr auto is_lit_infix = partial_eq_any(
 	Symbols::ADD,
 	Symbols::SUB,
@@ -784,15 +792,17 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 		POS,
 		NEG = POS,
 
-		LEN,
+		LEN_OF,
+		BPM_OF = LEN_OF,
 	};
 
 	switch (fix) {
 		// Literals
 		case OpFix::LIT_PREFIX: switch (kind) {
-			case Symbols::ADD: return { 0u, POS + RIGHT };
-			case Symbols::SUB: return { 0u, NEG + RIGHT };
-			case Symbols::LEN: return { 0u, LEN + RIGHT };
+			case Symbols::ADD:    return { 0u, POS    + RIGHT };
+			case Symbols::SUB:    return { 0u, NEG    + RIGHT };
+			case Symbols::LEN_OF: return { 0u, LEN_OF + RIGHT };
+			case Symbols::BPM_OF: return { 0u, BPM_OF + RIGHT };
 			default: break;
 		} break;
 
@@ -946,8 +956,12 @@ inline Literal lit_prefix(Context& ctx, Lexer& lx, size_t bp) {
 			case Symbols::ADD: { lit *=  1; } break;
 			case Symbols::SUB: { lit *= -1; } break;
 
-			case Symbols::LEN: {
+			case Symbols::LEN_OF: {
 				lit = seq_expression(ctx, lx, 0).size();
+			} break;
+
+			case Symbols::BPM_OF: {
+				lit = bpm(seq_expression(ctx, lx, 0), lx, tok.view);
 			} break;
 
 			default: {
@@ -1349,7 +1363,7 @@ inline void layer(Context& ctx, Lexer& lx, Sequence seq) {
 	size_t i = 0;
 
 	for (Step s: seq) {
-		if (s) { // Note on
+		if (s) {  // Note on
 			ctx.timeline.emplace_back(time, 0b1001, chan, ns[i], 0b01111111);
 			ctx.timeline.emplace_back(time + time_per_note, 0b1000, chan, ns[i], 0b01111111);
 			i = (i + 1) % ns.size();

@@ -15,6 +15,7 @@ namespace cane {
 	constexpr View STR_UNREACHABLE   = "unreachable code"_sv;
 
 	constexpr View STR_COMPILED = "compiled in {}ms"_sv;
+	constexpr View STR_LENGTH   = "composition length {}s"_sv;
 
 	constexpr View STR_GREATER       = "value must be > `{}`"_sv;
 	constexpr View STR_LESSER        = "value must be < `{}`"_sv;

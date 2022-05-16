@@ -303,7 +303,7 @@ int main(int argc, const char* argv[]) {
 		midi.it = timeline.begin();
 		midi.end = timeline.cend();
 
-		cane::general_notice("length {}s", std::chrono::duration<double> { timeline.back().time }.count());
+		cane::general_notice(cane::STR_LENGTH, std::chrono::duration<double> { timeline.back().time }.count());
 
 
 		// Call this or else our callback is never called.
