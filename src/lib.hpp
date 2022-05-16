@@ -580,7 +580,7 @@ struct Context {
 	std::unordered_map<View, Literal> constants;
 	std::unordered_map<View, size_t> aliases;
 	std::unordered_map<size_t, Unit> times;
-	Unit base_time;  // Time at which to begin new channels
+	Unit base_time = Unit::zero();  // Time at which to begin new channels
 
 	Timeline timeline;
 };
