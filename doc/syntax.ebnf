@@ -6,7 +6,7 @@ comment ::= ? #.+$ ?
 
 // Sequences
 sequence ::= ( '!' | '.' )*
-euclidean ::= <literal> '/' <literal>
+euclidean ::= [ ':' ] <lit_expr> ':' <lit_expr>
 
 
 // Literal Operators

@@ -23,7 +23,7 @@ constexpr size_t CHANNEL_MAX = 16u;
 constexpr size_t BPM_MIN     = 1u;
 
 
-// Errors/Warnings/Notices
+// Errors/Warnings/Notices/Exceptions
 struct Error {};
 
 template <typename... Ts>
@@ -651,12 +651,12 @@ inline size_t literal (Context&, Lexer&);
 inline Sequence sequence  (Context&, Lexer&);
 inline Sequence euclide   (Context&, Lexer&);
 
-inline Literal lit_reference (Context&, Lexer&);
+inline Literal lit_reference  (Context&, Lexer&);
 inline Literal lit_prefix     (Context&, Lexer&, size_t);
 inline Literal lit_infix      (Context&, Lexer&, Literal, size_t);
 inline Literal lit_expression (Context&, Lexer&, size_t);
 
-inline Sequence seq_reference (Context&, Lexer&);
+inline Sequence seq_reference     (Context&, Lexer&);
 inline Sequence seq_prefix        (Context&, Lexer&, size_t);
 inline Sequence seq_infix_expr    (Context&, Lexer&, Sequence, size_t);
 inline Sequence seq_infix_literal (Context&, Lexer&, Sequence, size_t);
@@ -719,7 +719,8 @@ constexpr auto is_seq_infix = [] (auto x) {
 constexpr auto is_seq_primary = [] (auto x) {
 	return is_literal(x) or is_seq_prefix(x) or is_step(x) or eq_any(x,
 		Symbols::IDENT,
-		Symbols::LPAREN
+		Symbols::LPAREN,
+		Symbols::SEP
 	);
 };
 
@@ -1043,6 +1044,11 @@ inline Sequence seq_prefix(Context& ctx, Lexer& lx, size_t bp) {
 			case Symbols::HEX:
 			case Symbols::BIN:   { seq = euclide       (ctx, lx); } break;
 			case Symbols::IDENT: { seq = seq_reference (ctx, lx); } break;
+
+			case Symbols::SEP: {
+				lx.next();  // skip `:`
+				seq = euclide(ctx, lx);
+			} break;
 
 			case Symbols::SKIP:
 			case Symbols::BEAT: { seq = sequence(ctx, lx); } break;
