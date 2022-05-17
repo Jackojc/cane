@@ -41,7 +41,7 @@ defs ::= <let> | <alias>
 
 repeat ::= "repeat" <lit_expr> <stat>
 wait ::= "wait" <stat>
-sink ::= <expr> [ ( '~>' | '&>' ) [ <literal> | <identifier> ] ]
+sink ::= <expr> [ '~>' [ <literal> | <identifier> ] ]
 
 stat ::=
 	<repeat> |
