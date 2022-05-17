@@ -90,7 +90,6 @@ namespace cane {
 
 		const auto column_n = utf_length(before) + 1;
 		const auto line_n = count_lines(overlap(src, sv)) + 1;
-
 		const auto digits = count_digits(line_n);
 
 		auto highlight = report2colour(R);

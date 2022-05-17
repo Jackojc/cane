@@ -576,6 +576,12 @@ namespace cane {
 
 	// Return a new view of the overlapping region of 2 other views.
 	constexpr View overlap(View a, View b) {
+		if (a.is_eof())
+			return a;
+
+		else if (b.is_eof())
+			return a;
+
 		return { a.begin, b.end };
 	}
 

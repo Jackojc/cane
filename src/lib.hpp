@@ -66,6 +66,8 @@ inline void general_notice(Ts&&... args) {
 	X(TERMINATOR, "eof") \
 	\
 	/* Special */ \
+	X(STAT,  "statement") \
+	X(EXPR,  "expression") \
 	X(IDENT, "ident") \
 	X(INT,   "int") \
 	X(HEX,   "hex") \
@@ -662,7 +664,6 @@ inline Sequence seq_expression    (Context&, Lexer&, size_t);
 // Statements
 inline Channel channel      (Context&, Lexer&);
 inline void    sink         (Context&, Lexer&, Sequence);
-inline void    block        (Context&, Lexer&);
 inline void    statement    (Context&, Lexer&);
 inline void    tl_statement (Context&, Lexer&);
 
@@ -1381,10 +1382,22 @@ inline void sink(Context& ctx, Lexer& lx, Sequence seq) {
 inline void statement(Context& ctx, Lexer& lx) {
 	CANE_LOG(LOG_INFO);
 
-	if (lx.peek().kind == Symbols::LBRACE)
-		block(ctx, lx);
+	if (lx.peek().kind == Symbols::LBRACE) {
+		CANE_LOG(LOG_INFO, sym2str(Symbols::LBRACE));
+
+		lx.next();  // skip `{`
+		lx.expect(is_stat, lx.peek().view, STR_STATEMENT);
+
+		do
+			statement(ctx, lx);
+		while (lx.peek().kind != Symbols::RBRACE);
+
+		lx.expect(equal(Symbols::RBRACE), lx.peek().view, STR_EXPECT, sym2str(Symbols::RBRACE));
+		lx.next();  // skip `}`
+	}
 
 	else if (lx.peek().kind == Symbols::REPEAT) {
+		CANE_LOG(LOG_INFO, sym2str(Symbols::REPEAT));
 		lx.next();  // skip `repeat`
 
 		// Slightly hacky but essentially we just
@@ -1396,13 +1409,16 @@ inline void statement(Context& ctx, Lexer& lx) {
 
 		for (size_t i = 0; i != lit; ++i) {
 			lx = lx_back;
-			block(ctx, lx);
+			statement(ctx, lx);
 		}
 	}
 
 	else if (lx.peek().kind == Symbols::WAIT) {
+		CANE_LOG(LOG_INFO, sym2str(Symbols::WAIT));
 		lx.next();  // skip `wait`
-		block(ctx, lx);
+
+		lx.expect(is_stat, lx.peek().view, STR_STATEMENT);
+		statement(ctx, lx);
 
 		// Find the channel with the current maximum time
 		// and then set every channels timer to it so they
@@ -1421,6 +1437,7 @@ inline void statement(Context& ctx, Lexer& lx) {
 	}
 
 	else if (is_seq_expr(lx.peek().kind)) {
+		CANE_LOG(LOG_INFO, sym2str(lx.peek().kind));
 		Sequence seq = seq_expression(ctx, lx, 0);
 
 		if (lx.peek().kind == Symbols::SINK)
@@ -1437,37 +1454,19 @@ inline void statement(Context& ctx, Lexer& lx) {
 		lx.error(Phases::SYNTACTIC, lx.peek().view, STR_STATEMENT);
 }
 
-inline void block(Context& ctx, Lexer& lx) {
-	CANE_LOG(LOG_INFO);
-
-	bool is_block = lx.peek().kind == Symbols::LBRACE;
-
-	if (is_block) {
-		lx.next();  // skip `{`
-		lx.expect(is_stat, lx.peek().view, STR_STATEMENT);
-	}
-
-	do
-		statement(ctx, lx);
-	while (is_block and lx.peek().kind != Symbols::RBRACE);
-
-	if (is_block) {
-		lx.expect(equal(Symbols::RBRACE), lx.peek().view, STR_EXPECT, sym2str(Symbols::RBRACE));
-		lx.next();  // skip `}`
-	}
-}
-
 inline void tl_statement(Context& ctx, Lexer& lx) {
 	CANE_LOG(LOG_WARN);
 
 	Token tok = lx.peek();
 
-	// Block
-	if (is_stat(tok.kind))
-		block(ctx, lx);
+	if (is_stat(tok.kind)) {
+		CANE_LOG(LOG_INFO, sym2str(Symbols::STAT));
+		statement(ctx, lx);
+	}
 
 	// Alias a sink.
 	else if (tok.kind == Symbols::ALIAS) {
+		CANE_LOG(LOG_INFO, sym2str(Symbols::ALIAS));
 		lx.next();  // skip `alias`
 
 		lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
@@ -1486,6 +1485,7 @@ inline void tl_statement(Context& ctx, Lexer& lx) {
 	}
 
 	else if (tok.kind == Symbols::LET) {
+		CANE_LOG(LOG_INFO, sym2str(Symbols::LET));
 		lx.next();  // skip `const`
 
 		lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
