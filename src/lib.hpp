@@ -108,7 +108,6 @@ inline void general_notice(Ts&&... args) {
 	/* Argument Sequence Operators */ \
 	X(CHAIN, "=>") \
 	X(SINK,  "~>") \
-	X(LAYER, "&>") \
 	X(ROTLN, "<<") \
 	X(ROTRN, ">>") \
 	X(REPN,  "**") \
@@ -239,17 +238,7 @@ struct Lexer {
 		else if (c == '+') { kind = Symbols::ADD; src = cane::iter_next_char(src, c); }
 		else if (c == '-') { kind = Symbols::SUB; src = cane::iter_next_char(src, c); }
 		else if (c == '/') { kind = Symbols::DIV; src = cane::iter_next_char(src, c); }
-
-		else if (c == '&') {
-			kind = Symbols::AND;
-			src = cane::iter_next_char(src, c);
-
-			if (as_char(src) == '>') {
-				kind = Symbols::LAYER;
-				view = overlap(view, as_view(src));
-				src = cane::iter_next_char(src, c);
-			}
-		}
+		else if (c == '&') { kind = Symbols::AND; src = cane::iter_next_char(src, c); }
 
 		else if (c == '*') {
 			kind = Symbols::MUL;
@@ -673,7 +662,6 @@ inline Sequence seq_expression    (Context&, Lexer&, size_t);
 // Statements
 inline Channel channel      (Context&, Lexer&);
 inline void    sink         (Context&, Lexer&, Sequence);
-inline void    layer        (Context&, Lexer&, Sequence);
 inline void    block        (Context&, Lexer&);
 inline void    statement    (Context&, Lexer&);
 inline void    tl_statement (Context&, Lexer&);
@@ -1360,21 +1348,21 @@ inline Channel channel(Context& ctx, Lexer& lx) {
 	return chan - 1;
 }
 
-inline void layer(Context& ctx, Lexer& lx, Sequence seq) {
+inline void sink(Context& ctx, Lexer& lx, Sequence seq) {
 	CANE_LOG(LOG_INFO);
 
-	lx.expect(equal(Symbols::LAYER), lx.peek().view, STR_EXPECT, sym2str(Symbols::LAYER));
-	View layer_v = lx.next().view;  // skip `&>`
+	lx.expect(equal(Symbols::SINK), lx.peek().view, STR_EXPECT, sym2str(Symbols::SINK));
+	View sink_v = lx.next().view;  // skip `~>`
 
 	Channel chan = channel(ctx, lx);
 
-	auto time_per_note = ONE_MIN / bpm(seq, lx, layer_v);
+	auto time_per_note = ONE_MIN / bpm(seq, lx, sink_v);
 
 	auto [it, succ] = ctx.times.try_emplace(chan, ctx.base_time);
 	auto& ctime = it->second;
 	auto time = ctx.base_time;
 
-	auto& ns = notes(seq, lx, layer_v);
+	auto& ns = notes(seq, lx, sink_v);
 	size_t i = 0;
 
 	for (Step s: seq) {
@@ -1388,32 +1376,6 @@ inline void layer(Context& ctx, Lexer& lx, Sequence seq) {
 	}
 
 	ctime = time;
-}
-
-inline void sink(Context& ctx, Lexer& lx, Sequence seq) {
-	CANE_LOG(LOG_INFO);
-
-	lx.expect(equal(Symbols::SINK), lx.peek().view, STR_EXPECT, sym2str(Symbols::SINK));
-	View sink_v = lx.next().view;  // skip `~>`
-
-	Channel chan = channel(ctx, lx);
-	auto time_per_note = ONE_MIN / bpm(seq, lx, sink_v);
-
-	auto [it, succ] = ctx.times.try_emplace(chan, ctx.base_time);
-	auto& time = it->second;
-
-	auto& ns = notes(seq, lx, sink_v);
-	size_t i = 0;
-
-	for (Step s: seq) {
-		if (s) { // Note on
-			ctx.timeline.emplace_back(time, 0b1001, chan, ns[i], 0b01111111);
-			ctx.timeline.emplace_back(time + time_per_note, 0b1000, chan, ns[i], 0b01111111);
-			i = (i + 1) % ns.size();
-		}
-
-		time += time_per_note;
-	}
 }
 
 inline void statement(Context& ctx, Lexer& lx) {
@@ -1463,9 +1425,6 @@ inline void statement(Context& ctx, Lexer& lx) {
 
 		if (lx.peek().kind == Symbols::SINK)
 			sink(ctx, lx, std::move(seq));
-
-		else if(lx.peek().kind == Symbols::LAYER)
-			layer(ctx, lx, std::move(seq));
 
 		// This is important to make sure the timeline is ordered based on
 		// timestamp or else we get a garbled song.
