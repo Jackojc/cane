@@ -669,10 +669,11 @@ inline Sequence seq_postfix       (Context&, Lexer&, Sequence, size_t);
 inline Sequence seq_expression    (Context&, Lexer&, size_t);
 
 // Statements
-inline Channel channel   (Context&, Lexer&);
-inline void    sink      (Context&, Lexer&, Sequence);
-inline void    layer     (Context&, Lexer&, Sequence);
-inline void    statement (Context&, Lexer&);
+inline Channel channel      (Context&, Lexer&);
+inline void    sink         (Context&, Lexer&, Sequence);
+inline void    layer        (Context&, Lexer&, Sequence);
+inline void    statement    (Context&, Lexer&);
+inline void    tl_statement (Context&, Lexer&);
 
 inline Timeline compile (Lexer&);
 
@@ -743,6 +744,13 @@ constexpr auto is_lit_primary = [] (auto x) {
 
 constexpr auto is_seq_expr = [] (auto x) {
 	return is_seq_prefix(x) or is_seq_primary(x);
+};
+
+constexpr auto is_stat = [] (auto x) {
+	return is_seq_expr(x) or eq_any(x,
+		Symbols::REPEAT,
+		Symbols::LBRACE
+	);
 };
 
 
@@ -1405,20 +1413,34 @@ inline void sink(Context& ctx, Lexer& lx, Sequence seq) {
 }
 
 inline void statement(Context& ctx, Lexer& lx) {
-	CANE_LOG(LOG_WARN);
+	bool is_block = lx.peek().kind == Symbols::LBRACE;
 
-	Token tok = lx.peek();
+	if (is_block) {
+		lx.next();  // skip `{`
+		lx.expect(is_stat, lx.peek().view, STR_STATEMENT);
+	}
 
-	// Block
-	if (is_seq_expr(tok.kind) or tok.kind == Symbols::LBRACE) {
-		bool is_block = lx.peek().kind == Symbols::LBRACE;
+	do {
+		if (lx.peek().kind == Symbols::LBRACE)
+			statement(ctx, lx);
 
-		if (is_block) {
-			lx.next();  // skip `{`
-			lx.expect(is_seq_expr, lx.peek().view, STR_SEQ_EXPR);
+		else if (lx.peek().kind == Symbols::REPEAT) {
+			lx.next();  // skip `repeat`
+
+			// Slightly hacky but essentially we just
+			// re-parse the statement N times to
+			// repeat it by resetting the lexer after
+			// each iteration.
+			size_t lit = lit_expression(ctx, lx, 0);
+			Lexer lx_back = lx;
+
+			while (--lit) {
+				statement(ctx, lx);
+				lx = lx_back;
+			}
 		}
 
-		do {
+		else if (is_seq_expr(lx.peek().kind)) {
 			Sequence seq = seq_expression(ctx, lx, 0);
 
 			if (lx.peek().kind == Symbols::SINK)
@@ -1432,45 +1454,41 @@ inline void statement(Context& ctx, Lexer& lx) {
 			std::stable_sort(ctx.timeline.begin(), ctx.timeline.end(), [] (auto& a, auto& b) {
 				return a.time < b.time;
 			});
-		} while (is_block and lx.peek().kind != Symbols::RBRACE);
-
-		if (is_block) {
-			lx.expect(equal(Symbols::RBRACE), lx.peek().view, STR_EXPECT, sym2str(Symbols::RBRACE));
-			lx.next();  // skip `}`
 		}
 
-		// Find the channel with the current maximum time
-		// and then set every channels timer to it so they
-		// sychronise.
-		auto it = std::max_element(ctx.times.begin(), ctx.times.end(), [] (auto& a, auto& b) {
-			return a.second < b.second;
-		});
+		else
+			lx.error(Phases::SYNTACTIC, lx.peek().view, STR_STATEMENT);
+	} while (is_block and lx.peek().kind != Symbols::RBRACE);
 
-		if (it != ctx.times.end()) {
-			auto max_time = it->second;
-			ctx.base_time = max_time;
-
-			for (auto& [chan, time]: ctx.times)
-				time = max_time;
-		}
+	if (is_block) {
+		lx.expect(equal(Symbols::RBRACE), lx.peek().view, STR_EXPECT, sym2str(Symbols::RBRACE));
+		lx.next();  // skip `}`
 	}
 
-	// Repeat block N times.
-	else if (tok.kind == Symbols::REPEAT) {
-		lx.next();  // skip `repeat`
+	// Find the channel with the current maximum time
+	// and then set every channels timer to it so they
+	// sychronise.
+	auto it = std::max_element(ctx.times.begin(), ctx.times.end(), [] (auto& a, auto& b) {
+		return a.second < b.second;
+	});
 
-		// Slightly hacky but essentially we just
-		// re-parse the statement N times to
-		// repeat it by resetting the lexer after
-		// each iteration.
-		size_t lit = lit_expression(ctx, lx, 0);
-		Lexer lx_back = lx;
+	if (it != ctx.times.end()) {
+		auto max_time = it->second;
+		ctx.base_time = max_time;
 
-		while (--lit) {
-			statement(ctx, lx);
-			lx = lx_back;
-		}
+		for (auto& [chan, time]: ctx.times)
+			time = max_time;
 	}
+}
+
+inline void tl_statement(Context& ctx, Lexer& lx) {
+	CANE_LOG(LOG_WARN);
+
+	Token tok = lx.peek();
+
+	// Block
+	if (is_stat(tok.kind))
+		statement(ctx, lx);
 
 	// Alias a sink.
 	else if (tok.kind == Symbols::ALIAS) {
@@ -1516,7 +1534,7 @@ inline Timeline compile(Lexer& lx) {
 	Context ctx;
 
 	while (lx.peek().kind != Symbols::TERMINATOR)
-		statement(ctx, lx);
+		tl_statement(ctx, lx);
 
 	return std::move(ctx.timeline);
 }
