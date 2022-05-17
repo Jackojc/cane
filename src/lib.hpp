@@ -1434,9 +1434,9 @@ inline void statement(Context& ctx, Lexer& lx) {
 			size_t lit = lit_expression(ctx, lx, 0);
 			Lexer lx_back = lx;
 
-			while (--lit) {
-				statement(ctx, lx);
+			for (size_t i = 0; i != lit; ++i) {
 				lx = lx_back;
+				statement(ctx, lx);
 			}
 		}
 
@@ -1463,21 +1463,21 @@ inline void statement(Context& ctx, Lexer& lx) {
 	if (is_block) {
 		lx.expect(equal(Symbols::RBRACE), lx.peek().view, STR_EXPECT, sym2str(Symbols::RBRACE));
 		lx.next();  // skip `}`
-	}
 
-	// Find the channel with the current maximum time
-	// and then set every channels timer to it so they
-	// sychronise.
-	auto it = std::max_element(ctx.times.begin(), ctx.times.end(), [] (auto& a, auto& b) {
-		return a.second < b.second;
-	});
+		// Find the channel with the current maximum time
+		// and then set every channels timer to it so they
+		// sychronise.
+		auto it = std::max_element(ctx.times.begin(), ctx.times.end(), [] (auto& a, auto& b) {
+			return a.second < b.second;
+		});
 
-	if (it != ctx.times.end()) {
-		auto max_time = it->second;
-		ctx.base_time = max_time;
+		if (it != ctx.times.end()) {
+			auto max_time = it->second;
+			ctx.base_time = max_time;
 
-		for (auto& [chan, time]: ctx.times)
-			time = max_time;
+			for (auto& [chan, time]: ctx.times)
+				time = max_time;
+		}
 	}
 }
 

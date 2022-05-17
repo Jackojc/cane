@@ -69,11 +69,11 @@ namespace cane {
 	constexpr View STR_BUFFER_SIZE_CALLBACK_ERROR       = "could not register buffer size callback"_sv;
 
 	constexpr View STR_BUFFER_SIZE_CHANGE = "buffer size changed from `{}` to `{}` frames"_sv;
-	constexpr View STR_PORT_CONNECT       = "port `{}` connect to port `{}`"_sv;
-	constexpr View STR_PORT_REGISTER      = "port `{}` registered"_sv;
-	constexpr View STR_PORT_UNREGISTER    = "port `{}` unregistered"_sv;
-	constexpr View STR_PORT_RENAME        = "port `{}` renamed to `{}`"_sv;
-	constexpr View STR_SAMPLE_RATE_CHANGE = "sample rate changed from `{}` to `{}`Hz"_sv;
+	constexpr View STR_PORT_CONNECT       = "port `{}` connected to port `{}`"_sv;
+	constexpr View STR_PORT_REGISTER      = "port `{}` was registered"_sv;
+	constexpr View STR_PORT_UNREGISTER    = "port `{}` was unregistered"_sv;
+	constexpr View STR_PORT_RENAME        = "port `{}` was renamed to `{}`"_sv;
+	constexpr View STR_SAMPLE_RATE_CHANGE = "sample rate was changed from `{}` to `{}`Hz"_sv;
 	constexpr View STR_LOST_EVENT         = "`{}` MIDI event(s) lost"_sv;
 	constexpr View STR_NO_DEVICE          = "no MIDI device specified"_sv;
 	constexpr View STR_DEVICE             = "device `{}`"_sv;
