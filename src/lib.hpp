@@ -73,6 +73,7 @@ inline void general_notice(Ts&&... args) {
 	\
 	/* Sequence Keywords */ \
 	X(REPEAT, "repeat") \
+	X(WAIT,   "wait") \
 	X(ALIAS,  "alias") \
 	X(SYNC,   "sync") \
 	X(FIT,    "fit") \
@@ -347,6 +348,7 @@ struct Lexer {
 			});
 
 			if      (view == "sync"_sv)   kind = Symbols::SYNC;
+			else if (view == "wait"_sv)   kind = Symbols::WAIT;
 			else if (view == "repeat"_sv) kind = Symbols::REPEAT;
 			else if (view == "alias"_sv)  kind = Symbols::ALIAS;
 			else if (view == "fit"_sv)    kind = Symbols::FIT;
@@ -672,6 +674,7 @@ inline Sequence seq_expression    (Context&, Lexer&, size_t);
 inline Channel channel      (Context&, Lexer&);
 inline void    sink         (Context&, Lexer&, Sequence);
 inline void    layer        (Context&, Lexer&, Sequence);
+inline void    block        (Context&, Lexer&);
 inline void    statement    (Context&, Lexer&);
 inline void    tl_statement (Context&, Lexer&);
 
@@ -749,6 +752,7 @@ constexpr auto is_seq_expr = [] (auto x) {
 constexpr auto is_stat = [] (auto x) {
 	return is_seq_expr(x) or eq_any(x,
 		Symbols::REPEAT,
+		Symbols::WAIT,
 		Symbols::LBRACE
 	);
 };
@@ -818,7 +822,7 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 		} break;
 
 		case OpFix::LIT_INFIX: switch (kind) {
-			case Symbols::ADD: return { ADD, ADD + LEFT };
+  			case Symbols::ADD: return { ADD, ADD + LEFT };
 			case Symbols::SUB: return { SUB, SUB + LEFT };
 			case Symbols::MUL: return { MUL, MUL + LEFT };
 			case Symbols::DIV: return { DIV, DIV + LEFT };
@@ -1413,56 +1417,30 @@ inline void sink(Context& ctx, Lexer& lx, Sequence seq) {
 }
 
 inline void statement(Context& ctx, Lexer& lx) {
-	bool is_block = lx.peek().kind == Symbols::LBRACE;
+	CANE_LOG(LOG_INFO);
 
-	if (is_block) {
-		lx.next();  // skip `{`
-		lx.expect(is_stat, lx.peek().view, STR_STATEMENT);
+	if (lx.peek().kind == Symbols::LBRACE)
+		block(ctx, lx);
+
+	else if (lx.peek().kind == Symbols::REPEAT) {
+		lx.next();  // skip `repeat`
+
+		// Slightly hacky but essentially we just
+		// re-parse the statement N times to
+		// repeat it by resetting the lexer after
+		// each iteration.
+		size_t lit = lit_expression(ctx, lx, 0);
+		Lexer lx_back = lx;
+
+		for (size_t i = 0; i != lit; ++i) {
+			lx = lx_back;
+			block(ctx, lx);
+		}
 	}
 
-	do {
-		if (lx.peek().kind == Symbols::LBRACE)
-			statement(ctx, lx);
-
-		else if (lx.peek().kind == Symbols::REPEAT) {
-			lx.next();  // skip `repeat`
-
-			// Slightly hacky but essentially we just
-			// re-parse the statement N times to
-			// repeat it by resetting the lexer after
-			// each iteration.
-			size_t lit = lit_expression(ctx, lx, 0);
-			Lexer lx_back = lx;
-
-			for (size_t i = 0; i != lit; ++i) {
-				lx = lx_back;
-				statement(ctx, lx);
-			}
-		}
-
-		else if (is_seq_expr(lx.peek().kind)) {
-			Sequence seq = seq_expression(ctx, lx, 0);
-
-			if (lx.peek().kind == Symbols::SINK)
-				sink(ctx, lx, std::move(seq));
-
-			else if(lx.peek().kind == Symbols::LAYER)
-				layer(ctx, lx, std::move(seq));
-
-			// This is important to make sure the timeline is ordered based on
-			// timestamp or else we get a garbled song.
-			std::stable_sort(ctx.timeline.begin(), ctx.timeline.end(), [] (auto& a, auto& b) {
-				return a.time < b.time;
-			});
-		}
-
-		else
-			lx.error(Phases::SYNTACTIC, lx.peek().view, STR_STATEMENT);
-	} while (is_block and lx.peek().kind != Symbols::RBRACE);
-
-	if (is_block) {
-		lx.expect(equal(Symbols::RBRACE), lx.peek().view, STR_EXPECT, sym2str(Symbols::RBRACE));
-		lx.next();  // skip `}`
+	else if (lx.peek().kind == Symbols::WAIT) {
+		lx.next();  // skip `wait`
+		block(ctx, lx);
 
 		// Find the channel with the current maximum time
 		// and then set every channels timer to it so they
@@ -1479,6 +1457,45 @@ inline void statement(Context& ctx, Lexer& lx) {
 				time = max_time;
 		}
 	}
+
+	else if (is_seq_expr(lx.peek().kind)) {
+		Sequence seq = seq_expression(ctx, lx, 0);
+
+		if (lx.peek().kind == Symbols::SINK)
+			sink(ctx, lx, std::move(seq));
+
+		else if(lx.peek().kind == Symbols::LAYER)
+			layer(ctx, lx, std::move(seq));
+
+		// This is important to make sure the timeline is ordered based on
+		// timestamp or else we get a garbled song.
+		std::stable_sort(ctx.timeline.begin(), ctx.timeline.end(), [] (auto& a, auto& b) {
+			return a.time < b.time;
+		});
+	}
+
+	else
+		lx.error(Phases::SYNTACTIC, lx.peek().view, STR_STATEMENT);
+}
+
+inline void block(Context& ctx, Lexer& lx) {
+	CANE_LOG(LOG_INFO);
+
+	bool is_block = lx.peek().kind == Symbols::LBRACE;
+
+	if (is_block) {
+		lx.next();  // skip `{`
+		lx.expect(is_stat, lx.peek().view, STR_STATEMENT);
+	}
+
+	do
+		statement(ctx, lx);
+	while (is_block and lx.peek().kind != Symbols::RBRACE);
+
+	if (is_block) {
+		lx.expect(equal(Symbols::RBRACE), lx.peek().view, STR_EXPECT, sym2str(Symbols::RBRACE));
+		lx.next();  // skip `}`
+	}
 }
 
 inline void tl_statement(Context& ctx, Lexer& lx) {
@@ -1488,7 +1505,7 @@ inline void tl_statement(Context& ctx, Lexer& lx) {
 
 	// Block
 	if (is_stat(tok.kind))
-		statement(ctx, lx);
+		block(ctx, lx);
 
 	// Alias a sink.
 	else if (tok.kind == Symbols::ALIAS) {
