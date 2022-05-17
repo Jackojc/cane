@@ -649,17 +649,17 @@ inline size_t literal (Context&, Lexer&);
 inline Sequence sequence  (Context&, Lexer&);
 inline Sequence euclide   (Context&, Lexer&);
 
-inline Literal lit_reference  (Context&, Lexer&);
-inline Literal lit_prefix     (Context&, Lexer&, size_t);
-inline Literal lit_infix      (Context&, Lexer&, Literal, size_t);
-inline Literal lit_expression (Context&, Lexer&, size_t);
+inline Literal lit_reference  (Context&, Lexer&, View);
+inline Literal lit_prefix     (Context&, Lexer&, View, size_t);
+inline Literal lit_infix      (Context&, Lexer&, View, Literal, size_t);
+inline Literal lit_expression (Context&, Lexer&, View, size_t);
 
-inline Sequence seq_reference     (Context&, Lexer&);
-inline Sequence seq_prefix        (Context&, Lexer&, size_t);
-inline Sequence seq_infix_expr    (Context&, Lexer&, Sequence, size_t);
-inline Sequence seq_infix_literal (Context&, Lexer&, Sequence, size_t);
-inline Sequence seq_postfix       (Context&, Lexer&, Sequence, size_t);
-inline Sequence seq_expression    (Context&, Lexer&, size_t);
+inline Sequence seq_reference     (Context&, Lexer&, View);
+inline Sequence seq_prefix        (Context&, Lexer&, View, size_t);
+inline Sequence seq_infix_expr    (Context&, Lexer&, View, Sequence, size_t);
+inline Sequence seq_infix_literal (Context&, Lexer&, View, Sequence, size_t);
+inline Sequence seq_postfix       (Context&, Lexer&, View, Sequence, size_t);
+inline Sequence seq_expression    (Context&, Lexer&, View, size_t);
 
 // Statements
 inline Channel channel      (Context&, Lexer&);
@@ -896,12 +896,12 @@ inline Sequence euclide(Context& ctx, Lexer& lx) {
 	View before_v = lx.peek().view;
 
 	size_t steps = 0;
-	size_t beats = lit_expression(ctx, lx, 0);
+	size_t beats = lit_expression(ctx, lx, before_v, 0);
 
 	lx.expect(equal(Symbols::SEP), lx.peek().view, STR_EXPECT, sym2str(Symbols::SEP));
 	lx.next();  // skip `:`
 
-	steps = lit_expression(ctx, lx, 0);
+	steps = lit_expression(ctx, lx, lx.peek().view, 0);
 
 	if (beats > steps)
 		lx.error(Phases::SEMANTIC, before_v, STR_LESSER_EQ, steps);
@@ -946,7 +946,7 @@ inline Literal lit_reference(Context& ctx, Lexer& lx) {
 }
 
 // Literals
-inline Literal lit_prefix(Context& ctx, Lexer& lx, size_t bp) {
+inline Literal lit_prefix(Context& ctx, Lexer& lx, View lit_v, size_t bp) {
 	CANE_LOG(LOG_INFO);
 
 	Literal lit {};
@@ -961,11 +961,11 @@ inline Literal lit_prefix(Context& ctx, Lexer& lx, size_t bp) {
 			case Symbols::SUB: { lit *= -1; } break;
 
 			case Symbols::LEN_OF: {
-				lit = seq_expression(ctx, lx, 0).size();
+				lit = seq_expression(ctx, lx, tok.view, 0).size();
 			} break;
 
 			case Symbols::BPM_OF: {
-				lit = bpm(seq_expression(ctx, lx, 0), lx, tok.view);
+				lit = bpm(seq_expression(ctx, lx, tok.view, 0), lx, tok.view);
 			} break;
 
 			default: {
@@ -986,17 +986,17 @@ inline Literal lit_prefix(Context& ctx, Lexer& lx, size_t bp) {
 	return lit;
 }
 
-inline Literal lit_infix(Context& ctx, Lexer& lx, Literal lit, size_t bp) {
+inline Literal lit_infix(Context& ctx, Lexer& lx, View lit_v, Literal lit, size_t bp) {
 	CANE_LOG(LOG_INFO);
 
 	Token tok = lx.next();
 
 	switch (tok.kind) {
-		case Symbols::ADD: { lit = lit + lit_expression(ctx, lx, bp); } break;
-		case Symbols::SUB: { lit = lit - lit_expression(ctx, lx, bp); } break;
-		case Symbols::MUL: { lit = lit * lit_expression(ctx, lx, bp); } break;
-		case Symbols::DIV: { lit = lit / lit_expression(ctx, lx, bp); } break;
-		case Symbols::MOD: { lit = lit % lit_expression(ctx, lx, bp); } break;
+		case Symbols::ADD: { lit = lit + lit_expression(ctx, lx, lit_v, bp); } break;
+		case Symbols::SUB: { lit = lit - lit_expression(ctx, lx, lit_v, bp); } break;
+		case Symbols::MUL: { lit = lit * lit_expression(ctx, lx, lit_v, bp); } break;
+		case Symbols::DIV: { lit = lit / lit_expression(ctx, lx, lit_v, bp); } break;
+		case Symbols::MOD: { lit = lit % lit_expression(ctx, lx, lit_v, bp); } break;
 
 		default: {
 			lx.error(Phases::SYNTACTIC, tok.view, STR_LIT_INFIX);
@@ -1006,10 +1006,10 @@ inline Literal lit_infix(Context& ctx, Lexer& lx, Literal lit, size_t bp) {
 	return lit;
 }
 
-inline Literal lit_expression(Context& ctx, Lexer& lx, size_t bp) {
+inline Literal lit_expression(Context& ctx, Lexer& lx, View lit_v, size_t bp) {
 	CANE_LOG(LOG_WARN);
 
-	Literal lit = lit_prefix(ctx, lx, 0);
+	Literal lit = lit_prefix(ctx, lx, lit_v, 0);
 	Token tok = lx.peek();
 
 	while (is_lit_infix(tok.kind)) {
@@ -1020,7 +1020,7 @@ inline Literal lit_expression(Context& ctx, Lexer& lx, size_t bp) {
 			if (lbp < bp)
 				break;
 
-			lit = lit_infix(ctx, lx, lit, rbp);
+			lit = lit_infix(ctx, lx, lit_v, lit, rbp);
 		}
 
 		// Error if not operator
@@ -1034,7 +1034,7 @@ inline Literal lit_expression(Context& ctx, Lexer& lx, size_t bp) {
 }
 
 // Sequences
-inline Sequence seq_prefix(Context& ctx, Lexer& lx, size_t bp) {
+inline Sequence seq_prefix(Context& ctx, Lexer& lx, View expr_v, size_t bp) {
 	CANE_LOG(LOG_INFO);
 
 	Sequence seq {};
@@ -1046,8 +1046,8 @@ inline Sequence seq_prefix(Context& ctx, Lexer& lx, size_t bp) {
 		lx.next();  // skip operator
 
 		switch (tok.kind) {
-			case Symbols::REV:    { seq = reverse (seq_expression(ctx, lx, rbp)); } break;
-			case Symbols::INVERT: { seq = invert  (seq_expression(ctx, lx, rbp)); } break;
+			case Symbols::REV:    { seq = reverse (seq_expression(ctx, lx, expr_v, rbp)); } break;
+			case Symbols::INVERT: { seq = invert  (seq_expression(ctx, lx, expr_v, rbp)); } break;
 
 			default: {
 				lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_PREFIX);
@@ -1074,7 +1074,7 @@ inline Sequence seq_prefix(Context& ctx, Lexer& lx, size_t bp) {
 			case Symbols::LPAREN: {
 				lx.next();  // skip `(`
 
-				seq = seq_expression(ctx, lx, 0);  // Reset binding power.
+				seq = seq_expression(ctx, lx, expr_v, 0);  // Reset binding power.
 
 				lx.expect(equal(Symbols::RPAREN), lx.peek().view, STR_EXPECT, sym2str(Symbols::RPAREN));
 				lx.next();  // skip `)`
@@ -1089,16 +1089,16 @@ inline Sequence seq_prefix(Context& ctx, Lexer& lx, size_t bp) {
 	return seq;
 }
 
-inline Sequence seq_infix_expr(Context& ctx, Lexer& lx, Sequence lhs, size_t bp) {
+inline Sequence seq_infix_expr(Context& ctx, Lexer& lx, View expr_v, Sequence lhs, size_t bp) {
 	CANE_LOG(LOG_INFO);
 
 	Token tok = lx.next();  // skip operator.
 
 	switch (tok.kind) {
-		case Symbols::CAT: { lhs = cat            (std::move(lhs), seq_expression(ctx, lx, bp)); } break;
-		case Symbols::OR:  { lhs = disjunction    (std::move(lhs), seq_expression(ctx, lx, bp)); } break;
-		case Symbols::AND: { lhs = conjunction    (std::move(lhs), seq_expression(ctx, lx, bp)); } break;
-		case Symbols::XOR: { lhs = ex_disjunction (std::move(lhs), seq_expression(ctx, lx, bp)); } break;
+		case Symbols::CAT: { lhs = cat            (std::move(lhs), seq_expression(ctx, lx, expr_v, bp)); } break;
+		case Symbols::OR:  { lhs = disjunction    (std::move(lhs), seq_expression(ctx, lx, expr_v, bp)); } break;
+		case Symbols::AND: { lhs = conjunction    (std::move(lhs), seq_expression(ctx, lx, expr_v, bp)); } break;
+		case Symbols::XOR: { lhs = ex_disjunction (std::move(lhs), seq_expression(ctx, lx, expr_v, bp)); } break;
 
 
 		case Symbols::SYNC: {
@@ -1111,10 +1111,10 @@ inline Sequence seq_infix_expr(Context& ctx, Lexer& lx, Sequence lhs, size_t bp)
 			// find the lowest common multiple. We then divide the LCM by
 			// the absolute length to find the number of repetitions for the
 			// `lhs` in order to come back in phase with the `rhs`.
-			Sequence rhs = seq_expression(ctx, lx, bp);
+			Sequence rhs = seq_expression(ctx, lx, lx.peek().view, bp);
 
-			size_t lhs_bpm = bpm(lhs, lx, tok.view);
-			size_t rhs_bpm = bpm(rhs, lx, tok.view);
+			size_t lhs_bpm = bpm(lhs, lx, overlap(expr_v, tok.view));
+			size_t rhs_bpm = bpm(rhs, lx, overlap(expr_v, tok.view));
 
 			Unit lhs_length = ONE_MIN / lhs_bpm * lhs.size();
 			Unit rhs_length = ONE_MIN / rhs_bpm * rhs.size();
@@ -1132,7 +1132,7 @@ inline Sequence seq_infix_expr(Context& ctx, Lexer& lx, Sequence lhs, size_t bp)
 			// to fit within the time of the other sequence so you can
 			// form polyrhythms. It is somewhat similar to SYNC but it
 			// doesn't align the sequences by repetition.
-			Sequence rhs = seq_expression(ctx, lx, bp);
+			Sequence rhs = seq_expression(ctx, lx, expr_v, bp);
 
 			lhs.bpm = rhs.bpm * lhs.size() / rhs.size();
 			lhs.flags |= FLAG_BPM_SET;  // Important: record that we have set the BPM of the lhs
@@ -1147,20 +1147,20 @@ inline Sequence seq_infix_expr(Context& ctx, Lexer& lx, Sequence lhs, size_t bp)
 	return lhs;
 }
 
-inline Sequence seq_infix_literal(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
+inline Sequence seq_infix_literal(Context& ctx, Lexer& lx, View expr_v, Sequence seq, size_t bp) {
 	CANE_LOG(LOG_INFO);
 
 	Token tok = lx.next();  // skip operator.
 
 	switch (tok.kind) {
 		// Infix with literal
-		case Symbols::ROTLN: { seq = rotl(std::move(seq), lit_expression(ctx, lx, 0)); } break;
-		case Symbols::ROTRN: { seq = rotr(std::move(seq), lit_expression(ctx, lx, 0)); } break;
+		case Symbols::ROTLN: { seq = rotl(std::move(seq), lit_expression(ctx, lx, tok.view, 0)); } break;
+		case Symbols::ROTRN: { seq = rotr(std::move(seq), lit_expression(ctx, lx, tok.view, 0)); } break;
 
 
 		case Symbols::REPN: {
 			View before_v = lx.peek().view;
-				size_t n = lit_expression(ctx, lx, 0);
+				size_t n = lit_expression(ctx, lx, tok.view, 0);
 			View after_v = lx.prev().view;
 
 			// We don't want to shrink the sequence, it can only grow.
@@ -1177,7 +1177,7 @@ inline Sequence seq_infix_literal(Context& ctx, Lexer& lx, Sequence seq, size_t 
 			lx.expect(is_lit_primary, lx.peek().view, STR_LITERAL);
 
 			while (lx.peek().kind != Symbols::RBRACKET)
-				seq.notes.emplace_back(lit_expression(ctx, lx, 0));
+				seq.notes.emplace_back(lit_expression(ctx, lx, lx.peek().view, 0));
 
 			lx.expect(equal(Symbols::RBRACKET), lx.peek().view, STR_EXPECT, sym2str(Symbols::RBRACKET));
 			lx.next();  // skip `]`
@@ -1188,7 +1188,7 @@ inline Sequence seq_infix_literal(Context& ctx, Lexer& lx, Sequence seq, size_t 
 
 		case Symbols::BPM: {
 			View before_v = lx.peek().view;
-			size_t bpm = lit_expression(ctx, lx, 0);
+				size_t bpm = lit_expression(ctx, lx, before_v, 0);
 			View after_v = lx.prev().view;
 
 			if (bpm < BPM_MIN)
@@ -1219,14 +1219,14 @@ inline Sequence seq_infix_literal(Context& ctx, Lexer& lx, Sequence seq, size_t 
 	return seq;
 }
 
-inline Sequence seq_postfix(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
+inline Sequence seq_postfix(Context& ctx, Lexer& lx, View expr_v, Sequence seq, size_t bp) {
 	CANE_LOG(LOG_INFO);
 
 	Token tok = lx.next();  // skip operator.
 
 	switch (tok.kind) {
-		case Symbols::ROTL: { seq = rotl (std::move(seq)); } break;
-		case Symbols::ROTR: { seq = rotr (std::move(seq)); } break;
+		case Symbols::ROTL: { seq = rotl(std::move(seq)); } break;
+		case Symbols::ROTR: { seq = rotr(std::move(seq)); } break;
 
 
 		case Symbols::CAR: {
@@ -1256,7 +1256,7 @@ inline Sequence seq_postfix(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
 			size_t count = seq.size() / mini.size();
 
 			std::cerr << std::fixed << std::setprecision(2);
-			lx.notice(Phases::SEMANTIC, tok.view, STR_DEBUG, mini, count, tempo, dur.count());
+			lx.notice(Phases::SEMANTIC, overlap(expr_v, tok.view), STR_DEBUG, mini, count, tempo, dur.count());
 		} break;
 
 		default: {
@@ -1267,10 +1267,10 @@ inline Sequence seq_postfix(Context& ctx, Lexer& lx, Sequence seq, size_t bp) {
 	return seq;
 }
 
-inline Sequence seq_expression(Context& ctx, Lexer& lx, size_t bp) {
+inline Sequence seq_expression(Context& ctx, Lexer& lx, View expr_v, size_t bp) {
 	CANE_LOG(LOG_WARN);
 
-	Sequence seq = seq_prefix(ctx, lx, 0);
+	Sequence seq = seq_prefix(ctx, lx, expr_v, 0);
 	Token tok = lx.peek();
 
 	// Continue while we have a non-prefix operator.
@@ -1286,7 +1286,7 @@ inline Sequence seq_expression(Context& ctx, Lexer& lx, size_t bp) {
 			if (lbp < bp)
 				break;
 
-			seq = seq_postfix(ctx, lx, std::move(seq), 0);
+			seq = seq_postfix(ctx, lx, expr_v, std::move(seq), 0);
 		}
 
 		// Handle infix operators
@@ -1297,19 +1297,18 @@ inline Sequence seq_expression(Context& ctx, Lexer& lx, size_t bp) {
 				break;
 
 			if (is_seq_infix_literal(tok.kind))
-				seq = seq_infix_literal(ctx, lx, std::move(seq), rbp);
+				seq = seq_infix_literal(ctx, lx, expr_v, std::move(seq), rbp);
 
 			else if (is_seq_infix_expr(tok.kind))
-				seq = seq_infix_expr(ctx, lx, std::move(seq), rbp);
+				seq = seq_infix_expr(ctx, lx, expr_v, std::move(seq), rbp);
 
 			else
 				lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_INFIX);
 		}
 
 		// Error if not operator
-		else {
+		else
 			lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_EXPR);
-		}
 
 		tok = lx.peek();
 	}
@@ -1404,7 +1403,7 @@ inline void statement(Context& ctx, Lexer& lx) {
 		// re-parse the statement N times to
 		// repeat it by resetting the lexer after
 		// each iteration.
-		size_t lit = lit_expression(ctx, lx, 0);
+		size_t lit = lit_expression(ctx, lx, lx.peek().view, 0);
 		Lexer lx_back = lx;
 
 		for (size_t i = 0; i != lit; ++i) {
@@ -1438,7 +1437,7 @@ inline void statement(Context& ctx, Lexer& lx) {
 
 	else if (is_seq_expr(lx.peek().kind)) {
 		CANE_LOG(LOG_INFO, sym2str(lx.peek().kind));
-		Sequence seq = seq_expression(ctx, lx, 0);
+		Sequence seq = seq_expression(ctx, lx, lx.peek().view, 0);
 
 		if (lx.peek().kind == Symbols::SINK)
 			sink(ctx, lx, std::move(seq));
@@ -1491,7 +1490,7 @@ inline void tl_statement(Context& ctx, Lexer& lx) {
 		lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
 		auto [view, kind] = lx.next();  // get identifier
 
-		Literal lit = lit_expression(ctx, lx, 0);
+		Literal lit = lit_expression(ctx, lx, lx.peek().view, 0);
 
 		// Assign or warn if re-assigned.
 		if (auto [it, succ] = ctx.constants.try_emplace(view, lit); not succ) {
