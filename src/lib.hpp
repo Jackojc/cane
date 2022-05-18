@@ -913,8 +913,8 @@ inline Sequence euclide(Context& ctx, Lexer& lx, View expr_v) {
 
 	Sequence seq {};
 
-	for (size_t i = 0; i != steps; ++i)
-		seq.emplace_back(((i * beats) % steps) < beats);
+	for (size_t i = 0; i != static_cast<size_t>(steps); ++i)
+		seq.emplace_back(((i * beats) % steps) < static_cast<size_t>(beats));
 
 	if (seq.empty())
 		lx.error(Phases::SEMANTIC, overlap(expr_v, lx.prev().view), STR_EMPTY);
@@ -1295,7 +1295,7 @@ inline Sequence seq_infix_literal(Context& ctx, Lexer& lx, View expr_v, Sequence
 			View before_v = lx.peek().view;
 			Literal bpm = lit_expression(ctx, lx, before_v, 0);
 
-			if (bpm < BPM_MIN)
+			if (static_cast<size_t>(bpm) < BPM_MIN)
 				lx.error(Phases::SEMANTIC, overlap(before_v, lx.prev().view), STR_GREATER_EQ, BPM_MIN);
 
 			seq.bpm = bpm;
@@ -1523,7 +1523,7 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 		Literal lit = lit_expression(ctx, lx, lx.peek().view, 0);
 		Lexer lx_back = lx;
 
-		for (size_t i = 0; i != lit; ++i) {
+		for (size_t i = 0; i != static_cast<size_t>(lit); ++i) {
 			lx = lx_back;
 			statement(ctx, lx, stat_v);
 		}
