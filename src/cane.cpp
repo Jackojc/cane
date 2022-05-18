@@ -124,9 +124,14 @@ int main(int argc, const char* argv[]) {
 			std::vector<cane::Event> events;
 
 			~JackData() {
-				jack_deactivate(client);
-				jack_port_unregister(client, port);
-				jack_client_close(client);
+				if (client != nullptr)
+					jack_deactivate(client);
+
+				if (port != nullptr)
+					jack_port_unregister(client, port);
+
+				if (client != nullptr)
+					jack_client_close(client);
 			}
 		} midi {};
 

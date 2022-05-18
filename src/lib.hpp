@@ -1369,6 +1369,8 @@ inline Sequence seq_postfix(Context& ctx, Lexer& lx, View expr_v, Sequence seq, 
 			CANE_LOG(LOG_INFO, sym2str(Symbols::DBG));
 
 			size_t tempo = bpm(seq, lx, overlap(expr_v, tok.view));
+
+			// Calculate length (in seconds) of sequence.
 			auto dur = std::chrono::duration<double> { (ONE_MIN * seq.size() / tempo) };
 
 			auto mini = minify(seq);
