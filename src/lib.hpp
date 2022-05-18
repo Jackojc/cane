@@ -66,19 +66,19 @@ inline void general_notice(Ts&&... args) {
 	X(TERMINATOR, "eof") \
 	\
 	/* Special */ \
-	X(STAT,  "statement") \
-	X(EXPR,  "expression") \
-	X(SEQ_INFIX,  "sequence infix") \
-	X(SEQ_POSTFIX,  "sequence postfix") \
+	X(STAT,        "statement") \
+	X(EXPR,        "expression") \
+	X(SEQ_INFIX,   "sequence infix") \
+	X(SEQ_POSTFIX, "sequence postfix") \
 	X(SEQ_PREFIX,  "sequence prefix") \
-	X(SEQ_PRIMARY,  "sequence primary") \
-	X(LIT_INFIX,  "literal infix") \
+	X(SEQ_PRIMARY, "sequence primary") \
+	X(LIT_INFIX,   "literal infix") \
 	X(LIT_PREFIX,  "literal prefix") \
-	X(LITERAL,  "literal") \
-	X(IDENT, "identfier") \
-	X(INT,   "int") \
-	X(HEX,   "hex") \
-	X(BIN,   "bin") \
+	X(LITERAL,     "literal") \
+	X(IDENT,       "identfier") \
+	X(INT,         "int") \
+	X(HEX,         "hex") \
+	X(BIN,         "bin") \
 	\
 	/* Sequence Keywords */ \
 	X(REPEAT, "repeat") \
@@ -650,7 +650,7 @@ template <typename V1, typename V2> constexpr decltype(auto) ex_disjunction(V1 a
 
 
 // Literal expressions
-inline size_t literal (Context&, Lexer&, View);
+inline Literal literal (Context&, Lexer&, View);
 
 // Sequence expressions
 inline Sequence sequence  (Context&, Lexer&, View);
@@ -867,13 +867,13 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 
 
 // Parser
-inline size_t literal(Context& ctx, Lexer& lx, View lit_v) {
+inline Literal literal(Context& ctx, Lexer& lx, View lit_v) {
 	CANE_LOG(LOG_INFO);
 
 	lx.expect(is_literal, lx.peek().view, STR_LITERAL);
 	auto [view, kind] = lx.next();
 
-	size_t n = 0;
+	Literal n = 0;
 
 	switch (kind) {
 		case Symbols::INT: { n = b10_decode(view); } break;
@@ -900,8 +900,8 @@ inline Sequence sequence(Context& ctx, Lexer& lx, View expr_v) {
 inline Sequence euclide(Context& ctx, Lexer& lx, View expr_v) {
 	CANE_LOG(LOG_INFO);
 
-	size_t steps = 0;
-	size_t beats = lit_expression(ctx, lx, lx.peek().view, 0);
+	Literal steps = 0;
+	Literal beats = lit_expression(ctx, lx, lx.peek().view, 0);
 
 	lx.expect(equal(Symbols::SEP), lx.peek().view, STR_EXPECT, sym2str(Symbols::SEP));
 	lx.next();  // skip `:`
@@ -1262,7 +1262,7 @@ inline Sequence seq_infix_literal(Context& ctx, Lexer& lx, View expr_v, Sequence
 			CANE_LOG(LOG_INFO, sym2str(Symbols::REPN));
 
 			View before_v = lx.peek().view;
-			size_t n = lit_expression(ctx, lx, before_v, 0);
+			Literal n = lit_expression(ctx, lx, before_v, 0);
 
 			// We don't want to shrink the sequence, it can only grow.
 			if (n == 0)
@@ -1293,7 +1293,7 @@ inline Sequence seq_infix_literal(Context& ctx, Lexer& lx, View expr_v, Sequence
 			CANE_LOG(LOG_INFO, sym2str(Symbols::BPM));
 
 			View before_v = lx.peek().view;
-			size_t bpm = lit_expression(ctx, lx, before_v, 0);
+			Literal bpm = lit_expression(ctx, lx, before_v, 0);
 
 			if (bpm < BPM_MIN)
 				lx.error(Phases::SEMANTIC, overlap(before_v, lx.prev().view), STR_GREATER_EQ, BPM_MIN);
@@ -1520,7 +1520,7 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 		// re-parse the statement N times to
 		// repeat it by resetting the lexer after
 		// each iteration.
-		size_t lit = lit_expression(ctx, lx, lx.peek().view, 0);
+		Literal lit = lit_expression(ctx, lx, lx.peek().view, 0);
 		Lexer lx_back = lx;
 
 		for (size_t i = 0; i != lit; ++i) {
