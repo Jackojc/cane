@@ -56,6 +56,7 @@ namespace cane {
 
 	constexpr View STR_UNDEFINED = "`{}` is undefined"_sv;
 	constexpr View STR_REDEFINED = "`{}` has been re-defined"_sv;
+	constexpr View STR_CONFLICT  = "`{}` conflicts with previously defined symbol"_sv;
 
 	constexpr View STR_DEBUG = "`{}`(x{}) @{}bpm/{}s"_sv;
 

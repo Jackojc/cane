@@ -5,6 +5,7 @@
 #include <vector>
 #include <array>
 #include <unordered_map>
+#include <unordered_set>
 #include <algorithm>
 #include <numeric>
 
@@ -591,10 +592,12 @@ inline std::ostream& operator<<(std::ostream& os, Sequence& s) {
 
 
 struct Context {
-	std::unordered_map<View, Sequence> symbols;
-	std::unordered_map<View, Literal> constants;
+	std::unordered_map<View, Sequence> chains;
+	std::unordered_map<View, Literal>  constants;
 	std::unordered_map<View, Timeline> definitions;
-	std::unordered_map<View, size_t> aliases;
+	std::unordered_map<View, size_t>   channels;
+
+	std::unordered_set<View> symbols;
 
 	Unit base_time = Unit::zero();  // Time at which to begin new channels
 	Timeline timeline;
@@ -1016,10 +1019,10 @@ inline Sequence seq_ref(Context& ctx, Lexer& lx, View expr_v) {
 	auto [view, kind] = lx.next();
 
 	// Lookup symbol
-	if (auto it = ctx.symbols.find(view); it != ctx.symbols.end())
+	if (auto it = ctx.chains.find(view); it != ctx.chains.end())
 		return it->second;
 
-	lx.error(Phases::SEMANTIC, view, STR_UNDEFINED, view);
+	lx.error(Phases::SEMANTIC, overlap(expr_v, view), STR_UNDEFINED, view);
 }
 
 inline Literal lit_ref(Context& ctx, Lexer& lx, View lit_v) {
@@ -1184,7 +1187,7 @@ inline Sequence seq_prefix(Context& ctx, Lexer& lx, View expr_v, size_t bp) {
 
 			case Symbols::REF: {
 				lx.next();  // skip `$`
-				seq = seq_ref(ctx, lx, lx.peek().view);
+				seq = seq_ref(ctx, lx, tok.view);
 			} break;
 
 			case Symbols::SEP: {
@@ -1290,10 +1293,11 @@ inline Sequence seq_infix_lit(Context& ctx, Lexer& lx, View expr_v, Sequence seq
 			auto [view, kind] = lx.next();  // get identifier
 
 			// Assign or warn if re-assigned.
-			if (auto [it, succ] = ctx.symbols.try_emplace(view, seq); not succ) {
-				lx.warning(Phases::SEMANTIC, view, STR_REDEFINED, view);
-				it->second = seq;
-			}
+			if (auto [it, succ] = ctx.symbols.emplace(view); not succ)
+				lx.error(Phases::SEMANTIC, view, STR_CONFLICT, view);
+
+			if (auto [it, succ] = ctx.chains.try_emplace(view, seq); not succ)
+				lx.error(Phases::SEMANTIC, view, STR_REDEFINED, view);
 		} break;
 
 		default: {
@@ -1419,9 +1423,9 @@ inline Channel channel(Context& ctx, Lexer& lx) {
 	else if (lx.peek().kind == Symbols::IDENT) {
 		lx.next();  // skip identifier
 
-		auto it = ctx.aliases.find(tok.view);
+		auto it = ctx.channels.find(tok.view);
 
-		if (it == ctx.aliases.end())
+		if (it == ctx.channels.end())
 			lx.error(Phases::SEMANTIC, tok.view, STR_UNDEFINED, tok.view);
 
 		chan = it->second;
@@ -1590,23 +1594,6 @@ inline Timeline chan_expr(Context& ctx, Lexer& lx, View chan_v, size_t bp) {
 	return tl;
 }
 
-inline void sink(Context& ctx, Lexer& lx, Timeline tl) {
-	Unit time = Unit::zero();
-
-	for (Event ev: tl) {
-		ev.time += ctx.base_time;
-		time = ev.time;
-		ctx.timeline.push_back(ev);
-	}
-
-	ctx.base_time += tl.duration;
-	ctx.timeline.duration += tl.duration;
-
-	std::stable_sort(ctx.timeline.begin(), ctx.timeline.end(), [] (auto& a, auto& b) {
-		return a.time < b.time;
-	});
-}
-
 inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 	CANE_LOG(LOG_WARN);
 
@@ -1626,10 +1613,11 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 			lx.error(Phases::SEMANTIC, lx.prev().view, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
 
 		// Assign or warn if re-assigned.
-		if (auto [it, succ] = ctx.aliases.try_emplace(view, chan); not succ) {
-			lx.warning(Phases::SEMANTIC, view, STR_REDEFINED, view);
-			it->second = chan;
-		}
+		if (auto [it, succ] = ctx.symbols.emplace(view); not succ)
+			lx.error(Phases::SEMANTIC, view, STR_CONFLICT, view);
+
+		if (auto [it, succ] = ctx.channels.try_emplace(view, chan); not succ)
+			lx.error(Phases::SEMANTIC, view, STR_REDEFINED, view);
 	}
 
 	else if (tok.kind == Symbols::LET) {
@@ -1642,10 +1630,11 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 		Literal lit = lit_expr(ctx, lx, lx.peek().view, 0);
 
 		// Assign or warn if re-assigned.
-		if (auto [it, succ] = ctx.constants.try_emplace(view, lit); not succ) {
-			lx.warning(Phases::SEMANTIC, view, STR_REDEFINED, view);
-			it->second = lit;
-		}
+		if (auto [it, succ] = ctx.symbols.emplace(view); not succ)
+			lx.error(Phases::SEMANTIC, view, STR_CONFLICT, view);
+
+		if (auto [it, succ] = ctx.constants.try_emplace(view, lit); not succ)
+			lx.error(Phases::SEMANTIC, view, STR_REDEFINED, view);
 	}
 
 	else if (tok.kind == Symbols::DEF) {
@@ -1658,14 +1647,33 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 		Timeline tl = chan_expr(ctx, lx, lx.peek().view, 0);
 
 		// Assign or warn if re-assigned.
-		if (auto [it, succ] = ctx.definitions.try_emplace(view, tl); not succ) {
-			lx.warning(Phases::SEMANTIC, view, STR_REDEFINED, view);
-			it->second = tl;
-		}
+		if (auto [it, succ] = ctx.symbols.emplace(view); not succ)
+			lx.error(Phases::SEMANTIC, view, STR_CONFLICT, view);
+
+		if (auto [it, succ] = ctx.definitions.try_emplace(view, tl); not succ)
+			lx.error(Phases::SEMANTIC, view, STR_REDEFINED, view);
 	}
 
-	else if (is_chan_primary(tok.kind))
-		sink(ctx, lx, chan_expr(ctx, lx, lx.peek().view, 0));
+	else if (is_chan_primary(tok.kind)) {
+		Timeline tl = chan_expr(ctx, lx, lx.peek().view, 0);
+
+		Unit time = Unit::zero();
+
+		for (Event ev: tl) {
+			ev.time += ctx.base_time;
+			time = ev.time;
+			ctx.timeline.push_back(ev);
+		}
+
+		ctx.base_time += tl.duration;
+		ctx.timeline.duration += tl.duration;
+
+		std::stable_sort(ctx.timeline.begin(), ctx.timeline.end(), [] (auto& a, auto& b) {
+			return a.time < b.time;
+		});
+
+		ctx.chains.clear();  // Chains are scoped to channel expressions.
+	}
 
 	else
 		lx.error(Phases::SYNTACTIC, tok.view, STR_STATEMENT);
