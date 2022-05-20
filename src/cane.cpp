@@ -292,12 +292,14 @@ int main(int argc, const char* argv[]) {
 			cane::Timeline timeline = cane::compile(lx);
 		auto t2 = clock::now();
 
-		std::cerr << std::fixed << std::setprecision(2);
-		cane::general_notice(cane::STR_COMPILED, time::duration<double, std::milli> { t2 - t1 }.count());
+		cane::err(std::fixed, std::setprecision(2));
+		cane::general_notice(cane::STR_COMPILED, cane::UnitMillis { t2 - t1 }.count(), cane::STR_MILLI_SUFFIX);
 
 		if (timeline.empty())
 			return 0;
 
+
+		CANE_DEBUG_RUN(cane::print(timeline));
 
 		// Setup MIDI events.
 		// Very important that we assign these here or else
@@ -308,7 +310,7 @@ int main(int argc, const char* argv[]) {
 		midi.it = timeline.begin();
 		midi.end = timeline.cend();
 
-		cane::general_notice(cane::STR_LENGTH, std::chrono::duration<double> { timeline.back().time }.count());
+		cane::general_notice(cane::STR_LENGTH, cane::UnitSeconds { timeline.duration }.count(), cane::STR_SECOND_SUFFIX);
 
 
 		// Call this or else our callback is never called.

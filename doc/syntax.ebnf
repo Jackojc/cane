@@ -7,47 +7,52 @@ comment ::= ? #.+$ ?
 sequence ::= ( '!' | '.' )*
 euclidean ::= [ ':' ] <lit_expr> ':' <lit_expr>
 
-// Literal Operators
-lit_infix  ::= <expr> ( '+' | '-' | '*' | '/' | '%' ) <lit_expr>
-lit_prefix ::= ( '+' | '-' | "len" | "bpm" ) <expr>
-lit_expr   ::= <lit_prefix> | <lit_infix>
+// Literal Expressions
+lit_infix       ::= <lit_expr> ( '+' | '-' | '*' | '/' | '%' ) <lit_expr>
+lit_prefix_expr ::= ( '+' | '-' ) <lit_expr>
+lit_prefix_seq  ::= ( "len" | "bpm" ) <seq_expr>
+lit_expr ::=
+	<lit_prefix> |
+	<lit_infix_expr> |
+	<lit_prefix_seq> |
+	'(' <lit_expr> ')'
 
-// Sequence Operators
-seq_infix_expr ::= <expr> ( '|' | '&' | '^' | ',' | "sync" | "fit" ) <expr>
-seq_infix_lit  ::= <expr> ( '<<' | '>>' | '**' | '@' ) <lit_expr>
-seq_infix      ::= <seq_infix_expr> | <seq_infix_lit>
+// Sequence Expressions
+seq_prefix ::= ( '~' | '\'' ) <seq_expr>
 
-seq_prefix  ::= ( '~' | '\'' ) <expr>
-seq_postfix ::= <expr> ( '<' | '>' | '?' | "car" | "cdr" )
+seq_infix_expr  ::= <seq_expr> ( '|' | '&' | '^' | ',' | "sync" | "fit" ) <seq_expr>
+seq_infix_lit   ::= <seq_expr> ( '<<' | '>>' | '**' | '@' ) <lit_expr>
+seq_infix_ident ::= <seq_expr> ( '=>' ) <identifier>
+seq_infix       ::= <seq_infix_expr> | <seq_infix_lit> | <seq_infix_ident>
 
-chain ::= <expr> '=>' <identifier>
-notes ::= <expr> '[' <literal>+ ']'
+seq_postfix ::= <seq_expr> ( '<' | '>' | '?' | "car" | "cdr" )
 
-expr ::=
-	<identifier> |
+seq_expr ::=
+	'$' <identifier> |
 	<sequence> |
 	<seq_prefix> |
 	<seq_infix> |
 	<seq_postfix> |
-	<chain> |
-	<notes> |
-	'(' <expr> ')'
+	'(' <seq_expr> ')'
+
+// Channel Expressions
+chan_infix_expr ::= <chan_expr> ( "wait" | "sync" ) <chan_expr>
+chan_infix_lit  ::= <chan_expr> ( "repeat" ) <lit_expr>
+chan_infix      ::= <chan_infix_expr> | <chan_infix_lit>
+
+chan_postfix ::= <chan_expr> ( "drop" )
+
+chan_expr ::=
+	<seq_expr> '~>' ( <literal> | <identifier> ) |
+	<chan_infix> |
+	<chan_postfix> |
+	'{' <chan_expr> '}'
 
 // Statements
-let    ::= "let" <identifier> <lit_expr>
-alias  ::= "alias" <identifier> <literal>
+let   ::= "let" <identifier> <lit_expr>
+alias ::= "alias" <identifier> <literal>
+def   ::= "def" <identifier> <chan_expr>
 
-defs ::= <let> | <alias>
+stat ::= <let> | <alias> | <def> | <chan_expr>
 
-repeat ::= "repeat" <lit_expr> <stat>
-wait ::= "wait" <stat>
-sink ::= <expr> [ '~>' [ <literal> | <identifier> ] ]
-
-stat ::=
-	<repeat> |
-	<wait> |
-	<sink> |
-	'{' <stat>+ '}'
-
-tl_stat ::= <defs> | <stat>
-program ::= <tl_stat>*
+program ::= <stat>*
