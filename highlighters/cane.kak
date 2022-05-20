@@ -16,7 +16,7 @@ provide-module -override cane %{
 
 	# keywords and operators
 	add-highlighter shared/cane/other/ regex "\b(join|def|drop|with|repeat|car|cdr|let|bpm|len|fit|alias|sync)\b" 0:keyword
-	add-highlighter shared/cane/other/ regex "\$|\+|-|\*|/|'|\?|~>|=>|@|:|\||&|\^|,|~|<<|>>|<|>|\*\*" 0:operator
+	add-highlighter shared/cane/other/ regex "\$|\+|-|\*|/|'|\?|~>|=>|@|:|\||&|\^|,|~|<<|>>|\*\*" 0:operator
 }
 
 hook global BufCreate .*\.(cn|cane) %{ set-option buffer filetype cane }

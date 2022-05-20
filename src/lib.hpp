@@ -128,9 +128,7 @@ inline void general_notice(Ts&&... args) {
 	X(REF,    "$") \
 	\
 	/* Postfix Sequence Operators */ \
-	X(ROTL, "<") \
-	X(ROTR, ">") \
-	X(DBG,  "?")
+	X(DBG, "?")
 
 	#define X(name, str) name,
 		enum class Symbols: int { SYMBOL_TYPES };
@@ -256,7 +254,6 @@ struct Lexer {
 		}
 
 		else if (c == '<') {
-			kind = Symbols::ROTL;
 			src = cane::iter_next_char(src, c);
 
 			if (as_char(src) == '<') {
@@ -267,7 +264,6 @@ struct Lexer {
 		}
 
 		else if (c == '>') {
-			kind = Symbols::ROTR;
 			src = cane::iter_next_char(src, c);
 
 			if (as_char(src) == '>') {
@@ -742,8 +738,6 @@ constexpr auto is_seq_prefix = partial_eq_any(Symbols::INVERT, Symbols::REV);
 constexpr auto is_seq_postfix = partial_eq_any(
 	Symbols::CAR,
 	Symbols::CDR,
-	Symbols::ROTL,
-	Symbols::ROTR,
 	Symbols::DBG
 );
 
@@ -836,9 +830,7 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 		DBG,
 
 		CAR,
-		CDR  = CAR,
-		ROTL = CAR,
-		ROTR = CAR,
+		CDR = CAR,
 
 		CHAIN,
 
@@ -917,8 +909,6 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 			case Symbols::DBG:  return { DBG,  DBG  + LEFT };
 			case Symbols::CAR:  return { CAR,  CAR  + LEFT };
 			case Symbols::CDR:  return { CDR,  CDR  + LEFT };
-			case Symbols::ROTL: return { ROTL, ROTL + LEFT };
-			case Symbols::ROTR: return { ROTR, ROTR + LEFT };
 			default: break;
 		} break;
 
@@ -1320,17 +1310,6 @@ inline Sequence seq_postfix(Context& ctx, Lexer& lx, View expr_v, Sequence seq, 
 	Token tok = lx.next();  // skip operator.
 
 	switch (tok.kind) {
-		case Symbols::ROTL: {
-			CANE_LOG(LOG_INFO, sym2str(Symbols::ROTL));
-			seq = rotl(std::move(seq));
-		} break;
-
-		case Symbols::ROTR: {
-			CANE_LOG(LOG_INFO, sym2str(Symbols::ROTR));
-			seq = rotr(std::move(seq));
-		} break;
-
-
 		case Symbols::CAR: {
 			CANE_LOG(LOG_INFO, sym2str(Symbols::CAR));
 
@@ -1486,6 +1465,9 @@ inline Timeline chan_prefix(Context& ctx, Lexer& lx, View chan_v, size_t bp) {
 		lx.expect(equal(Symbols::RBRACE), lx.peek().view, STR_EXPECT, sym2str(Symbols::RBRACE));
 		lx.next();  // skip `}`
 	}
+
+	else
+		lx.error(Phases::SYNTACTIC, lx.peek().view, STR_CHAN_EXPR);
 
 	return tl;
 }
