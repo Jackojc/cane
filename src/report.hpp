@@ -83,6 +83,9 @@ namespace cane {
 		View sv,
 		Ts&&... args
 	) {
+		if (not overlapping_intervals(src.begin, src.end, sv.begin, sv.end))
+			return report(os, Phases::INTERNAL, ""_sv, ""_sv, "`sv` does not exist in the range of `src`");
+
 		const auto focused_line = extend_to_line(src, sv);
 
 		const auto before = cane::before(focused_line, sv);
