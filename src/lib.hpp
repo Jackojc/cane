@@ -1450,7 +1450,7 @@ inline Timeline chan_prefix(Context& ctx, Lexer& lx, View chan_v, size_t bp) {
 	if (is_seq_expr(tok.kind)) {
 		Sequence seq = seq_expr(ctx, lx, tok.view, 0);
 
-		lx.expect(equal(Symbols::SINK), STR_EXPECT, sym2str(Symbols::SINK));
+		lx.expect(equal(Symbols::SINK), lx.peek().view, STR_EXPECT, sym2str(Symbols::SINK));
 		lx.next();  // skip `~>`
 
 		Channel chan = channel(ctx, lx);
@@ -1671,12 +1671,22 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 		std::stable_sort(ctx.timeline.begin(), ctx.timeline.end(), [] (auto& a, auto& b) {
 			return a.time < b.time;
 		});
-
-		ctx.chains.clear();  // Chains are scoped to channel expressions.
 	}
 
 	else
 		lx.error(Phases::SYNTACTIC, tok.view, STR_STATEMENT);
+
+	// Chains are scoped to channel expressions.
+	// We technically don't need to run this after every
+	// statement but it simplifies things by not having
+	// to duplicate the code for primary expressions and
+	// definitions.
+	for (auto& [k, v]: ctx.chains) {
+		if (auto it = ctx.symbols.find(k); it != ctx.symbols.end())
+			ctx.symbols.erase(it);
+	}
+
+	ctx.chains.clear();
 }
 
 inline Timeline compile(Lexer& lx) {
