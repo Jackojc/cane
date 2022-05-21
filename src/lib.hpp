@@ -223,6 +223,8 @@ struct Lexer {
 		else if (c == ')') { kind = Symbols::RPAREN;   src = cane::iter_next_char(src, c); }
 		else if (c == '{') { kind = Symbols::LBRACE;   src = cane::iter_next_char(src, c); }
 		else if (c == '}') { kind = Symbols::RBRACE;   src = cane::iter_next_char(src, c); }
+		else if (c == '[') { kind = Symbols::LBRACKET; src = cane::iter_next_char(src, c); }
+		else if (c == ']') { kind = Symbols::RBRACKET; src = cane::iter_next_char(src, c); }
 
 		else if (c == '!') { kind = Symbols::BEAT; src = cane::iter_next_char(src, c); }
 		else if (c == '.') { kind = Symbols::SKIP; src = cane::iter_next_char(src, c); }
@@ -528,24 +530,8 @@ inline std::ostream& operator<<(std::ostream& os, Timeline& tl) {
 #undef STEPS
 
 
-using SequenceFlags = uint8_t;
-enum: SequenceFlags {
-	FLAG_NONE     = 0b00,
-	FLAG_BPM_SET  = 0b01,
-	FLAG_NOTE_SET = 0b10,
-};
-
 struct Sequence: public std::vector<Step> {
-	size_t bpm;
-	SequenceFlags flags;
-	Channel channel;
-
-	Sequence():
-		std::vector<Step>::vector(),
-		bpm(0),
-		flags(FLAG_NONE),
-		channel(0)
-	{}
+	Sequence(): std::vector<Step>::vector() {}
 };
 
 
@@ -575,14 +561,6 @@ inline decltype(auto) minify(V v) {
 	return v;
 }
 
-template <typename... Ts>
-inline size_t bpm(const Sequence& seq, Lexer& lx, View sv, Ts&&... args) {
-	if ((seq.flags & FLAG_BPM_SET) != FLAG_BPM_SET)
-		lx.error(Phases::SEMANTIC, sv, STR_NO_BPM, std::forward<Ts>(args)...);
-
-	return seq.bpm;
-}
-
 inline std::ostream& operator<<(std::ostream& os, Sequence& s) {
 	for (Step x: s)
 		out(os, step2colour(x), step2str(x));
@@ -602,27 +580,6 @@ struct Context {
 	Unit base_time = Unit::zero();  // Time at which to begin new channels
 	Timeline timeline;
 };
-
-
-inline Timeline seq_compile(Lexer& lx, View sv, Sequence seq, Channel chan) {
-	Timeline tl {};
-
-	auto time_per_note = ONE_MIN / bpm(seq, lx, sv);
-	auto time = Unit::zero();
-
-	for (Step s: seq) {
-		if (s) {  // Note on
-			tl.emplace_back(time, 0b1001, chan, 52, 0b01111111);
-			tl.emplace_back(time + time_per_note, 0b1000, chan, 52, 0b01111111);
-		}
-
-		time += time_per_note;
-	}
-
-	tl.duration = time;
-
-	return tl;
-}
 
 
 // Operations
@@ -748,16 +705,13 @@ constexpr auto is_seq_infix_expr = partial_eq_any(
 	Symbols::OR,
 	Symbols::AND,
 	Symbols::XOR,
-	Symbols::CAT,
-	Symbols::FIT
+	Symbols::CAT
 );
 
 constexpr auto is_seq_infix_lit = partial_eq_any(
 	Symbols::ROTLN,
 	Symbols::ROTRN,
 	Symbols::REPN,
-	Symbols::BPM,
-	Symbols::LBRACKET,
 	Symbols::CHAIN
 );
 
@@ -837,13 +791,10 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 
 		CHAIN,
 
-		FIT,
-
 		CAT,
 		OR       = CAT,
 		AND      = CAT,
 		XOR      = CAT,
-		BPM      = CAT,
 		ROTLN    = CAT,
 		ROTRN    = CAT,
 		REPN     = CAT,
@@ -903,8 +854,6 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 			case Symbols::ROTLN: return { ROTLN, ROTLN + LEFT };
 			case Symbols::ROTRN: return { ROTRN, ROTRN + LEFT };
 
-			case Symbols::BPM:      return { BPM,      BPM      + LEFT };
-			case Symbols::FIT:      return { FIT,      FIT      + LEFT };
 			default: break;
 		} break;
 
@@ -1078,10 +1027,10 @@ inline Literal lit_prefix(Context& ctx, Lexer& lx, View lit_v, size_t bp) {
 				lit = seq_expr(ctx, lx, tok.view, 0).size();
 			} break;
 
-			case Symbols::BPM_OF: {
-				Sequence rhs = seq_expr(ctx, lx, tok.view, 0);
-				lit = bpm(rhs, lx, overlap(tok.view, lx.prev().view));
-			} break;
+			// case Symbols::BPM_OF: {
+			// 	Sequence rhs = seq_expr(ctx, lx, tok.view, 0);
+			// 	lit = bpm(rhs, lx, overlap(tok.view, lx.prev().view));
+			// } break;
 
 			default: {
 				lx.error(Phases::SYNTACTIC, tok.view, STR_LIT_OPERATOR);
@@ -1177,42 +1126,40 @@ inline Sequence seq_prefix(Context& ctx, Lexer& lx, View expr_v, size_t bp) {
 	}
 
 	// Primary expressions.
-	else {
-		switch (tok.kind) {
-			case Symbols::INT:
-			case Symbols::HEX:
-			case Symbols::BIN: {
-				seq = euclide(ctx, lx, lx.peek().view);
-			} break;
+	else switch (tok.kind) {
+		case Symbols::INT:
+		case Symbols::HEX:
+		case Symbols::BIN: {
+			seq = euclide(ctx, lx, lx.peek().view);
+		} break;
 
-			case Symbols::REF: {
-				lx.next();  // skip `$`
-				seq = seq_ref(ctx, lx, tok.view);
-			} break;
+		case Symbols::REF: {
+			lx.next();  // skip `$`
+			seq = seq_ref(ctx, lx, tok.view);
+		} break;
 
-			case Symbols::SEP: {
-				lx.next();  // skip `:`
-				seq = euclide(ctx, lx, lx.peek().view);
-			} break;
+		case Symbols::SEP: {
+			lx.next();  // skip `:`
+			seq = euclide(ctx, lx, lx.peek().view);
+		} break;
 
-			case Symbols::SKIP:
-			case Symbols::BEAT: {
-				seq = sequence(ctx, lx, lx.peek().view);
-			} break;
+		case Symbols::SKIP:
+		case Symbols::BEAT: {
+			seq = sequence(ctx, lx, lx.peek().view);
+		} break;
 
-			case Symbols::LPAREN: {
-				lx.next();  // skip `(`
+		case Symbols::LPAREN: {
+			lx.next();  // skip `(`
 
-				seq = seq_expr(ctx, lx, expr_v, 0);  // Reset binding power.
+			seq = seq_expr(ctx, lx, expr_v, 0);  // Reset binding power.
 
-				lx.expect(equal(Symbols::RPAREN), lx.peek().view, STR_EXPECT, sym2str(Symbols::RPAREN));
-				lx.next();  // skip `)`
-			} break;
+			lx.expect(equal(Symbols::RPAREN), lx.peek().view, STR_EXPECT, sym2str(Symbols::RPAREN));
+			lx.next();  // skip `)`
+		} break;
 
-			default: {
-				lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_PRIMARY);
-			} break;
-		}
+		default: {
+			lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_PRIMARY);
+		} break;
 	}
 
 	return seq;
@@ -1230,18 +1177,6 @@ inline Sequence seq_infix_expr(Context& ctx, Lexer& lx, View expr_v, Sequence lh
 		case Symbols::AND: { lhs = conjunction(std::move(lhs), seq_expr(ctx, lx, expr_v, bp)); } break;
 		case Symbols::XOR: { lhs = ex_disjunction(std::move(lhs), seq_expr(ctx, lx, expr_v, bp)); } break;
 
-		case Symbols::FIT: {
-			// This operator instead stretches or shrinks the sequence
-			// to fit within the time of the other sequence so you can
-			// form polyrhythms. It is somewhat similar to SYNC but it
-			// doesn't align the sequences by repetition.
-			Sequence rhs = seq_expr(ctx, lx, lx.peek().view, bp);
-			size_t rhs_bpm = bpm(rhs, lx, overlap(tok.view, lx.prev().view));
-
-			lhs.bpm = rhs_bpm * lhs.size() / rhs.size();
-			lhs.flags |= FLAG_BPM_SET;  // Important: record that we have set the BPM of the lhs
-		} break;
-
 		default: {
 			lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_OPERATOR);
 		} break;
@@ -1258,13 +1193,8 @@ inline Sequence seq_infix_lit(Context& ctx, Lexer& lx, View expr_v, Sequence seq
 
 	switch (tok.kind) {
 		// Infix with literal
-		case Symbols::ROTLN: {
-			seq = rotl(std::move(seq), lit_expr(ctx, lx, tok.view, 0));
-		} break;
-
-		case Symbols::ROTRN: {
-			seq = rotr(std::move(seq), lit_expr(ctx, lx, tok.view, 0));
-		} break;
+		case Symbols::ROTLN: { seq = rotl(std::move(seq), lit_expr(ctx, lx, tok.view, 0)); } break;
+		case Symbols::ROTRN: { seq = rotr(std::move(seq), lit_expr(ctx, lx, tok.view, 0)); } break;
 
 		case Symbols::REPN: {
 			View before_v = lx.peek().view;
@@ -1275,17 +1205,6 @@ inline Sequence seq_infix_lit(Context& ctx, Lexer& lx, View expr_v, Sequence seq
 				lx.error(Phases::SEMANTIC, overlap(before_v, lx.prev().view), STR_GREATER, 0);
 
 			seq = repeat(std::move(seq), n);
-		} break;
-
-		case Symbols::BPM: {
-			View before_v = lx.peek().view;
-			Literal bpm = lit_expr(ctx, lx, before_v, 0);
-
-			if (static_cast<size_t>(bpm) < BPM_MIN)
-				lx.error(Phases::SEMANTIC, overlap(before_v, lx.prev().view), STR_GREATER_EQ, BPM_MIN);
-
-			seq.bpm = bpm;
-			seq.flags |= FLAG_BPM_SET;
 		} break;
 
 		case Symbols::CHAIN: {
@@ -1340,16 +1259,16 @@ inline Sequence seq_postfix(Context& ctx, Lexer& lx, View expr_v, Sequence seq, 
 		case Symbols::DBG: {
 			CANE_LOG(LOG_INFO, sym2str(Symbols::DBG));
 
-			size_t tempo = bpm(seq, lx, overlap(expr_v, tok.view));
+			// size_t tempo = bpm(seq, lx, overlap(expr_v, tok.view));
 
 			// Calculate length (in seconds) of sequence.
-			auto dur = std::chrono::duration<double> { (ONE_MIN * seq.size() / tempo) };
+			// auto dur = std::chrono::duration<double> { (ONE_MIN * seq.size() / tempo) };
 
 			auto mini = minify(seq);
 			size_t count = seq.size() / mini.size();
 
 			std::cerr << std::fixed << std::setprecision(2);
-			lx.notice(Phases::SEMANTIC, overlap(expr_v, tok.view), STR_DEBUG, mini, count, tempo, dur.count());
+			lx.notice(Phases::SEMANTIC, overlap(expr_v, tok.view), STR_DEBUG, mini, count);
 		} break;
 
 		default: {
@@ -1454,7 +1373,30 @@ inline Timeline chan_prefix(Context& ctx, Lexer& lx, View chan_v, size_t bp) {
 		lx.next();  // skip `~>`
 
 		Channel chan = channel(ctx, lx);
-		tl = seq_compile(lx, overlap(tok.view, lx.prev().view), seq, chan);
+
+		lx.expect(equal(Symbols::BPM), lx.peek().view, STR_EXPECT, sym2str(Symbols::BPM));
+		lx.next();  // skip `@`
+
+		Literal bpm = lit_expr(ctx, lx, lx.peek().view, 0);
+
+		// lx.expect(equal(Symbols::LBRACKET), lx.peek().view, STR_EXPECT, sym2str(Symbols::LBRACKET));
+		// lx.next();  // skip `[`
+
+
+		// Compile sequence to timeline.
+		auto time_per_note = ONE_MIN / bpm;
+		auto time = Unit::zero();
+
+		for (Step s: seq) {
+			if (s) {  // Note on
+				tl.emplace_back(time, 0b1001, chan, 52, 0b01111111);
+				tl.emplace_back(time + time_per_note, 0b1000, chan, 52, 0b01111111);
+			}
+
+			time += time_per_note;
+		}
+
+		tl.duration = time;
 	}
 
 	else if (tok.kind == Symbols::IDENT) {
