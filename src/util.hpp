@@ -39,7 +39,6 @@ namespace cane {
 	// Print filename and line number `[foo.cpp:12]`
 	#define CANE_TRACE "[" __FILE__ ":" CANE_STR(__LINE__) "] "
 
-
 	// Detect platform.
 	#if defined(_WIN64) || defined(_WIN32) || defined(__WINDOWS__)
 		#define CANE_PLATFORM_WINDOWS
@@ -55,7 +54,6 @@ namespace cane {
 		#define CANE_PLATFORM_UNKNOWN
 	#endif
 
-
 	// Detect compiler.
 	#if defined(__GNUC__)
 		#define CANE_COMPILER_GCC
@@ -68,78 +66,6 @@ namespace cane {
 	#else
 		#define CANE_COMPILER_UNKNOWN
 	#endif
-
-
-	// Absolute difference between 2 pointers.
-	template <typename T>
-	constexpr size_t ptrdiff(const T a, const T b) {
-		return
-			((b - a) * (b > a)) +  // b > a => b - a
-			((a - b) * (a > b));   // a > b => a - b
-	}
-
-
-	// Branchless ternary.
-	template <typename T> constexpr auto condition(bool cond, T a, T b) {
-		return (T)(cond * (size_t)a) + (!cond * (size_t)b);
-	}
-
-
-	// Branchless absolute function.
-	template <typename T> constexpr auto abs(T v) {
-		return v * ((v > 0) - (v < 0));
-	}
-
-
-	// Branchless min, max and clamp.
-	template <typename T> constexpr auto min(T a, T b) {
-		return condition(a < b, a, b);
-	}
-
-	template <typename T> constexpr auto max(T a, T b) {
-		return condition(a > b, a, b);
-	}
-
-	template <typename T> constexpr T clamp(T x, T mn, T mx) {
-		return max(mn, min(x, mx));
-	}
-
-
-	// Find the length of a null terminated string.
-	// The reason for this function's existence is the fact
-	// that the standard provided std::strlen is not constexpr.
-	constexpr size_t strlen(const char* const str) {
-		const char *s = str;
-
-		while (*s)
-			++s;
-
-		return s - str;
-	}
-
-
-	// Swap lvalue with rvalue.
-	template <typename T> constexpr T exchange(T& a, T&& b) {
-		T tmp = move(a);
-		a = std::forward<T>(b);
-		return tmp;
-	}
-
-
-	// Count the number of digits in an integer (radix 10).
-	template <typename T>
-	constexpr size_t count_digits(T x) {
-		size_t count = 0;
-
-		// Loop at least once to handle `0`.
-		do {
-			x = x / 10;
-			count++;
-		} while (x != 0);
-
-		return count;
-	}
-
 
 	// Check if any arguments are true.
 	template <typename T, typename... Ts>

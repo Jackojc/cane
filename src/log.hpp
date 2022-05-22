@@ -3,6 +3,7 @@
 
 #include <utility>
 #include <util.hpp>
+#include <view.hpp>
 #include <print.hpp>
 
 namespace cane {
@@ -95,60 +96,10 @@ namespace cane {
 		ANSI_TOTAL,
 	};
 
-	namespace detail {
-		constexpr const char* INTERNAL_COLOUR_TABLE__[] = {
-			CANE_ANSI_RESET, "",
-			CANE_ANSI_BOLD, "",
-
-			CANE_ANSI_FG_BLACK, "",
-			CANE_ANSI_FG_RED, "",
-			CANE_ANSI_FG_GREEN, "",
-			CANE_ANSI_FG_YELLOW, "",
-			CANE_ANSI_FG_BLUE, "",
-			CANE_ANSI_FG_MAGENTA, "",
-			CANE_ANSI_FG_CYAN, "",
-			CANE_ANSI_FG_WHITE, "",
-
-			CANE_ANSI_FG_BRIGHT_BLACK, "",
-			CANE_ANSI_FG_BRIGHT_RED, "",
-			CANE_ANSI_FG_BRIGHT_GREEN, "",
-			CANE_ANSI_FG_BRIGHT_YELLOW, "",
-			CANE_ANSI_FG_BRIGHT_BLUE, "",
-			CANE_ANSI_FG_BRIGHT_MAGENTA, "",
-			CANE_ANSI_FG_BRIGHT_CYAN, "",
-			CANE_ANSI_FG_BRIGHT_WHITE, "",
-
-			CANE_ANSI_BG_BLACK, "",
-			CANE_ANSI_BG_RED, "",
-			CANE_ANSI_BG_GREEN, "",
-			CANE_ANSI_BG_YELLOW, "",
-			CANE_ANSI_BG_BLUE, "",
-			CANE_ANSI_BG_MAGENTA, "",
-			CANE_ANSI_BG_CYAN, "",
-			CANE_ANSI_BG_WHITE, "",
-
-			CANE_ANSI_BG_BRIGHT_BLACK, "",
-			CANE_ANSI_BG_BRIGHT_RED, "",
-			CANE_ANSI_BG_BRIGHT_GREEN, "",
-			CANE_ANSI_BG_BRIGHT_YELLOW, "",
-			CANE_ANSI_BG_BRIGHT_BLUE, "",
-			CANE_ANSI_BG_BRIGHT_MAGENTA, "",
-			CANE_ANSI_BG_BRIGHT_CYAN, "",
-			CANE_ANSI_BG_BRIGHT_WHITE, "",
-		};
-	}
-
-	// Get a colour given its name and whether or not colours are enabled.
-	inline auto colour(size_t colour, bool enabled = true) {
-		return detail::INTERNAL_COLOUR_TABLE__[2u * colour + !enabled];
-	}
-
-
 	#define CANE_INFO_STYLE  CANE_ANSI_RESET     "[-]"
 	#define CANE_WARN_STYLE  CANE_ANSI_FG_BLUE   "[*]"
 	#define CANE_ERR_STYLE   CANE_ANSI_FG_RED    "[!]"
 	#define CANE_SUCC_STYLE  CANE_ANSI_FG_GREEN  "[^]"
-
 
 	enum {
 		LOG_INFO,
@@ -157,20 +108,18 @@ namespace cane {
 		LOG_SUCC,
 	};
 
-
 	namespace detail {
 		constexpr auto lvl_to_style(size_t lvl) {
 			switch (lvl) {
-				case LOG_INFO: return CANE_INFO_STYLE " ";
-				case LOG_WARN: return CANE_WARN_STYLE " ";
-				case LOG_ERR:  return CANE_ERR_STYLE  " ";
-				case LOG_SUCC: return CANE_SUCC_STYLE " ";
+				case LOG_INFO: return CANE_INFO_STYLE;
+				case LOG_WARN: return CANE_WARN_STYLE;
+				case LOG_ERR:  return CANE_ERR_STYLE;
+				case LOG_SUCC: return CANE_SUCC_STYLE;
 			}
 
 			return "";
 		}
 	}
-
 
 	#ifndef CANE_DISABLE_ASSERT
 		#define CANE_DEBUG_RUN(expr) \
@@ -197,10 +146,9 @@ namespace cane {
 		#define CANE_DEBUG(expr) ( (expr) )
 	#endif
 
-
 	#define CANE_LOG(...) \
 		do { [CANE_VAR(fn_name) = __func__] (size_t CANE_VAR(lvl), auto&&... CANE_VAR(args)) { \
-			CANE_DEBUG_RUN(( cane::err(CANE_TRACE, cane::detail::lvl_to_style(CANE_VAR(lvl))) )); \
+			CANE_DEBUG_RUN(( cane::err(CANE_TRACE, cane::detail::lvl_to_style(CANE_VAR(lvl)), " ") )); \
 			CANE_DEBUG_RUN(( cane::err("`", CANE_VAR(fn_name), "`") )); \
 			\
 			if constexpr(sizeof...(CANE_VAR(args)) > 0) { \
@@ -209,7 +157,6 @@ namespace cane {
 			} \
 			CANE_DEBUG_RUN(( cane::errln( CANE_ANSI_RESET ) )); \
 		} ( __VA_ARGS__ ); } while (0)
-
 }
 
 #endif

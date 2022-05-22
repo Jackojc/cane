@@ -44,20 +44,20 @@ namespace cane {
 	namespace detail {
 		template <typename T>
 		inline std::ostream& outfmt(std::ostream& os, View& fmt, T&& arg) {
-			View view {};
+			// View view {};
 
 			bool have_left  = false;
 			bool have_right = false;
 
-			View chr = as_view(fmt);
+			// cp chr = peek(fmt);
 
 			while (true) {
 				if (fmt.is_eof())
 					break;
 
-				else if (eq_any(chr, "{", "}")) {
-					const View cmp = chr;
-					view = consume_view(fmt, chr, equal(cmp));
+				else if (eq_any(peek(fmt), "{"_sv, "}"_sv)) {
+					View cmp = peek(fmt);
+					View view = consume(fmt, equal(cmp));
 
 					// Check if we have any pairs and if we have any
 					// valid placeholders.
@@ -77,7 +77,7 @@ namespace cane {
 				}
 
 				else {
-					view = consume_view(fmt, chr, partial_eq_none("{", "}"));
+					View view = consume(fmt, partial_eq_none("{"_sv, "}"_sv));
 					out(os, view);
 				}
 

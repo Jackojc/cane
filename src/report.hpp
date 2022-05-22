@@ -84,23 +84,21 @@ namespace cane {
 		Ts&&... args
 	) {
 		if (not overlapping_intervals(src.begin, src.end, sv.begin, sv.end))
-			return report(os, Phases::INTERNAL, ""_sv, ""_sv, "`sv` does not exist in the range of `src`");
+			return report(os, Phases::INTERNAL, ""_sv, ""_sv, "`sv` does not exist in the range of `src`"_sv);
 
 		const auto focused_line = extend_to_line(src, sv);
 
 		const auto before = cane::before(focused_line, sv);
 		const auto after = cane::after(focused_line, sv);
 
-		const auto column_n = utf_length(before) + 1;
-		const auto line_n = count_lines(overlap(src, sv)) + 1;
-		const auto digits = count_digits(line_n);
+		const auto column_n = length(before) + 1;
+		// const auto line_n = count_lines(encompass(src, sv)) + 1;
+		// const auto digits = count_digits(line_n);
+
+		const auto line_n = 1;
+		const auto digits = 1;
 
 		auto highlight = report2colour(R);
-
-		const auto padding = [&] {
-			for (size_t i = 0; i < digits + 1; i++)
-				out(os, " ");
-		};
 
 		outfmt(
 			os,
@@ -111,15 +109,14 @@ namespace cane {
 		// Overview.
 		outlnfmt(os, std::forward<Ts>(args)...);
 
-		padding();
 		outln(os);
-
 		outfmt(os, " " CANE_ANSI_FG_CYAN "{}" CANE_ANSI_RESET " " CANE_ANSI_FG_CYAN "|" CANE_ANSI_RESET " ", line_n);
 
 		if (sv.is_eof())
-			outlnfmt(os, "{}EOF{}", highlight, CANE_ANSI_RESET);
+			outlnfmt(os, "{}EOF{}"_sv, highlight, CANE_ANSI_RESET);
+
 		else
-			outlnfmt(os, "{}{}{}{}{}", before, highlight, sv, CANE_ANSI_RESET, after);
+			outlnfmt(os, "{}{}{}{}{}"_sv, before, highlight, sv, CANE_ANSI_RESET, after);
 
 		outln(os);
 

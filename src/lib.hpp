@@ -9,6 +9,10 @@
 #include <algorithm>
 #include <numeric>
 
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+
 #include <locale.hpp>
 #include <print.hpp>
 #include <view.hpp>
@@ -204,124 +208,120 @@ struct Lexer {
 		auto& [view, kind] = tok;
 		auto& [begin, end] = view;
 
-		uint32_t c = cane::as_char(src);
-
 		// Skip whitespace.
-		cane::consume_char(src, c, cane::is_whitespace);
-		view = cane::as_view(src); // Set view to first character.
+		View ws = cane::consume_decode(src, cane::is_whitespace);
+		view = cane::peek(src);
 
 		if (src.is_eof()) {
 			kind = Symbols::TERMINATOR;
-			view = View {};  // set to eof
 		}
 
-		else if (c == '#') {
-			cane::consume_char(src, c, not_equal((uint32_t)'\n'));  // Skip until \n and then return next token.
+		else if (cane::peek(src) == "#"_sv) {
+			view = cane::consume(src, not_equal("\n"_sv));  // Skip until \n and then return next token.
 			return next();
 		}
 
-		else if (c == '(') { kind = Symbols::LPAREN;   src = cane::iter_next_char(src, c); }
-		else if (c == ')') { kind = Symbols::RPAREN;   src = cane::iter_next_char(src, c); }
-		else if (c == '{') { kind = Symbols::LBRACE;   src = cane::iter_next_char(src, c); }
-		else if (c == '}') { kind = Symbols::RBRACE;   src = cane::iter_next_char(src, c); }
-		else if (c == '[') { kind = Symbols::LBRACKET; src = cane::iter_next_char(src, c); }
-		else if (c == ']') { kind = Symbols::RBRACKET; src = cane::iter_next_char(src, c); }
+		else if (cane::peek(src) == "("_sv) { kind = Symbols::LPAREN;   src = cane::next(src); }
+		else if (cane::peek(src) == ")"_sv) { kind = Symbols::RPAREN;   src = cane::next(src); }
+		else if (cane::peek(src) == "{"_sv) { kind = Symbols::LBRACE;   src = cane::next(src); }
+		else if (cane::peek(src) == "}"_sv) { kind = Symbols::RBRACE;   src = cane::next(src); }
+		else if (cane::peek(src) == "["_sv) { kind = Symbols::LBRACKET; src = cane::next(src); }
+		else if (cane::peek(src) == "]"_sv) { kind = Symbols::RBRACKET; src = cane::next(src); }
 
-		else if (c == '!') { kind = Symbols::BEAT; src = cane::iter_next_char(src, c); }
-		else if (c == '.') { kind = Symbols::SKIP; src = cane::iter_next_char(src, c); }
-		else if (c == ':') { kind = Symbols::SEP;  src = cane::iter_next_char(src, c); }
+		else if (cane::peek(src) == "!"_sv) { kind = Symbols::BEAT; src = cane::next(src); }
+		else if (cane::peek(src) == "."_sv) { kind = Symbols::SKIP; src = cane::next(src); }
+		else if (cane::peek(src) == ":"_sv) { kind = Symbols::SEP;  src = cane::next(src); }
 
-		else if (c == '?')  { kind = Symbols::DBG;  src = cane::iter_next_char(src, c); }
-		else if (c == '\'') { kind = Symbols::REV;  src = cane::iter_next_char(src, c); }
-		else if (c == '@')  { kind = Symbols::BPM;  src = cane::iter_next_char(src, c); }
-		else if (c == '|')  { kind = Symbols::OR;   src = cane::iter_next_char(src, c); }
-		else if (c == '^')  { kind = Symbols::XOR;  src = cane::iter_next_char(src, c); }
-		else if (c == ',')  { kind = Symbols::CAT;  src = cane::iter_next_char(src, c); }
-		else if (c == '#')  { kind = Symbols::REPN; src = cane::iter_next_char(src, c); }
+		else if (cane::peek(src) == "?"_sv)  { kind = Symbols::DBG;  src = cane::next(src); }
+		else if (cane::peek(src) == "\'"_sv) { kind = Symbols::REV;  src = cane::next(src); }
+		else if (cane::peek(src) == "@"_sv)  { kind = Symbols::BPM;  src = cane::next(src); }
+		else if (cane::peek(src) == "|"_sv)  { kind = Symbols::OR;   src = cane::next(src); }
+		else if (cane::peek(src) == "^"_sv)  { kind = Symbols::XOR;  src = cane::next(src); }
+		else if (cane::peek(src) == ","_sv)  { kind = Symbols::CAT;  src = cane::next(src); }
+		else if (cane::peek(src) == "#"_sv)  { kind = Symbols::REPN; src = cane::next(src); }
 
-		else if (c == '+') { kind = Symbols::ADD; src = cane::iter_next_char(src, c); }
-		else if (c == '-') { kind = Symbols::SUB; src = cane::iter_next_char(src, c); }
-		else if (c == '/') { kind = Symbols::DIV; src = cane::iter_next_char(src, c); }
-		else if (c == '&') { kind = Symbols::AND; src = cane::iter_next_char(src, c); }
+		else if (cane::peek(src) == "+"_sv) { kind = Symbols::ADD; src = cane::next(src); }
+		else if (cane::peek(src) == "-"_sv) { kind = Symbols::SUB; src = cane::next(src); }
+		else if (cane::peek(src) == "/"_sv) { kind = Symbols::DIV; src = cane::next(src); }
+		else if (cane::peek(src) == "&"_sv) { kind = Symbols::AND; src = cane::next(src); }
 
-		else if (c == '$') { kind = Symbols::REF; src = cane::iter_next_char(src, c); }
+		else if (cane::peek(src) == "$"_sv) { kind = Symbols::REF; src = cane::next(src); }
 
-		else if (c == '*') {
+		else if (cane::peek(src) == "*"_sv) {
 			kind = Symbols::MUL;
-			src = cane::iter_next_char(src, c);
+			src = cane::next(src);
 
-			if (as_char(src) == '*') {
+			if (cane::peek(src) == "*"_sv) {
 				kind = Symbols::REPN;
-				view = overlap(view, as_view(src));
-				src = cane::iter_next_char(src, c);
+				view = encompass(view, cane::peek(src));
+				src = cane::next(src);
 			}
 		}
 
-		else if (c == '<') {
-			src = cane::iter_next_char(src, c);
+		else if (cane::peek(src) == "<"_sv) {
+			src = cane::next(src);
 
-			if (as_char(src) == '<') {
+			if (cane::peek(src) == "<"_sv) {
 				kind = Symbols::ROTLN;
-				view = overlap(view, as_view(src));
-				src = cane::iter_next_char(src, c);
+				view = encompass(view, cane::peek(src));
+				src = cane::next(src);
 			}
 		}
 
-		else if (c == '>') {
-			src = cane::iter_next_char(src, c);
+		else if (cane::peek(src) == ">"_sv) {
+			src = cane::next(src);
 
-			if (as_char(src) == '>') {
+			if (cane::peek(src) == ">"_sv) {
 				kind = Symbols::ROTRN;
-				view = overlap(view, as_view(src));
-				src = cane::iter_next_char(src, c);
+				view = encompass(view, cane::peek(src));
+				src = cane::next(src);
 			}
 		}
 
-		else if (c == '~') {
+		else if (cane::peek(src) == "~"_sv) {
 			kind = Symbols::INVERT;
-			src = cane::iter_next_char(src, c);
+			src = cane::next(src);
 
-			if (as_char(src) == '>') {
+			if (cane::peek(src) == ">"_sv) {
 				kind = Symbols::SINK;
-				view = overlap(view, as_view(src));
-				src = cane::iter_next_char(src, c);
+				view = encompass(view, cane::peek(src));
+				src = cane::next(src);
 			}
 		}
 
-		else if (c == '=') {
-			src = cane::iter_next_char(src, c);
+		else if (cane::peek(src) == "="_sv) {
+			src = cane::next(src);
 
-			if (as_char(src) == '>') {
+			if (cane::peek(src) == ">"_sv) {
 				kind = Symbols::CHAIN;
-				view = overlap(view, as_view(src));
-				src = cane::iter_next_char(src, c);
+				view = encompass(view, cane::peek(src));
+				src = cane::next(src);
 			}
 		}
 
-		else if (cane::is_number(c)) {
+		else if (cane::is_number(decode(cane::peek(src)))) {
 			const auto lbegin = begin;  // Save starting position of token so we include "0x" or "0b"
 
-			if (c == '0') {
-				src = cane::iter_next_char(src, c);
+			if (cane::peek(src) == "0"_sv) {
+				src = cane::next(src);
 
 				// Hex literal
-				if (as_char(src) == 'x') {
+				if (cane::peek(src) == "x"_sv) {
 					kind = Symbols::HEX;
-					src = cane::iter_next_char(src, c);
-					view = cane::consume_char(src, c, [&] (uint32_t c) {
+					src = cane::next(src);
+					view = cane::consume_decode(src, [] (cp c) {
 						return
 							(c >= 'A' and c <= 'Z') or
 							(c >= 'a' and c <= 'z') or
-							(c >= '0' and c <= '9')
-						;
+							(c >= '0' and c <= '9');
 					});
 				}
 
 				// Binary literal
-				else if (as_char(src) == 'b') {
+				else if (cane::peek(src) == "b"_sv) {
 					kind = Symbols::BIN;
-					src = cane::iter_next_char(src, c);
-					view = cane::consume_char(src, c, [&] (uint32_t c) {
+					src = cane::next(src);
+					view = cane::consume_decode(src, [] (cp c) {
 						return c == '0' or c == '1';
 					});
 				}
@@ -329,14 +329,14 @@ struct Lexer {
 			}
 
 			kind = Symbols::INT;
-			view = cane::consume_char(src, c, cane::is_number);
+			view = cane::consume_decode(src, cane::is_number);
 
 			begin = lbegin;  // Make sure to set the begin pointer here so that we handle the lone 0 case aswell.
 		}
 
-		else if (cane::is_letter(c) or c == '_') {
+		else if (cane::is_letter(decode(cane::peek(src))) or cane::peek(src) == "_"_sv) {
 			kind = Symbols::IDENT;
-			view = cane::consume_char(src, c, [] (uint32_t c) {
+			view = cane::consume_decode(src, [] (cp c) {
 				return cane::is_alphanumeric(c) or c == '_';
 			});
 
@@ -383,7 +383,7 @@ constexpr uint64_t b10_decode(View sv) {
 
 constexpr uint64_t b16_decode(View sv) {
 	uint64_t n = 0;
-	sv = cane::next_char(sv, 2);  // skip `0x`
+	sv = cane::next(cane::next(sv));  // skip `0x`
 
 	// Interesting fact about ASCII:
 	// A-Z and a-z are the same ranges minus a difference of a single bit.
@@ -401,7 +401,7 @@ constexpr uint64_t b16_decode(View sv) {
 
 constexpr uint64_t b2_decode(View sv) {
 	uint64_t n = 0;
-	sv = cane::next_char(sv, 2);  // skip `0b`
+	sv = cane::next(cane::next(sv));  // skip `0b`
 
 	for (auto ptr = sv.begin; ptr != sv.end; ++ptr)
 		n = (n * 2) + (*ptr - '0');
@@ -945,7 +945,7 @@ inline Sequence euclide(Context& ctx, Lexer& lx, View expr_v) {
 	steps = lit_expr(ctx, lx, lx.peek().view, 0);
 
 	if (beats > steps)
-		lx.error(Phases::SEMANTIC, overlap(expr_v, lx.prev().view), STR_LESSER_EQ, steps);
+		lx.error(Phases::SEMANTIC, encompass(expr_v, lx.prev().view), STR_LESSER_EQ, steps);
 
 	Sequence seq {};
 
@@ -953,7 +953,7 @@ inline Sequence euclide(Context& ctx, Lexer& lx, View expr_v) {
 		seq.emplace_back(((i * beats) % steps) < static_cast<size_t>(beats));
 
 	if (seq.empty())
-		lx.error(Phases::SEMANTIC, overlap(expr_v, lx.prev().view), STR_EMPTY);
+		lx.error(Phases::SEMANTIC, encompass(expr_v, lx.prev().view), STR_EMPTY);
 
 	return seq;
 }
@@ -968,7 +968,7 @@ inline Sequence seq_ref(Context& ctx, Lexer& lx, View expr_v) {
 	if (auto it = ctx.chains.find(view); it != ctx.chains.end())
 		return it->second;
 
-	lx.error(Phases::SEMANTIC, overlap(expr_v, view), STR_UNDEFINED, view);
+	lx.error(Phases::SEMANTIC, encompass(expr_v, view), STR_UNDEFINED, view);
 }
 
 inline Literal lit_ref(Context& ctx, Lexer& lx, View lit_v) {
@@ -1011,8 +1011,8 @@ inline Literal lit_prefix(Context& ctx, Lexer& lx, View lit_v, size_t bp) {
 		lx.next();  // skip operator
 
 		switch (tok.kind) {
-			case Symbols::ADD: { lit = cane::abs(lit); } break;
-			case Symbols::SUB: { lit = -lit;           } break;
+			case Symbols::ADD: { lit = std::abs(lit); } break;
+			case Symbols::SUB: { lit = -lit;          } break;
 
 			case Symbols::LEN_OF: {
 				lit = seq_expr(ctx, lx, tok.view, 0).size();
@@ -1186,7 +1186,7 @@ inline Sequence seq_infix_lit(Context& ctx, Lexer& lx, View expr_v, Sequence seq
 
 			// We don't want to shrink the sequence, it can only grow.
 			if (n == 0)
-				lx.error(Phases::SEMANTIC, overlap(before_v, lx.prev().view), STR_GREATER, 0);
+				lx.error(Phases::SEMANTIC, encompass(before_v, lx.prev().view), STR_GREATER, 0);
 
 			seq = repeat(std::move(seq), n);
 		} break;
@@ -1243,7 +1243,7 @@ inline Sequence seq_postfix(Context& ctx, Lexer& lx, View expr_v, Sequence seq, 
 		case Symbols::DBG: {
 			CANE_LOG(LOG_INFO, sym2str(Symbols::DBG));
 
-			// size_t tempo = bpm(seq, lx, overlap(expr_v, tok.view));
+			// size_t tempo = bpm(seq, lx, encompass(expr_v, tok.view));
 
 			// Calculate length (in seconds) of sequence.
 			// auto dur = std::chrono::duration<double> { (ONE_MIN * seq.size() / tempo) };
@@ -1252,7 +1252,7 @@ inline Sequence seq_postfix(Context& ctx, Lexer& lx, View expr_v, Sequence seq, 
 			size_t count = seq.size() / mini.size();
 
 			std::cerr << std::fixed << std::setprecision(2);
-			lx.notice(Phases::SEMANTIC, overlap(expr_v, tok.view), STR_DEBUG, mini, count);
+			lx.notice(Phases::SEMANTIC, encompass(expr_v, tok.view), STR_DEBUG, mini, count);
 		} break;
 
 		default: {

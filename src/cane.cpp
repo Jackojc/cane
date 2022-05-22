@@ -278,7 +278,7 @@ int main(int argc, const char* argv[]) {
 		cane::View src { &*in.begin(), &*in.end() };
 		cane::Lexer lx { src };
 
-		if (not cane::utf_validate(src))
+		if (not cane::validate(src))
 			lx.error(cane::Phases::ENCODING, src, cane::STR_ENCODING);
 
 
