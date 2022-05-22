@@ -87,7 +87,7 @@ namespace cane {
 
 	// Branchless absolute function.
 	template <typename T> constexpr auto abs(T v) {
-		return v * ( (v > 0) - (v < 0) );
+		return v * ((v > 0) - (v < 0));
 	}
 
 

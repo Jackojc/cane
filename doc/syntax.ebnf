@@ -37,7 +37,7 @@ seq_expr ::=
 
 // Channel Expressions
 chan_infix_expr ::= <chan_expr> ( "with" | "sync" | "fit" ) <chan_expr>
-chan_infix_lit  ::= <chan_expr> ( "repeat" ) <lit_expr>
+chan_infix_lit  ::= <chan_expr> ( "loop" ) <lit_expr>
 chan_infix      ::= <chan_infix_expr> | <chan_infix_lit>
 
 chan_postfix ::= <chan_expr> ( "drop" )
