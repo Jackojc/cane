@@ -91,8 +91,27 @@ namespace cane {
 		os.write(v.begin, v.size());
 		return os;
 	}
+}
 
+// Convert a string literal to a View.
+// We can determine the size if it's a literal
+// because it hasn't decayed and so the length
+// is available to us.
+constexpr cane::View operator""_sv(const char* const str, size_t n) {
+	return { str, str + n };
+}
 
+// Hashing function for `View` so that we can insert
+// it into unordered_map.
+namespace std {
+template <> struct hash<cane::View> {
+	constexpr size_t operator()(cane::View v) const {
+		return cane::hash_bytes(v.begin, v.end);
+	}
+};
+}
+
+namespace cane {
 	[[nodiscard]] constexpr size_t length(View);
 	[[nodiscard]] constexpr bool validate(View);
 
@@ -117,6 +136,10 @@ namespace cane {
 
 	template <typename F>
 	[[nodiscard]] constexpr View consume_decode(View&, const F&);
+
+	template <typename F>
+	constexpr size_t count(View, const F&);
+	constexpr size_t count_lines(View);
 
 
 	constexpr size_t length(View sv) {
@@ -313,24 +336,25 @@ namespace cane {
 
 		return inner;
 	}
-}
 
-// Convert a string literal to a View.
-// We can determine the size if it's a literal
-// because it hasn't decayed and so the length
-// is available to us.
-constexpr cane::View operator""_sv(const char* const str, size_t n) {
-	return { str, str + n };
-}
+	template <typename F> constexpr size_t count(View sv, const F& fn) {
+		if (sv.is_eof()) return 0;
 
-// Hashing function for `View` so that we can insert
-// it into unordered_map.
-namespace std {
-template <> struct hash<cane::View> {
-	constexpr size_t operator()(cane::View v) const {
-		return cane::hash_bytes(v.begin, v.end);
+		size_t count = 0;
+
+		while (not sv.is_eof()) {
+			if (fn(peek(sv)))
+				count++;
+
+			sv = next(sv);
+		}
+
+		return count;
 	}
-};
+
+	constexpr size_t count_lines(View sv) {
+		return count(sv, [] (View sv) { return sv == "\n"_sv; });
+	}
 }
 
 #endif

@@ -221,33 +221,33 @@ struct Lexer {
 			return next();
 		}
 
-		else if (cane::peek(src) == "("_sv) { kind = Symbols::LPAREN;   src = cane::next(src); }
-		else if (cane::peek(src) == ")"_sv) { kind = Symbols::RPAREN;   src = cane::next(src); }
-		else if (cane::peek(src) == "{"_sv) { kind = Symbols::LBRACE;   src = cane::next(src); }
-		else if (cane::peek(src) == "}"_sv) { kind = Symbols::RBRACE;   src = cane::next(src); }
-		else if (cane::peek(src) == "["_sv) { kind = Symbols::LBRACKET; src = cane::next(src); }
-		else if (cane::peek(src) == "]"_sv) { kind = Symbols::RBRACKET; src = cane::next(src); }
+		else if (view == "("_sv) { kind = Symbols::LPAREN;   src = cane::next(src); }
+		else if (view == ")"_sv) { kind = Symbols::RPAREN;   src = cane::next(src); }
+		else if (view == "{"_sv) { kind = Symbols::LBRACE;   src = cane::next(src); }
+		else if (view == "}"_sv) { kind = Symbols::RBRACE;   src = cane::next(src); }
+		else if (view == "["_sv) { kind = Symbols::LBRACKET; src = cane::next(src); }
+		else if (view == "]"_sv) { kind = Symbols::RBRACKET; src = cane::next(src); }
 
-		else if (cane::peek(src) == "!"_sv) { kind = Symbols::BEAT; src = cane::next(src); }
-		else if (cane::peek(src) == "."_sv) { kind = Symbols::SKIP; src = cane::next(src); }
-		else if (cane::peek(src) == ":"_sv) { kind = Symbols::SEP;  src = cane::next(src); }
+		else if (view == "!"_sv) { kind = Symbols::BEAT; src = cane::next(src); }
+		else if (view == "."_sv) { kind = Symbols::SKIP; src = cane::next(src); }
+		else if (view == ":"_sv) { kind = Symbols::SEP;  src = cane::next(src); }
 
-		else if (cane::peek(src) == "?"_sv)  { kind = Symbols::DBG;  src = cane::next(src); }
-		else if (cane::peek(src) == "\'"_sv) { kind = Symbols::REV;  src = cane::next(src); }
-		else if (cane::peek(src) == "@"_sv)  { kind = Symbols::BPM;  src = cane::next(src); }
-		else if (cane::peek(src) == "|"_sv)  { kind = Symbols::OR;   src = cane::next(src); }
-		else if (cane::peek(src) == "^"_sv)  { kind = Symbols::XOR;  src = cane::next(src); }
-		else if (cane::peek(src) == ","_sv)  { kind = Symbols::CAT;  src = cane::next(src); }
-		else if (cane::peek(src) == "#"_sv)  { kind = Symbols::REPN; src = cane::next(src); }
+		else if (view == "?"_sv)  { kind = Symbols::DBG;  src = cane::next(src); }
+		else if (view == "\'"_sv) { kind = Symbols::REV;  src = cane::next(src); }
+		else if (view == "@"_sv)  { kind = Symbols::BPM;  src = cane::next(src); }
+		else if (view == "|"_sv)  { kind = Symbols::OR;   src = cane::next(src); }
+		else if (view == "^"_sv)  { kind = Symbols::XOR;  src = cane::next(src); }
+		else if (view == ","_sv)  { kind = Symbols::CAT;  src = cane::next(src); }
+		else if (view == "#"_sv)  { kind = Symbols::REPN; src = cane::next(src); }
 
-		else if (cane::peek(src) == "+"_sv) { kind = Symbols::ADD; src = cane::next(src); }
-		else if (cane::peek(src) == "-"_sv) { kind = Symbols::SUB; src = cane::next(src); }
-		else if (cane::peek(src) == "/"_sv) { kind = Symbols::DIV; src = cane::next(src); }
-		else if (cane::peek(src) == "&"_sv) { kind = Symbols::AND; src = cane::next(src); }
+		else if (view == "+"_sv) { kind = Symbols::ADD; src = cane::next(src); }
+		else if (view == "-"_sv) { kind = Symbols::SUB; src = cane::next(src); }
+		else if (view == "/"_sv) { kind = Symbols::DIV; src = cane::next(src); }
+		else if (view == "&"_sv) { kind = Symbols::AND; src = cane::next(src); }
 
-		else if (cane::peek(src) == "$"_sv) { kind = Symbols::REF; src = cane::next(src); }
+		else if (view == "$"_sv) { kind = Symbols::REF; src = cane::next(src); }
 
-		else if (cane::peek(src) == "*"_sv) {
+		else if (view == "*"_sv) {
 			kind = Symbols::MUL;
 			src = cane::next(src);
 
@@ -258,7 +258,7 @@ struct Lexer {
 			}
 		}
 
-		else if (cane::peek(src) == "<"_sv) {
+		else if (view == "<"_sv) {
 			src = cane::next(src);
 
 			if (cane::peek(src) == "<"_sv) {
@@ -268,7 +268,7 @@ struct Lexer {
 			}
 		}
 
-		else if (cane::peek(src) == ">"_sv) {
+		else if (view == ">"_sv) {
 			src = cane::next(src);
 
 			if (cane::peek(src) == ">"_sv) {
@@ -278,7 +278,7 @@ struct Lexer {
 			}
 		}
 
-		else if (cane::peek(src) == "~"_sv) {
+		else if (view == "~"_sv) {
 			kind = Symbols::INVERT;
 			src = cane::next(src);
 
@@ -289,7 +289,7 @@ struct Lexer {
 			}
 		}
 
-		else if (cane::peek(src) == "="_sv) {
+		else if (view == "="_sv) {
 			src = cane::next(src);
 
 			if (cane::peek(src) == ">"_sv) {
@@ -325,7 +325,6 @@ struct Lexer {
 						return c == '0' or c == '1';
 					});
 				}
-
 			}
 
 			kind = Symbols::INT;
@@ -334,7 +333,7 @@ struct Lexer {
 			begin = lbegin;  // Make sure to set the begin pointer here so that we handle the lone 0 case aswell.
 		}
 
-		else if (cane::is_letter(decode(cane::peek(src))) or cane::peek(src) == "_"_sv) {
+		else if (cane::is_letter(decode(cane::peek(src))) or view == "_"_sv) {
 			kind = Symbols::IDENT;
 			view = cane::consume_decode(src, [] (cp c) {
 				return cane::is_alphanumeric(c) or c == '_';

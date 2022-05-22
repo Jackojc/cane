@@ -92,11 +92,7 @@ namespace cane {
 		const auto after = cane::after(focused_line, sv);
 
 		const auto column_n = length(before) + 1;
-		// const auto line_n = count_lines(encompass(src, sv)) + 1;
-		// const auto digits = count_digits(line_n);
-
-		const auto line_n = 1;
-		const auto digits = 1;
+		const auto line_n = count_lines(encompass(src, sv)) + 1;
 
 		auto highlight = report2colour(R);
 
