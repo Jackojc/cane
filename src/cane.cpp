@@ -29,8 +29,8 @@ struct jack_deleter {
 using JackPorts = std::unique_ptr<const char*[], jack_deleter>;
 
 enum {
-	OPT_HELP = 0b01,
-	OPT_LIST = 0b10,
+	OPT_HELP = 0b001,
+	OPT_LIST = 0b010,
 };
 
 inline std::string read_file(std::filesystem::path path) {
@@ -71,6 +71,7 @@ inline std::string read_file(std::filesystem::path path) {
 int main(int argc, const char* argv[]) {
 	std::string_view device;
 	std::string_view filename;
+	std::string_view bpm;
 	uint64_t flags;
 
 	auto parser = conflict::parser {
@@ -79,6 +80,7 @@ int main(int argc, const char* argv[]) {
 
 		conflict::string_option { { 'f', "file", "input file" }, "filename", filename },
 		conflict::string_option { { 'm', "midi", "midi device to connect to" }, "device", device },
+		conflict::string_option { { 'b', "bpm",  "global bpm" }, "bpm", bpm },
 	};
 
 	parser.apply_defaults();
@@ -273,6 +275,9 @@ int main(int argc, const char* argv[]) {
 		if (filename.empty())
 			cane::general_error(cane::STR_OPT_NO_FILE);
 
+		if (bpm.empty())
+			cane::general_error(cane::STR_NO_BPM);
+
 		std::string in = read_file(filename);
 
 		cane::View src { &*in.begin(), &*in.end() };
@@ -289,8 +294,9 @@ int main(int argc, const char* argv[]) {
 
 		// Compile
 		auto t1 = clock::now();
-			cane::Timeline timeline = cane::compile(lx);
+			cane::Timeline timeline = cane::compile(lx, cane::b10_decode(cane::View{ bpm.data(), bpm.data() + bpm.size() }));
 		auto t2 = clock::now();
+
 
 		cane::err(std::fixed, std::setprecision(2));
 		cane::general_notice(cane::STR_COMPILED, cane::UnitMillis { t2 - t1 }.count(), cane::STR_MILLI_SUFFIX);

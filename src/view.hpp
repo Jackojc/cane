@@ -104,11 +104,11 @@ constexpr cane::View operator""_sv(const char* const str, size_t n) {
 // Hashing function for `View` so that we can insert
 // it into unordered_map.
 namespace std {
-template <> struct hash<cane::View> {
-	constexpr size_t operator()(cane::View v) const {
-		return cane::hash_bytes(v.begin, v.end);
-	}
-};
+	template <> struct hash<cane::View> {
+		constexpr size_t operator()(cane::View v) const {
+			return cane::hash_bytes(v.begin, v.end);
+		}
+	};
 }
 
 namespace cane {

@@ -27,6 +27,15 @@ constexpr size_t CHANNEL_MIN = 1u;
 constexpr size_t CHANNEL_MAX = 16u;
 constexpr size_t BPM_MIN     = 1u;
 
+constexpr auto ACTIVE_SENSING_INTERVAL = std::chrono::milliseconds { 250 };
+
+constexpr uint8_t MIDI_NOTE_ON      = 0b10010000;
+constexpr uint8_t MIDI_NOTE_OFF     = 0b10000000;
+constexpr uint8_t MIDI_START        = 0b11111010;
+constexpr uint8_t MIDI_STOP         = 0b11111100;
+constexpr uint8_t MIDI_ACTIVE_SENSE = 0b11111110;
+constexpr uint8_t MIDI_TIMING_CLOCK = 0b11111000;
+
 
 // Errors/Warnings/Notices/Exceptions
 struct Error {};
@@ -106,8 +115,9 @@ inline void general_notice(Ts&&... args) {
 	X(MOD, "%") \
 	\
 	/* Literal Keywords */ \
-	X(LEN_OF, "len") \
-	X(LET,    "let") \
+	X(LEN_OF,     "len") \
+	X(LET,        "let") \
+	X(BPM_GLOBAL, "bpm") \
 	\
 	/* Sequence */ \
 	X(SEP,  ":") \
@@ -350,6 +360,7 @@ struct Lexer {
 			else if (view == "let"_sv)   kind = Symbols::LET;
 			else if (view == "car"_sv)   kind = Symbols::CAR;
 			else if (view == "cdr"_sv)   kind = Symbols::CDR;
+			else if (view == "bpm"_sv)   kind = Symbols::BPM_GLOBAL;
 		}
 
 		// If the kind is still NONE by this point, we can assume we didn't find
@@ -408,36 +419,6 @@ constexpr uint64_t b2_decode(View sv) {
 	return n;
 }
 
-
-#define MIDI \
-	X(MIDI_NOTE_OFF,         0b1000) \
-	X(MIDI_NOTE_ON,          0b1001) \
-	X(MIDI_KEY_PRESSURE,     0b1010) \
-	X(MIDI_CONTROL_CHANGE,   0b1011) \
-	X(MIDI_CHANNEL_PRESSURE, 0b1101) \
-	X(MIDI_PITCH_BEND,       0b1110)
-
-	#define X(name, value) name = value,
-		enum { MIDI };
-	#undef X
-
-	#define X(name, value) value,
-		constexpr uint8_t MIDI_TO_INT[] = { MIDI };
-	#undef X
-
-	constexpr decltype(auto) midi2int(uint8_t m) {
-		return MIDI_TO_INT[m];
-	}
-
-	#define X(name, value) x == value ? #name:
-		constexpr decltype(auto) int2midi(uint8_t x) {
-			return MIDI 0;
-		}
-	#undef X
-
-#undef MIDI
-
-
 using Unit = std::chrono::microseconds;
 
 using UnitSeconds = std::chrono::duration<double>;
@@ -450,13 +431,8 @@ struct Event {
 	Unit time = Unit::zero();
 	std::array<uint8_t, 3> data;
 
-	constexpr Event(Unit time_, uint8_t kind, uint8_t chan, uint8_t note_, uint8_t velocity_):
-		time(time_),
-		data {
-			(uint8_t)((kind << 4u) | chan),
-			note_,
-			velocity_
-		}
+	constexpr Event(Unit time_, uint8_t status_, uint8_t note_, uint8_t velocity_):
+		time(time_), data({status_, note_, velocity_})
 	{}
 };
 
@@ -578,6 +554,8 @@ struct Context {
 
 	Unit base_time = Unit::zero();  // Time at which to begin new channels
 	Timeline timeline;
+
+	size_t bpm_global;
 };
 
 
@@ -1029,6 +1007,9 @@ inline Literal lit_prefix(Context& ctx, Lexer& lx, View lit_v, size_t bp) {
 	else if (tok.kind == Symbols::IDENT)
 		lit = lit_ref(ctx, lx, lx.peek().view);
 
+	else if (tok.kind == Symbols::BPM_GLOBAL)
+		lit = ctx.bpm_global;
+
 	else if (tok.kind == Symbols::LPAREN) {
 		lx.next();  // skip `(`
 
@@ -1382,8 +1363,8 @@ inline Timeline chan_prefix(Context& ctx, Lexer& lx, View chan_v, size_t bp) {
 
 		for (size_t i = 0; i != seq.size(); ++i) {
 			if (seq[i]) {  // Note on
-				tl.emplace_back(time, 0b1001, chan, notes[i % notes.size()], 0b01111111);
-				tl.emplace_back(time + time_per_note, 0b1000, chan, notes[i % notes.size()], 0b01111111);
+				tl.emplace_back(time, MIDI_NOTE_ON | chan, notes[i % notes.size()], 0b01111111);
+				tl.emplace_back(time + time_per_note, MIDI_NOTE_OFF | chan, notes[i % notes.size()], 0b01111111);
 			}
 
 			time += time_per_note;
@@ -1603,10 +1584,6 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 
 		ctx.base_time += tl.duration;
 		ctx.timeline.duration += tl.duration;
-
-		std::stable_sort(ctx.timeline.begin(), ctx.timeline.end(), [] (auto& a, auto& b) {
-			return a.time < b.time;
-		});
 	}
 
 	else
@@ -1625,15 +1602,44 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 	ctx.chains.clear();
 }
 
-inline Timeline compile(Lexer& lx) {
+inline Timeline compile(Lexer& lx, size_t bpm_global) {
 	CANE_LOG(LOG_WARN);
 
 	Context ctx;
+	ctx.bpm_global = bpm_global;
 
 	while (lx.peek().kind != Symbols::TERMINATOR)
 		statement(ctx, lx, lx.peek().view);
 
-	return std::move(ctx.timeline);
+	Timeline tl = std::move(ctx.timeline);
+
+	// Active sensing
+	Unit t = Unit::zero();
+	while (t < ctx.base_time) {
+		tl.emplace_back(t, MIDI_ACTIVE_SENSE, 0, 0);
+		t += ACTIVE_SENSING_INTERVAL;
+	}
+
+	// MIDI clock pulse
+	// We fire off a MIDI tick 24 times
+	// for every quarter note
+	Unit clock_freq = ONE_MIN / (bpm_global * 4) / 24;
+	t = Unit::zero();
+	while (t < ctx.base_time) {
+		tl.emplace_back(t, MIDI_TIMING_CLOCK, 0, 0);
+		t += clock_freq;
+	}
+
+	// Sort sequence by timestamps
+	std::stable_sort(tl.begin(), tl.end(), [] (auto& a, auto& b) {
+		return a.time < b.time;
+	});
+
+	// Start/stop
+	tl.emplace(tl.begin(), Unit::zero(), MIDI_START, 0, 0);
+	tl.emplace_back(ctx.base_time, MIDI_STOP, 0, 0);
+
+	return tl;
 }
 
 }

@@ -12,6 +12,8 @@ lit_infix       ::= <lit_expr> ( '+' | '-' | '*' | '/' | '%' ) <lit_expr>
 lit_prefix_expr ::= ( '+' | '-' ) <lit_expr>
 lit_prefix_seq  ::= ( "len" ) <seq_expr>
 lit_expr ::=
+	<identifier> |
+	"bpm" |
 	<lit_prefix> |
 	<lit_infix_expr> |
 	<lit_prefix_seq> |
