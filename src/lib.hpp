@@ -1008,8 +1008,10 @@ inline Literal lit_prefix(Context& ctx, Lexer& lx, View lit_v, size_t bp) {
 	else if (tok.kind == Symbols::IDENT)
 		lit = lit_ref(ctx, lx, lx.peek().view);
 
-	else if (tok.kind == Symbols::BPM_GLOBAL)
+	else if (tok.kind == Symbols::BPM_GLOBAL) {
+		lx.next();  // skip `bpm`
 		lit = ctx.bpm_global;
+	}
 
 	else if (tok.kind == Symbols::LPAREN) {
 		lx.next();  // skip `(`
@@ -1638,7 +1640,7 @@ inline Timeline compile(Lexer& lx, size_t bpm_global) {
 	// MIDI clock pulse
 	// We fire off a MIDI tick 24 times
 	// for every quarter note
-	Unit clock_freq = ONE_MIN / (bpm_global * 4) / 24;
+	Unit clock_freq = std::chrono::duration_cast<cane::Unit>(std::chrono::minutes { 1 }) / (bpm_global * 24);
 	t = Unit::zero();
 	while (t < ctx.base_time) {
 		tl.emplace_back(t, MIDI_TIMING_CLOCK, 0, 0);
