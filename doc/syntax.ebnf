@@ -44,8 +44,15 @@ chan_infix      ::= <chan_infix_expr> | <chan_infix_lit>
 
 chan_postfix ::= <chan_expr> ( "drop" )
 
+bpm ::= '@' <lit_expr>
+
+note ::= <lit_expr> [ ':' <lit_expr> ]
+notes ::= '[' <note>+ ']'
+
+channel ::= <seq_expr> '~>' ( <literal> | <identifier> ) <bpm> <notes>
+
 chan_expr ::=
-	<seq_expr> '~>' ( <literal> | <identifier> ) '@' <lit_expr> |
+	<channel> |
 	<chan_infix> |
 	<chan_postfix> |
 	'{' <chan_expr> '}'

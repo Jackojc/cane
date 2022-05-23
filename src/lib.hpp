@@ -26,6 +26,7 @@ namespace cane {
 constexpr size_t CHANNEL_MIN = 1u;
 constexpr size_t CHANNEL_MAX = 16u;
 constexpr size_t BPM_MIN     = 1u;
+constexpr size_t VELOCITY_DEFAULT = 127u;
 
 constexpr auto ACTIVE_SENSING_INTERVAL = std::chrono::milliseconds { 250 };
 
@@ -1351,8 +1352,20 @@ inline Timeline chan_prefix(Context& ctx, Lexer& lx, View chan_v, size_t bp) {
 		lx.expect(is_lit_primary, lx.peek().view, STR_LITERAL);
 
 		std::vector<Literal> notes;
-		while (lx.peek().kind != Symbols::RBRACKET)
-			notes.emplace_back(lit_expr(ctx, lx, lx.peek().view, 0));
+		std::vector<Literal> velocities;
+
+		while (lx.peek().kind != Symbols::RBRACKET) {
+			Literal note = lit_expr(ctx, lx, lx.peek().view, 0);
+			Literal velocity = VELOCITY_DEFAULT;
+
+			if (lx.peek().kind == Symbols::SEP) {
+				lx.next();  // skip `:`
+				velocity = lit_expr(ctx, lx, lx.peek().view, 0);
+			}
+
+			notes.emplace_back(note);
+			velocities.emplace_back(velocity);
+		}
 
 		lx.expect(equal(Symbols::RBRACKET), lx.peek().view, STR_EXPECT, sym2str(Symbols::RBRACKET));
 		lx.next();  // skip `]`
@@ -1363,8 +1376,10 @@ inline Timeline chan_prefix(Context& ctx, Lexer& lx, View chan_v, size_t bp) {
 
 		for (size_t i = 0; i != seq.size(); ++i) {
 			if (seq[i]) {  // Note on
-				tl.emplace_back(time, MIDI_NOTE_ON | chan, notes[i % notes.size()], 0b01111111);
-				tl.emplace_back(time + time_per_note, MIDI_NOTE_OFF | chan, notes[i % notes.size()], 0b01111111);
+				size_t index = i % notes.size();
+
+				tl.emplace_back(time, MIDI_NOTE_ON | chan, notes[index], velocities[index]);
+				tl.emplace_back(time + time_per_note, MIDI_NOTE_OFF | chan, notes[index], velocities[index]);
 			}
 
 			time += time_per_note;
