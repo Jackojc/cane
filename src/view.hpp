@@ -53,7 +53,7 @@ namespace cane {
 		// If the size of the view is 0, it means the pointers
 		// are equal and so we are at the end.
 		constexpr bool is_eof() const {
-			return begin == end;
+			return begin == end or (size() == 1 and *begin == '\0');
 		}
 	};
 

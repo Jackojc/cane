@@ -23,19 +23,84 @@
 namespace cane {
 
 // Constants
-constexpr size_t CHANNEL_MIN = 1u;
-constexpr size_t CHANNEL_MAX = 16u;
-constexpr size_t BPM_MIN     = 1u;
+constexpr size_t CHANNEL_MIN      = 1u;
+constexpr size_t CHANNEL_MAX      = 16u;
+constexpr size_t BPM_MIN          = 1u;
 constexpr size_t VELOCITY_DEFAULT = 127u;
 
 constexpr auto ACTIVE_SENSING_INTERVAL = std::chrono::milliseconds { 250 };
 
-constexpr uint8_t MIDI_NOTE_ON      = 0b10010000;
-constexpr uint8_t MIDI_NOTE_OFF     = 0b10000000;
-constexpr uint8_t MIDI_START        = 0b11111010;
-constexpr uint8_t MIDI_STOP         = 0b11111100;
-constexpr uint8_t MIDI_ACTIVE_SENSE = 0b11111110;
-constexpr uint8_t MIDI_TIMING_CLOCK = 0b11111000;
+#define MIDI \
+	X(NOTE_OFF_1,   0b10000000) \
+	X(NOTE_OFF_2,   0b10000001) \
+	X(NOTE_OFF_3,   0b10000010) \
+	X(NOTE_OFF_4,   0b10000011) \
+	X(NOTE_OFF_5,   0b10000100) \
+	X(NOTE_OFF_6,   0b10000101) \
+	X(NOTE_OFF_7,   0b10000110) \
+	X(NOTE_OFF_8,   0b10000111) \
+	X(NOTE_OFF_9,   0b10001000) \
+	X(NOTE_OFF_10,  0b10001001) \
+	X(NOTE_OFF_11,  0b10001010) \
+	X(NOTE_OFF_12,  0b10001011) \
+	X(NOTE_OFF_13,  0b10001100) \
+	X(NOTE_OFF_14,  0b10001101) \
+	X(NOTE_OFF_15,  0b10001110) \
+	X(NOTE_OFF_16,  0b10001111) \
+	\
+	X(NOTE_ON_1,    0b10010000) \
+	X(NOTE_ON_2,    0b10010001) \
+	X(NOTE_ON_3,    0b10010010) \
+	X(NOTE_ON_4,    0b10010011) \
+	X(NOTE_ON_5,    0b10010100) \
+	X(NOTE_ON_6,    0b10010101) \
+	X(NOTE_ON_7,    0b10010110) \
+	X(NOTE_ON_8,    0b10010111) \
+	X(NOTE_ON_9,    0b10011000) \
+	X(NOTE_ON_10,   0b10011001) \
+	X(NOTE_ON_11,   0b10011010) \
+	X(NOTE_ON_12,   0b10011011) \
+	X(NOTE_ON_13,   0b10011100) \
+	X(NOTE_ON_14,   0b10011101) \
+	X(NOTE_ON_15,   0b10011110) \
+	X(NOTE_ON_16,   0b10011111) \
+	\
+	X(NOTE_ON,      0b10010000) \
+	X(NOTE_OFF,     0b10000000) \
+	X(START,        0b11111010) \
+	X(STOP,         0b11111100) \
+	X(ACTIVE_SENSE, 0b11111110) \
+	X(TIMING_CLOCK, 0b11111000)
+
+	#define X(name, value) name,
+		enum class Midi { MIDI };
+	#undef X
+
+	#define X(name, value) value,
+		constexpr std::array MIDI_TO_INT = { MIDI };
+	#undef X
+
+	#define X(name, value) #name##_sv,
+		constexpr std::array MIDI_TO_STRING = { MIDI };
+	#undef X
+
+	#define X(name, value) m == Midi::name ? value:
+		constexpr decltype(auto) midi2int(Midi m) {
+			return MIDI 0;
+		}
+	#undef X
+
+	constexpr decltype(auto) midi2str(Midi m) {
+		return MIDI_TO_STRING[(int)m];
+	}
+
+	#define X(name, value) x == value ? midi2str(Midi::name) :
+		constexpr decltype(auto) int2midi(uint8_t x) {
+			return MIDI "NONE"_sv;
+		}
+	#undef X
+
+#undef MIDI
 
 
 // Errors/Warnings/Notices/Exceptions
@@ -451,13 +516,21 @@ struct Timeline: public std::vector<Event> {
 
 
 inline std::ostream& operator<<(std::ostream& os, Timeline& tl) {
+	constexpr auto longest = *std::max_element(MIDI_TO_STRING.begin(), MIDI_TO_STRING.end(), [] (auto& lhs, auto& rhs) {
+		return lhs.size() < rhs.size();
+	});
+
 	for (Event& ev: tl) {
-		out(os, (int)ev.data[0], " ");
-		out(os, (int)ev.data[1], " ");
-		out(os, (int)ev.data[2], " ");
+		View sv = int2midi(ev.data[0]);
+		std::string padding(longest.size() - sv.size(), ' ');
 
-		out(os, UnitSeconds { ev.time }.count());
+		// French flag
+		out(os, CANE_ANSI_FG_BLUE, sv, padding, CANE_ANSI_RESET " ");
 
+		out(os, "[ ", CANE_ANSI_BOLD, (int)ev.data[1], " ");
+		out(os, (int)ev.data[2], CANE_ANSI_RESET " ] ");
+
+		out(os, CANE_ANSI_FG_RED, UnitMillis { ev.time }.count(), cane::STR_MILLI_SUFFIX, CANE_ANSI_RESET);
 		outln(os);
 	}
 
@@ -1380,8 +1453,8 @@ inline Timeline chan_prefix(Context& ctx, Lexer& lx, View chan_v, size_t bp) {
 			if (seq[i]) {  // Note on
 				size_t index = i % notes.size();
 
-				tl.emplace_back(time, MIDI_NOTE_ON | chan, notes[index], velocities[index]);
-				tl.emplace_back(time + time_per_note, MIDI_NOTE_OFF | chan, notes[index], velocities[index]);
+				tl.emplace_back(time, midi2int(Midi::NOTE_ON) | chan, notes[index], velocities[index]);
+				tl.emplace_back(time + time_per_note, midi2int(Midi::NOTE_OFF) | chan, notes[index], velocities[index]);
 			}
 
 			time += time_per_note;
@@ -1418,10 +1491,7 @@ inline Timeline chan_infix_expr(Context& ctx, Lexer& lx, View chan_v, Timeline t
 	switch (tok.kind) {
 		case Symbols::WITH: {
 			Timeline rhs = chan_expr(ctx, lx, chan_v, bp);
-
-			if (rhs.size() > tl.size())
-				std::swap(tl, rhs);
-
+			tl.duration = std::max(tl.duration, rhs.duration);
 			tl.insert(tl.end(), rhs.begin(), rhs.end());
 		} break;
 
@@ -1633,7 +1703,7 @@ inline Timeline compile(Lexer& lx, size_t bpm_global) {
 	// Active sensing
 	Unit t = Unit::zero();
 	while (t < ctx.base_time) {
-		tl.emplace_back(t, MIDI_ACTIVE_SENSE, 0, 0);
+		tl.emplace_back(t, midi2int(Midi::ACTIVE_SENSE), 0, 0);
 		t += ACTIVE_SENSING_INTERVAL;
 	}
 
@@ -1643,7 +1713,7 @@ inline Timeline compile(Lexer& lx, size_t bpm_global) {
 	Unit clock_freq = std::chrono::duration_cast<cane::Unit>(std::chrono::minutes { 1 }) / (bpm_global * 24);
 	t = Unit::zero();
 	while (t < ctx.base_time) {
-		tl.emplace_back(t, MIDI_TIMING_CLOCK, 0, 0);
+		tl.emplace_back(t, midi2int(Midi::TIMING_CLOCK), 0, 0);
 		t += clock_freq;
 	}
 
@@ -1653,8 +1723,8 @@ inline Timeline compile(Lexer& lx, size_t bpm_global) {
 	});
 
 	// Start/stop
-	tl.emplace(tl.begin(), Unit::zero(), MIDI_START, 0, 0);
-	tl.emplace_back(ctx.base_time, MIDI_STOP, 0, 0);
+	tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::START), 0, 0);
+	tl.emplace_back(ctx.base_time, midi2int(Midi::STOP), 0, 0);
 
 	return tl;
 }
