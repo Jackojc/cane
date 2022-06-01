@@ -58,7 +58,7 @@ The EBNF grammar is [here](doc/syntax.ebnf).
 ### Build & Run
 Make sure to use a c++-17 compliant compiler.
 ```sh
-git clone https://github.com/Jackojc/cane && cd sane
+git clone https://github.com/Jackojc/cane && cd cane
 make dbg=no
 ./build/cane < foo.cn
 ```
