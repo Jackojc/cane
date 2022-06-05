@@ -30,6 +30,19 @@ constexpr size_t VELOCITY_DEFAULT = 127u;
 
 constexpr auto ACTIVE_SENSING_INTERVAL = std::chrono::milliseconds { 250 };
 
+constexpr auto ALL_SOUND_OFF = 120;
+constexpr auto ALL_RESET_CC  = 121;
+constexpr auto LOCAL_CONTROL = 122;
+constexpr auto ALL_NOTES_OFF = 123;
+
+constexpr auto OMNI_MODE_OFF = 124;
+constexpr auto OMNI_MODE_ON  = 125;
+constexpr auto MONO_MODE_ON  = 126;
+constexpr auto POLY_MODE_ON  = 127;
+
+constexpr auto LOCAL_CONTROL_ON  = 127;
+constexpr auto LOCAL_CONTROL_OFF = 0;
+
 #define MIDI \
 	X(NOTE_OFF_1,   0b10000000) \
 	X(NOTE_OFF_2,   0b10000001) \
@@ -70,7 +83,8 @@ constexpr auto ACTIVE_SENSING_INTERVAL = std::chrono::milliseconds { 250 };
 	X(START,        0b11111010) \
 	X(STOP,         0b11111100) \
 	X(ACTIVE_SENSE, 0b11111110) \
-	X(TIMING_CLOCK, 0b11111000)
+	X(TIMING_CLOCK, 0b11111000) \
+	X(CHANNEL_MODE, 0b10110000)
 
 	#define X(name, value) name,
 		enum class Midi { MIDI };
@@ -1299,16 +1313,10 @@ inline Sequence seq_postfix(Context& ctx, Lexer& lx, View expr_v, Sequence seq, 
 		case Symbols::DBG: {
 			CANE_LOG(LOG_INFO, sym2str(Symbols::DBG));
 
-			// size_t tempo = bpm(seq, lx, encompass(expr_v, tok.view));
-
-			// Calculate length (in seconds) of sequence.
-			// auto dur = std::chrono::duration<double> { (ONE_MIN * seq.size() / tempo) };
-
 			auto mini = minify(seq);
 			size_t count = seq.size() / mini.size();
 
-			std::cerr << std::fixed << std::setprecision(2);
-			lx.notice(Phases::SEMANTIC, encompass(expr_v, tok.view), STR_DEBUG, mini, count);
+			lx.notice(Phases::SEMANTIC, encompass(expr_v, tok.view), STR_DEBUG, mini, count, seq.size());
 		} break;
 
 		default: {
@@ -1695,6 +1703,7 @@ inline Timeline compile(Lexer& lx, size_t bpm_global) {
 	Context ctx;
 	ctx.bpm_global = bpm_global;
 
+	// Compile
 	while (lx.peek().kind != Symbols::TERMINATOR)
 		statement(ctx, lx, lx.peek().view);
 
@@ -1722,9 +1731,16 @@ inline Timeline compile(Lexer& lx, size_t bpm_global) {
 		return a.time < b.time;
 	});
 
-	// Start/stop
+	// Start/Stop
 	tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::START), 0, 0);
-	tl.emplace_back(ctx.base_time, midi2int(Midi::STOP), 0, 0);
+	tl.emplace(tl.end(), ctx.base_time, midi2int(Midi::STOP), 0, 0);
+
+	// Reset state of MIDI devices
+	for (size_t i = CHANNEL_MIN; i != CHANNEL_MAX; ++i) {
+		tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::CHANNEL_MODE), ALL_SOUND_OFF, 0);
+		tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::CHANNEL_MODE), ALL_NOTES_OFF, 0);
+		tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::CHANNEL_MODE), ALL_RESET_CC, 0);
+	}
 
 	return tl;
 }

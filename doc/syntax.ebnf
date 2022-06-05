@@ -4,7 +4,7 @@ identifier ::= ? \S+ ?
 comment ::= ? #.+$ ?
 
 // Sequences
-sequence ::= ( '!' | '.' )*
+sequence ::= ( '!' | '.' | '-' )*
 euclidean ::= [ ':' ] <lit_expr> ':' <lit_expr>
 
 // Literal Expressions
@@ -30,7 +30,7 @@ seq_infix       ::= <seq_infix_expr> | <seq_infix_lit> | <seq_infix_ident>
 seq_postfix ::= <seq_expr> ( '?' | "car" | "cdr" )
 
 seq_expr ::=
-	'$' <identifier> |
+	<identifier> |
 	<sequence> |
 	<seq_prefix> |
 	<seq_infix> |
@@ -38,24 +38,20 @@ seq_expr ::=
 	'(' <seq_expr> ')'
 
 // Channel Expressions
+note ::= <lit_expr> [ ':' <lit_expr> ]
+
 chan_infix_expr ::= <chan_expr> ( "with" | "sync" | "fit" ) <chan_expr>
 chan_infix_lit  ::= <chan_expr> ( "loop" ) <lit_expr>
-chan_infix      ::= <chan_infix_expr> | <chan_infix_lit>
-
-chan_postfix ::= <chan_expr> ( "drop" )
+chan_infix_note ::= <chan_expr> ( "map" ) <note>+
+chan_infix      ::= <chan_infix_expr> | <chan_infix_lit> | <chan_infix_note>
 
 bpm ::= '@' <lit_expr>
-
-note ::= <lit_expr> [ ':' <lit_expr> ]
-notes ::= '[' <note>+ ']'
-
-channel ::= <seq_expr> '~>' ( <literal> | <identifier> ) <bpm> <notes>
+channel ::= ( <literal> | <identifier> ) [ <bpm> ] <seq_expr>
 
 chan_expr ::=
-	<channel> |
+	"seq" <channel> |
 	<chan_infix> |
-	<chan_postfix> |
-	'{' <chan_expr> '}'
+	'(' <chan_expr> ')'
 
 // Statements
 let   ::= "let" <identifier> <lit_expr>
