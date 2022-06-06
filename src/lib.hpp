@@ -171,7 +171,6 @@ inline void general_notice(Ts&&... args) {
 	X(JOIN,  "join") \
 	X(WITH,  "with") \
 	X(DEF,   "def") \
-	X(DROP,  "drop") \
 	\
 	/* Sequence Keywords */ \
 	X(ALIAS, "alias") \
@@ -432,7 +431,6 @@ struct Lexer {
 			if      (view == "with"_sv)  kind = Symbols::WITH;
 			else if (view == "join"_sv)  kind = Symbols::JOIN;
 			else if (view == "def"_sv)   kind = Symbols::DEF;
-			else if (view == "drop"_sv)  kind = Symbols::DROP;
 			else if (view == "loop"_sv)  kind = Symbols::LOOP;
 			else if (view == "alias"_sv) kind = Symbols::ALIAS;
 			else if (view == "fit"_sv)   kind = Symbols::FIT;
@@ -636,7 +634,7 @@ struct Context {
 	std::unordered_map<View, Sequence> chains;
 	std::unordered_map<View, Literal>  constants;
 	std::unordered_map<View, Timeline> definitions;
-	std::unordered_map<View, size_t>   channels;
+	std::unordered_map<View, Channel>   channels;
 
 	std::unordered_set<View> symbols;
 
@@ -733,7 +731,6 @@ inline void sink(Context&, Lexer&, Timeline);
 [[nodiscard]] inline Timeline chan_prefix     (Context&, Lexer&, View, size_t);
 [[nodiscard]] inline Timeline chan_infix_expr (Context&, Lexer&, View, Timeline, size_t);
 [[nodiscard]] inline Timeline chan_infix_lit  (Context&, Lexer&, View, Timeline, size_t);
-[[nodiscard]] inline Timeline chan_postfix    (Context&, Lexer&, View, Timeline, size_t);
 [[nodiscard]] inline Timeline chan_expr       (Context&, Lexer&, View, size_t);
 
 // Statements
@@ -815,8 +812,6 @@ constexpr auto is_chan_infix = [] (auto x) {
 	return is_chan_infix_expr(x) or is_chan_infix_lit(x);
 };
 
-constexpr auto is_chan_postfix = partial_eq_any(Symbols::DROP);
-
 constexpr auto is_chan_primary = [] (auto x) {
 	return is_seq_expr(x) or eq_any(x,
 		Symbols::IDENT,
@@ -835,7 +830,6 @@ enum class OpFix {
 	SEQ_POSTFIX,
 
 	CHAN_INFIX,
-	CHAN_POSTFIX,
 };
 
 inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) {
@@ -844,7 +838,6 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 	enum { LEFT = 1, RIGHT = 0, };
 
 	enum {
-		DROP,
 		JOIN,
 		LOOP,
 		WITH,
@@ -931,11 +924,6 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 			case Symbols::WITH: return { WITH, WITH + LEFT };
 			case Symbols::LOOP: return { LOOP, LOOP + LEFT };
 			case Symbols::JOIN: return { JOIN, JOIN + LEFT };
-			default: break;
-		} break;
-
-		case OpFix::CHAN_POSTFIX: switch(kind) {
-			case Symbols::DROP: return { DROP, DROP + LEFT };
 			default: break;
 		} break;
 	}
@@ -1541,61 +1529,25 @@ inline Timeline chan_infix_lit(Context& ctx, Lexer& lx, View chan_v, Timeline tl
 	return tl;
 }
 
-inline Timeline chan_postfix(Context& ctx, Lexer& lx, View chan_v, Timeline tl, size_t bp) {
-	CANE_LOG(LOG_INFO);
-
-	Token tok = lx.next();
-	CANE_LOG(LOG_INFO, sym2str(tok.kind));
-
-	switch (tok.kind) {
-		case Symbols::DROP: {
-			tl.clear();
-		} break;
-
-		default: {
-			lx.error(Phases::SYNTACTIC, tok.view, STR_CHAN_OPERATOR);
-		} break;
-	}
-
-	return tl;
-}
-
 inline Timeline chan_expr(Context& ctx, Lexer& lx, View chan_v, size_t bp) {
 	CANE_LOG(LOG_INFO);
 
 	Timeline tl = chan_prefix(ctx, lx, chan_v, 0);
 	Token tok = lx.peek();
 
-	while (
-		is_chan_infix(tok.kind) or
-		is_chan_postfix(tok.kind)
-	) {
+	while (is_chan_infix(tok.kind)) {
 		CANE_LOG(LOG_INFO, sym2str(tok.kind));
 
-		if (is_chan_postfix(tok.kind)) {
-			auto [lbp, rbp] = binding_power(lx, tok, OpFix::CHAN_POSTFIX);
+		auto [lbp, rbp] = binding_power(lx, tok, OpFix::CHAN_INFIX);
 
-			if (lbp < bp)
-				break;
+		if (lbp < bp)
+			break;
 
-			tl = chan_postfix(ctx, lx, chan_v, std::move(tl), 0);
-		}
+		if (is_chan_infix_lit(tok.kind))
+			tl = chan_infix_lit(ctx, lx, chan_v, std::move(tl), rbp);
 
-		else if (is_chan_infix(tok.kind)) {
-			auto [lbp, rbp] = binding_power(lx, tok, OpFix::CHAN_INFIX);
-
-			if (lbp < bp)
-				break;
-
-			if (is_chan_infix_lit(tok.kind))
-				tl = chan_infix_lit(ctx, lx, chan_v, std::move(tl), rbp);
-
-			else if (is_chan_infix_expr(tok.kind))
-				tl = chan_infix_expr(ctx, lx, chan_v, std::move(tl), rbp);
-
-			else
-				lx.error(Phases::SYNTACTIC, tok.view, STR_CHAN_OPERATOR);
-		}
+		else if (is_chan_infix_expr(tok.kind))
+			tl = chan_infix_expr(ctx, lx, chan_v, std::move(tl), rbp);
 
 		else
 			lx.error(Phases::SYNTACTIC, tok.view, STR_CHAN_OPERATOR);
