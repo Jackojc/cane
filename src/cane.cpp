@@ -72,6 +72,7 @@ int main(int argc, const char* argv[]) {
 	std::string_view device;
 	std::string_view filename;
 	std::string_view bpm;
+	std::string_view note;
 	uint64_t flags;
 
 	auto parser = conflict::parser {
@@ -81,6 +82,7 @@ int main(int argc, const char* argv[]) {
 		conflict::string_option { { 'f', "file", "input file" }, "filename", filename },
 		conflict::string_option { { 'm', "midi", "midi device to connect to" }, "device", device },
 		conflict::string_option { { 'b', "bpm",  "global bpm" }, "bpm", bpm },
+		conflict::string_option { { 'n', "note", "base note" }, "note", note },
 	};
 
 	parser.apply_defaults();
@@ -278,6 +280,13 @@ int main(int argc, const char* argv[]) {
 		if (bpm.empty())
 			cane::general_error(cane::STR_NO_BPM);
 
+		if (note.empty())
+			cane::general_error(cane::STR_NO_NOTE);
+
+		// TODO: verify that the string has valid digits
+		size_t global_bpm  = cane::b10_decode(cane::View { bpm.data(), bpm.data() + bpm.size() });
+		size_t global_note = cane::b10_decode(cane::View { note.data(), note.data() + note.size() });
+
 		std::string in = read_file(filename);
 
 		cane::View src { &*in.begin(), &*in.end() };
@@ -294,7 +303,7 @@ int main(int argc, const char* argv[]) {
 
 		// Compile
 		auto t1 = clock::now();
-			cane::Timeline timeline = cane::compile(lx, cane::b10_decode(cane::View{ bpm.data(), bpm.data() + bpm.size() }));
+			cane::Timeline timeline = cane::compile(lx, global_bpm, global_note);
 		auto t2 = clock::now();
 
 

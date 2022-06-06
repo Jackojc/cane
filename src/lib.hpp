@@ -644,6 +644,7 @@ struct Context {
 	Timeline timeline;
 
 	size_t bpm_global;
+	size_t note_global;
 };
 
 
@@ -1697,11 +1698,12 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 	ctx.chains.clear();
 }
 
-inline Timeline compile(Lexer& lx, size_t bpm_global) {
+inline Timeline compile(Lexer& lx, size_t bpm_global, size_t note_global) {
 	CANE_LOG(LOG_WARN);
 
 	Context ctx;
 	ctx.bpm_global = bpm_global;
+	ctx.note_global = note_global;
 
 	// Compile
 	while (lx.peek().kind != Symbols::TERMINATOR)
