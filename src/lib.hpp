@@ -790,6 +790,10 @@ constexpr auto is_seq_expr = [] (auto x) {
 	return is_seq_prefix(x) or is_seq_primary(x);
 };
 
+constexpr auto is_chan_prefix = partial_eq_any(
+	Symbols::SEND
+);
+
 constexpr auto is_chan_infix_expr = partial_eq_any(
 	Symbols::WITH,
 	Symbols::JOIN
@@ -832,6 +836,7 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 		JOIN,
 		LOOP,
 		WITH,
+		SEND,
 
 		DBG,
 
@@ -912,6 +917,7 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 		} break;
 
 		case OpFix::CHAN_INFIX: switch(kind) {
+			case Symbols::SEND: return { SEND, SEND + LEFT };
 			case Symbols::WITH: return { WITH, WITH + LEFT };
 			case Symbols::LOOP: return { LOOP, LOOP + LEFT };
 			case Symbols::JOIN: return { JOIN, JOIN + LEFT };
@@ -1374,23 +1380,22 @@ inline Timeline chan_prefix(Context& ctx, Lexer& lx, View chan_v, size_t bp) {
 		lx.next();  // skip `send`
 
 		Channel chan = channel(ctx, lx);
+		Literal bpm = ctx.bpm_global;
 
-		lx.expect(equal(Symbols::BPM), lx.peek().view, STR_EXPECT, sym2str(Symbols::BPM));
-		lx.next();  // skip `@`
-		Literal bpm = lit_expr(ctx, lx, lx.peek().view, 0);
+		if (lx.peek().kind == Symbols::BPM) {
+			lx.next();  // skip `@`
+			bpm = lit_expr(ctx, lx, lx.peek().view, 0);
+		}
 
 		Sequence seq = seq_expr(ctx, lx, tok.view, 0);
 
 		// Note mapping
-		// lx.expect(equal(Symbols::LBRACKET), lx.peek().view, STR_EXPECT, sym2str(Symbols::LBRACKET));
-		// lx.next();  // skip `[`
+		std::vector<Literal> notes = { static_cast<Literal>(ctx.note_global) };
+		std::vector<Literal> velocities = { VELOCITY_DEFAULT };
 
 		// lx.expect(is_lit_primary, lx.peek().view, STR_LITERAL);
 
-		std::vector<Literal> notes = { static_cast<Literal>(ctx.note_global) };
-		std::vector<Literal> velocities = { 127 };
-
-		// while (lx.peek().kind != Symbols::RBRACKET) {
+		// while (is_lit_primary(lx.peek().kind)) {
 		// 	Literal note = lit_expr(ctx, lx, lx.peek().view, 0);
 		// 	Literal velocity = VELOCITY_DEFAULT;
 
@@ -1403,9 +1408,6 @@ inline Timeline chan_prefix(Context& ctx, Lexer& lx, View chan_v, size_t bp) {
 		// 	velocities.emplace_back(velocity);
 		// }
 
-		// lx.expect(equal(Symbols::RBRACKET), lx.peek().view, STR_EXPECT, sym2str(Symbols::RBRACKET));
-		// lx.next();  // skip `]`
-
 		// Compile sequence to timeline.
 		auto time_per_note = ONE_MIN / bpm;
 		auto time = Unit::zero();
@@ -1414,8 +1416,8 @@ inline Timeline chan_prefix(Context& ctx, Lexer& lx, View chan_v, size_t bp) {
 			if (seq[i]) {  // Note on
 				size_t index = i % notes.size();
 
-				tl.emplace_back(time, midi2int(Midi::NOTE_ON) | chan, notes[index], velocities[index]);
-				tl.emplace_back(time + time_per_note, midi2int(Midi::NOTE_OFF) | chan, notes[index], velocities[index]);
+				tl.emplace_back(time, midi2int(Midi::NOTE_ON) | chan, ctx.note_global, VELOCITY_DEFAULT);
+				tl.emplace_back(time + time_per_note, midi2int(Midi::NOTE_OFF) | chan, ctx.note_global, VELOCITY_DEFAULT);
 			}
 
 			time += time_per_note;
