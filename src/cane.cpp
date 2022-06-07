@@ -52,7 +52,7 @@ inline std::string read_file(std::filesystem::path path) {
 		if (not std::filesystem::exists(cur))
 			cane::general_error(cane::STR_FILE_NOT_FOUND_ERROR, path.string());
 
-		std::ifstream is(cur, std::ios::binary);
+		std::ifstream is(cur);
 
 		if (not is.is_open())
 			cane::general_error(cane::STR_FILE_READ_ERROR, path.string());
