@@ -122,10 +122,10 @@ int main(int argc, const char* argv[]) {
 			jack_nframes_t buffer_size = 0;
 			cane::Unit time = 0us;
 
-			std::vector<cane::Event>::iterator it;
-			std::vector<cane::Event>::const_iterator end;
+			// std::vector<cane::Event>::iterator it;
+			// std::vector<cane::Event>::const_iterator end;
 
-			std::vector<cane::Event> events;
+			// std::vector<cane::Event> events;
 
 			~JackData() {
 				if (client != nullptr)
@@ -210,27 +210,27 @@ int main(int argc, const char* argv[]) {
 
 
 		// MIDI out callback
-		if (jack_set_process_callback(midi.client, [] (jack_nframes_t nframes, void *arg) {
-			auto& [client, port, sample_rate, buffer_size, time, it, end, events] = *static_cast<JackData*>(arg);
+		// if (jack_set_process_callback(midi.client, [] (jack_nframes_t nframes, void *arg) {
+			// auto& [client, port, sample_rate, buffer_size, time, it, end, events] = *static_cast<JackData*>(arg);
 
-			void* out_buffer = jack_port_get_buffer(port, nframes);
-			jack_midi_clear_buffer(out_buffer);
+			// void* out_buffer = jack_port_get_buffer(port, nframes);
+			// jack_midi_clear_buffer(out_buffer);
 
 			// Copy every MIDI event into the buffer provided by JACK.
-			for (; it != end and it->time <= time; ++it) {
-				if (jack_midi_event_write(out_buffer, 0, it->data.data(), it->data.size()))
-					cane::general_error(cane::STR_WRITE_ERROR);
-			}
+			// for (; it != end and it->time <= time; ++it) {
+				// if (jack_midi_event_write(out_buffer, 0, it->data.data(), it->data.size()))
+				// 	cane::general_error(cane::STR_WRITE_ERROR);
+			// }
 
-			size_t lost = 0;
-			if ((lost = jack_midi_get_lost_event_count(out_buffer)))
-				cane::general_warning(cane::STR_LOST_EVENT, lost);
+			// size_t lost = 0;
+			// if ((lost = jack_midi_get_lost_event_count(out_buffer)))
+			// 	cane::general_warning(cane::STR_LOST_EVENT, lost);
 
-			time += std::chrono::duration_cast<cane::Unit>(std::chrono::seconds { nframes }) / sample_rate;
+			// time += std::chrono::duration_cast<cane::Unit>(std::chrono::seconds { nframes }) / sample_rate;
 
-			return 0;
-		}, static_cast<void*>(&midi)))
-			cane::general_error(cane::STR_PROCESS_CALLBACK_ERROR);
+		// 	return 0;
+		// }, static_cast<void*>(&midi)))
+		// 	cane::general_error(cane::STR_PROCESS_CALLBACK_ERROR);
 
 
 		// If no device is specified _and_ `-l` is not passed,
@@ -303,38 +303,38 @@ int main(int argc, const char* argv[]) {
 
 		// Compile
 		auto t1 = clock::now();
-			cane::Timeline timeline = cane::compile(lx, global_bpm, global_note);
+			cane::Sequence seq = cane::compile(lx, global_bpm, global_note);
 		auto t2 = clock::now();
 
 
-		cane::err(std::fixed, std::setprecision(2));
-		cane::general_notice(cane::STR_COMPILED, cane::UnitMillis { t2 - t1 }.count(), cane::STR_MILLI_SUFFIX);
+		// cane::err(std::fixed, std::setprecision(2));
+		// cane::general_notice(cane::STR_COMPILED, cane::UnitMillis { t2 - t1 }.count(), cane::STR_MILLI_SUFFIX);
 
-		if (timeline.empty())
+		if (seq.empty())
 			return 0;
 
 
-		CANE_DEBUG_RUN(cane::print(timeline));
+		// CANE_DEBUG_RUN(cane::print(timeline));
 
 		// Setup MIDI events.
 		// Very important that we assign these here or else
 		// the sequencer will not run, or worse- start
 		// sequencing garbage values.
-		midi.events = timeline;
+		// midi.events = timeline;
 
-		midi.it = timeline.begin();
-		midi.end = timeline.cend();
+		// midi.it = timeline.begin();
+		// midi.end = timeline.cend();
 
-		cane::general_notice(cane::STR_LENGTH, cane::UnitSeconds { timeline.duration }.count(), cane::STR_SECOND_SUFFIX);
+		// cane::general_notice(cane::STR_LENGTH, cane::UnitSeconds { timeline.duration }.count(), cane::STR_SECOND_SUFFIX);
 
 
 		// Call this or else our callback is never called.
-		if (jack_activate(midi.client))
-			cane::general_error(cane::STR_ACTIVATE_ERROR);
+		// if (jack_activate(midi.client))
+		// 	cane::general_error(cane::STR_ACTIVATE_ERROR);
 
 		// Sleep until timeline is completed.
-		while (midi.it != midi.end)
-			std::this_thread::sleep_for(1ms);
+		// while (midi.it != midi.end)
+		// 	std::this_thread::sleep_for(1ms);
 	}
 
 	catch (cane::Error) {

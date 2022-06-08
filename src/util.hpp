@@ -224,6 +224,7 @@ namespace cane {
 
 		return hash;
 	}
+
 }
 
 #endif

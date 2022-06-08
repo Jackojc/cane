@@ -119,6 +119,41 @@ namespace cane {
 		return os;
 	}
 
+	struct Error {};
+
+	template <typename... Ts>
+	[[noreturn]] inline void report_error(Ts&&... args) {
+		report<Reports::ERROR>(std::cerr, std::forward<Ts>(args)...);
+		throw Error {};
+	}
+
+	template <typename... Ts>
+	inline void report_warning(Ts&&... args) {
+		report<Reports::WARNING>(std::cerr, std::forward<Ts>(args)...);
+	}
+
+	template <typename... Ts>
+	inline void report_notice(Ts&&... args) {
+		report<Reports::NOTICE>(std::cerr, std::forward<Ts>(args)...);
+	}
+
+
+	template <typename... Ts>
+	[[noreturn]] inline void general_error(Ts&&... args) {
+		general_report<Reports::ERROR>(std::cerr, std::forward<Ts>(args)...);
+		throw Error {};
+	}
+
+	template <typename... Ts>
+	inline void general_warning(Ts&&... args) {
+		general_report<Reports::WARNING>(std::cerr, std::forward<Ts>(args)...);
+	}
+
+	template <typename... Ts>
+	inline void general_notice(Ts&&... args) {
+		general_report<Reports::NOTICE>(std::cerr, std::forward<Ts>(args)...);
+	}
+
 }
 
 #endif
