@@ -1,17 +1,6 @@
 #ifndef CANE_VIEW_HPP
 #define CANE_VIEW_HPP
 
-#include <iostream>
-#include <array>
-#include <string_view>
-#include <algorithm>
-
-#include <cstdint>
-#include <cstddef>
-
-#include <util.hpp>
-#include <unicode.hpp>
-
 namespace cane {
 	namespace detail {
 		// Find the length of a null terminated string.
@@ -354,6 +343,44 @@ namespace cane {
 
 	constexpr size_t count_lines(View sv) {
 		return count(sv, [] (View sv) { return sv == "\n"_sv; });
+	}
+
+	// Decoders (all of these functions assume correct input)
+	constexpr uint64_t b10_decode(View sv) {
+		uint64_t n = 0;
+
+		for (auto ptr = sv.begin; ptr != sv.end; ++ptr)
+		n = (n * 10) + (*ptr - '0');
+
+		return n;
+	}
+
+	constexpr uint64_t b16_decode(View sv) {
+		uint64_t n = 0;
+		sv = cane::next(cane::next(sv));  // skip `0x`
+
+		// Interesting fact about ASCII:
+		// A-Z and a-z are the same ranges minus a difference of a single bit.
+		// We can exploit this peculiarity to make the ranges line up.
+		// If we mask out the single bit that seperates the two ranges, they
+		// become the same range. Another way to formulate this is to
+		// mask out all but the lower 4 bits. This has the added benefit of
+		// moving the ranges (now single range) into the 1-6 range. From
+		// here, it's just a matter of adding 9 if the character is >= 'A'.
+		for (auto ptr = sv.begin; ptr != sv.end; ++ptr)
+		n = (n * 16) + (*ptr & 0xf) + (*ptr >> 6) * 9;
+
+		return n;
+	}
+
+	constexpr uint64_t b2_decode(View sv) {
+		uint64_t n = 0;
+		sv = cane::next(cane::next(sv));  // skip `0b`
+
+		for (auto ptr = sv.begin; ptr != sv.end; ++ptr)
+		n = (n * 2) + (*ptr - '0');
+
+		return n;
 	}
 }
 

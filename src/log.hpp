@@ -1,11 +1,6 @@
 #ifndef CANE_COLOUR_HPP
 #define CANE_COLOUR_HPP
 
-#include <utility>
-#include <util.hpp>
-#include <view.hpp>
-#include <print.hpp>
-
 namespace cane {
 
 	#ifndef NDEBUG  // Debug

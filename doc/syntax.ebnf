@@ -1,63 +1,43 @@
-// Lexical Grammar
-literal ::= ? [0-9_]+ ? | ? 0x[0-9A-z_]+ ? | ? 0b[0-1_]+ ?
+literal ::= ? [0-9_]+ ?
 identifier ::= ? \S+ ?
 comment ::= ? #.+$ ?
 
-// Sequences
-sequence ::= ( '!' | '.' | '-' )*
+
+sequence ::= ( '!' | '.' )*
 euclidean ::= [ ':' ] <lit_expr> ':' <lit_expr>
 
-// Literal Expressions
-lit_infix       ::= <lit_expr> ( '+' | '-' | '*' | '/' | '%' ) <lit_expr>
-lit_prefix_expr ::= ( '+' | '-' ) <lit_expr>
-lit_prefix_seq  ::= ( "len" ) <seq_expr>
+channel ::= ( <literal> | <identifier> )
+
+
+lit_infix ::= <lit_expr> ( '+' | '-' | '*' | '/' ) <lit_expr>
+lit_prefix ::= ( "len" | "beats" | "skips" ) <seq_expr>
+
 lit_expr ::=
-	<identifier> |
-	"bpm" |
-	<lit_prefix> |
-	<lit_infix_expr> |
-	<lit_prefix_seq> |
+	"bpm" | "note" | <identifier> |
+	<lit_prefix> | <lit_infix> |
 	'(' <lit_expr> ')'
 
-// Sequence Expressions
-seq_prefix ::= ( '~' | '\'' ) <seq_expr>
 
-seq_infix_expr  ::= <seq_expr> ( '|' | '&' | '^' | ',' ) <seq_expr>
-seq_infix_lit   ::= <seq_expr> ( '<<' | '>>' | '**' ) <lit_expr>
-seq_infix_ident ::= <seq_expr> ( '=>' ) <identifier>
-seq_infix       ::= <seq_infix_expr> | <seq_infix_lit> | <seq_infix_ident>
+seq_prefix ::= ( '~' | '\'' ) <seq_expr>
+seq_prefix ::= "send" <channel> <seq_expr>
+
+seq_infix_expr ::= <seq_expr> ( '|' | '&' | '^' | ',' ) <seq_expr>
+seq_infix_lit  ::= <seq_expr> ( '<' | '>' | '**' | '@' ) <lit_expr>
+seq_infix_lit  ::= <seq_expr> "map" <lit_expr>+
+seq_infix      ::= <seq_infix_expr> | <seq_infix_lit>
 
 seq_postfix ::= <seq_expr> ( '?' | "car" | "cdr" )
 
 seq_expr ::=
-	<identifier> |
-	<sequence> |
-	<seq_prefix> |
-	<seq_infix> |
-	<seq_postfix> |
+	<identifier> | <sequence> |
+	<seq_prefix> | <seq_infix> | <seq_postfix> |
 	'(' <seq_expr> ')'
 
-// Channel Expressions
-note ::= <lit_expr> [ ':' <lit_expr> ]
 
-chan_infix_expr ::= <chan_expr> ( "with" | "sync" | "fit" ) <chan_expr>
-chan_infix_lit  ::= <chan_expr> ( "loop" ) <lit_expr>
-chan_infix_note ::= <chan_expr> ( "map" ) <note>+
-chan_infix      ::= <chan_infix_expr> | <chan_infix_lit> | <chan_infix_note>
-
-bpm ::= '@' <lit_expr>
-channel ::= ( <literal> | <identifier> ) [ <bpm> ] <seq_expr>
-
-chan_expr ::=
-	"seq" <channel> |
-	<chan_infix> |
-	'(' <chan_expr> ')'
-
-// Statements
 let   ::= "let" <identifier> <lit_expr>
 alias ::= "alias" <identifier> <literal>
-def   ::= "def" <identifier> <chan_expr>
+def   ::= "def" <identifier> <seq_expr>
 
-stat ::= <let> | <alias> | <def> | <chan_expr>
+stat ::= <let> | <alias> | <def> | <seq_expr>
 
 program ::= <stat>*

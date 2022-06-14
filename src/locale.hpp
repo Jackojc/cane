@@ -1,8 +1,6 @@
 #ifndef CANE_LOCALE_HPP
 #define CANE_LOCALE_HPP
 
-#include <view.hpp>
-
 namespace cane {
 
 	constexpr const char* CSTR_EXE  = "cane";
@@ -12,7 +10,7 @@ namespace cane {
 	constexpr View STR_PORT = "midi out"_sv;
 
 	constexpr View STR_ENCODING    = "malformed source encoding"_sv;
-	constexpr View STR_UNREACHABLE = "unreachable code"_sv;
+	constexpr View STR_UNREACHABLE = "unreachable code `{}`"_sv;
 
 	constexpr View STR_COMPILED = "compiled in {}{}"_sv;
 	constexpr View STR_LENGTH   = "composition length {}{}"_sv;

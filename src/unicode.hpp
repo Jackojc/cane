@@ -2,8 +2,6 @@
 #define CANE_UNICODE_HPP
 
 namespace cane {
-	#include <unicode_internal.hpp>
-
 	constexpr bool is_letter(uint32_t c) {
 		return is_lu(c) or is_ll(c) or is_lt(c) or is_lm(c) or is_lo(c);
 	}

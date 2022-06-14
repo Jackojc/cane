@@ -1,12 +1,6 @@
 #ifndef CANE_PRINT_HPP
 #define CANE_PRINT_HPP
 
-#include <iostream>
-#include <utility>
-#include <cstring>
-
-#include <view.hpp>
-
 namespace cane {
 
 	// generic stream

@@ -1,9 +1,6 @@
 #ifndef CANE_UTIL_HPP
 #define CANE_UTIL_HPP
 
-#include <tuple>
-#include <cstddef>
-
 namespace cane {
 	// Utility macros.
 	// Stringify a macro def.

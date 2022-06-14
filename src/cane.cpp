@@ -8,8 +8,6 @@
 #include <filesystem>
 #include <memory>
 
-#include <report.hpp>
-#include <view.hpp>
 #include <lib.hpp>
 
 #include <conflict/conflict.hpp>
@@ -120,12 +118,12 @@ int main(int argc, const char* argv[]) {
 
 			jack_nframes_t sample_rate = 0;
 			jack_nframes_t buffer_size = 0;
-			cane::Unit time = 0us;
+			cane::Unit time = cane::Unit::zero();
 
-			std::vector<cane::Event>::iterator it;
-			std::vector<cane::Event>::const_iterator end;
+			cane::Timeline::iterator it;
+			cane::Timeline::const_iterator end;
 
-			std::vector<cane::Event> events;
+			cane::Timeline events;
 
 			~JackData() {
 				if (client != nullptr)
@@ -325,7 +323,7 @@ int main(int argc, const char* argv[]) {
 		midi.it = timeline.begin();
 		midi.end = timeline.cend();
 
-		cane::general_notice(cane::STR_LENGTH, cane::UnitSeconds { timeline.duration }.count(), cane::STR_SECOND_SUFFIX);
+		// cane::general_notice(cane::STR_LENGTH, cane::UnitSeconds { timeline.duration }.count(), cane::STR_SECOND_SUFFIX);
 
 
 		// Call this or else our callback is never called.
