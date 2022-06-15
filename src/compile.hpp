@@ -25,8 +25,7 @@ constexpr auto is_literal_infix = partial_eq_any(
 
 constexpr auto is_sequence_prefix = partial_eq_any(
 	Symbols::INVERT,
-	Symbols::REV,
-	Symbols::SEND);
+	Symbols::REV);
 
 constexpr auto is_sequence_postfix = partial_eq_any(
 	Symbols::CAR,
@@ -42,7 +41,8 @@ constexpr auto is_sequence_infix = partial_eq_any(
 	Symbols::ROTR,
 	Symbols::REP,
 	Symbols::BPM,
-	Symbols::MAP);
+	Symbols::MAP,
+	Symbols::CHAIN);
 
 constexpr auto is_sequence_primary = [] (auto x) {
 	return
@@ -79,7 +79,8 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 
 	enum {
 		DBG,
-		MAP = DBG,
+		CHAIN = DBG,
+		MAP   = DBG,
 
 		CAR,
 		CDR = CAR,
@@ -95,7 +96,6 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 
 		REV,
 		INVERT = REV,
-		SEND   = REV,
 
 		ADD,
 		SUB = ADD,
@@ -127,20 +127,20 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 		case OpFix::SEQ_PREFIX: switch (kind) {
 			case Symbols::REV:    return { 0u, REV    + RIGHT };
 			case Symbols::INVERT: return { 0u, INVERT + RIGHT };
-			case Symbols::SEND:   return { 0u, SEND   + RIGHT };
 			default: break;
 		} break;
 
 		case OpFix::SEQ_INFIX: switch (kind) {
-			case Symbols::MAP:  return { MAP,  MAP  + LEFT };
-			case Symbols::CAT:  return { CAT,  CAT  + LEFT };
-			case Symbols::OR:   return { OR,   OR   + LEFT };
-			case Symbols::AND:  return { AND,  AND  + LEFT };
-			case Symbols::XOR:  return { XOR,  XOR  + LEFT };
-			case Symbols::REP:  return { REP,  REP  + LEFT };
-			case Symbols::ROTL: return { ROTL, ROTL + LEFT };
-			case Symbols::ROTR: return { ROTR, ROTR + LEFT };
-			case Symbols::BPM:  return { BPM,  BPM  + LEFT };
+			case Symbols::MAP:   return { MAP,   MAP   + LEFT };
+			case Symbols::CHAIN: return { CHAIN, CHAIN + LEFT };
+			case Symbols::CAT:   return { CAT,   CAT   + LEFT };
+			case Symbols::OR:    return { OR,    OR    + LEFT };
+			case Symbols::AND:   return { AND,   AND   + LEFT };
+			case Symbols::XOR:   return { XOR,   XOR   + LEFT };
+			case Symbols::REP:   return { REP,   REP   + LEFT };
+			case Symbols::ROTL:  return { ROTL,  ROTL  + LEFT };
+			case Symbols::ROTR:  return { ROTR,  ROTR  + LEFT };
+			case Symbols::BPM:   return { BPM,   BPM   + LEFT };
 			default: break;
 		} break;
 
@@ -216,7 +216,7 @@ inline Sequence sequence_const(Context& ctx, Lexer& lx, View expr_v) {
 	lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
 	auto [view, kind] = lx.next();
 
-	if (auto it = ctx.definitions.find(view); it != ctx.definitions.end())
+	if (auto it = ctx.chains.find(view); it != ctx.chains.end())
 		return it->second;
 
 	lx.error(Phases::SEMANTIC, view, STR_UNDEFINED, view);
@@ -410,12 +410,6 @@ inline Sequence sequence_prefix(Context& ctx, Lexer& lx, View expr_v, Sequence s
 		case Symbols::REV:    { seq = sequence_reverse (sequence_expr(ctx, lx, expr_v, bp)); } break;
 		case Symbols::INVERT: { seq = sequence_invert  (sequence_expr(ctx, lx, expr_v, bp)); } break;
 
-		case Symbols::SEND: {
-			uint8_t chan = channel(ctx, lx);
-			seq = sequence_expr(ctx, lx, expr_v, bp);
-			seq.channel = chan;
-		} break;
-
 		default: { lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_OPERATOR); } break;
 	}
 
@@ -470,6 +464,18 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 			}
 		} break;
 
+		case Symbols::CHAIN: {
+			lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
+			auto [view, kind] = lx.next();
+
+			// Assign or warn if re-assigned.
+			if (auto [it, succ] = ctx.symbols.emplace(view); not succ)
+				lx.error(Phases::SEMANTIC, view, STR_CONFLICT, view);
+
+			if (auto [it, succ] = ctx.chains.try_emplace(view, seq); not succ)
+	    		lx.error(Phases::SEMANTIC, view, STR_REDEFINED, view);
+		} break;
+
 		default: { lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_OPERATOR); } break;
 	}
 
@@ -503,6 +509,8 @@ inline Sequence sequence_expr(Context& ctx, Lexer& lx, View expr_v, size_t bp) {
 	CANE_LOG(LOG_WARN);
 
 	Sequence seq {};
+	seq.bpm = ctx.global_bpm;
+
 	Token tok = lx.peek();
 
 	if (is_sequence_prefix(tok.kind)) {
@@ -549,6 +557,44 @@ inline Sequence sequence_expr(Context& ctx, Lexer& lx, View expr_v, size_t bp) {
 	return seq;
 }
 
+inline Timeline sequence_compile(Sequence seq, uint8_t chan, Unit time) {
+	CANE_LOG(LOG_INFO);
+
+	Timeline tl {};
+
+	auto per = ONE_MIN / seq.bpm;
+
+	auto ON = midi2int(Midi::NOTE_ON) | chan;
+	auto OFF = midi2int(Midi::NOTE_OFF) | chan;
+
+	for (auto& [note, kind]: seq) {
+		if (kind == BEAT) {
+			tl.emplace_back(time, ON, note, VELOCITY_DEFAULT);
+			tl.emplace_back(time + per, OFF, note, VELOCITY_DEFAULT);
+		}
+
+		time += per;
+	}
+
+	tl.duration = time;
+
+	return tl;
+}
+
+inline Timeline send(Context& ctx, Lexer& lx, View stat_v, Unit time) {
+	CANE_LOG(LOG_INFO);
+
+	lx.expect(equal(Symbols::SEND), lx.peek().view, STR_EXPECT, sym2str(Symbols::SEND));
+	lx.next();  // skip `send`
+
+	uint8_t chan = channel(ctx, lx);
+
+	Sequence seq = sequence_expr(ctx, lx, lx.peek().view, 0);
+	Timeline tl = sequence_compile(std::move(seq), chan, time);
+
+	return tl;
+}
+
 inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 	CANE_LOG(LOG_WARN);
 
@@ -592,39 +638,24 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 			lx.error(Phases::SEMANTIC, view, STR_REDEFINED, view);
 	}
 
-	else if (tok.kind == Symbols::DEF) {
-		CANE_LOG(LOG_INFO, sym2str(Symbols::DEF));
-		lx.next();  // skip `def`
-
-		lx.expect(equal(Symbols::IDENT), lx.peek().view, STR_IDENT);
-		auto [view, kind] = lx.next();  // get identifier
-
-		Sequence seq = sequence_expr(ctx, lx, lx.peek().view, 0);
-
-		// Assign or warn if re-assigned.
-		if (auto [it, succ] = ctx.symbols.emplace(view); not succ)
-			lx.error(Phases::SEMANTIC, view, STR_CONFLICT, view);
-
-		if (auto [it, succ] = ctx.definitions.try_emplace(view, seq); not succ)
-    		lx.error(Phases::SEMANTIC, view, STR_REDEFINED, view);
-	}
-
 	else if (is_sequence_primary(tok.kind) or is_sequence_prefix(tok.kind)) {
 		Sequence seq = sequence_expr(ctx, lx, lx.peek().view, 0);
+	}
 
-		auto per = ONE_MIN / seq.bpm;
-		auto time = Unit::zero();
+	else if (tok.kind == Symbols::SEND) {
+		Unit orig = ctx.time;
+		Timeline tl = send(ctx, lx, lx.peek().view, ctx.time);
 
-		auto ON = midi2int(Midi::NOTE_ON) | seq.channel;
-		auto OFF = midi2int(Midi::NOTE_OFF) | seq.channel;
+		ctx.time = std::max(tl.duration, ctx.time);
+		ctx.tl.insert(ctx.tl.end(), tl.begin(), tl.end());
 
-		for (auto& [note, kind]: seq) {
-			if (kind == BEAT) {
-				ctx.tl.emplace_back(time, ON, note, VELOCITY_DEFAULT);
-				ctx.tl.emplace_back(time + per, OFF, note, VELOCITY_DEFAULT);
-			}
+		while (lx.peek().kind == Symbols::WITH) {
+			lx.next();  // skip `$`
 
-			time += per;
+			Timeline tl = send(ctx, lx, lx.peek().view, orig);
+
+			ctx.time = std::max(tl.duration, ctx.time);
+			ctx.tl.insert(ctx.tl.end(), tl.begin(), tl.end());
 		}
 	}
 
@@ -647,21 +678,21 @@ inline Timeline compile(Lexer& lx, size_t bpm, size_t note) {
 	Timeline tl = std::move(ctx.tl);
 
 	// Active sensing
-	Unit t = Unit::zero();
-	while (t < tl.duration) {
-		tl.emplace_back(t, midi2int(Midi::ACTIVE_SENSE), 0, 0);
-		t += ACTIVE_SENSING_INTERVAL;
-	}
+	// Unit t = Unit::zero();
+	// while (t < tl.duration) {
+	// 	tl.emplace_back(t, midi2int(Midi::ACTIVE_SENSE), 0, 0);
+	// 	t += ACTIVE_SENSING_INTERVAL;
+	// }
 
 	// MIDI clock pulse
 	// We fire off a MIDI tick 24 times
 	// for every quarter note
-	Unit clock_freq = std::chrono::duration_cast<cane::Unit>(std::chrono::minutes { 1 }) / (bpm * 24);
-	t = Unit::zero();
-	while (t < tl.duration) {
-		tl.emplace_back(t, midi2int(Midi::TIMING_CLOCK), 0, 0);
-		t += clock_freq;
-	}
+	// Unit clock_freq = std::chrono::duration_cast<cane::Unit>(std::chrono::minutes { 1 }) / (bpm * 24);
+	// t = Unit::zero();
+	// while (t < tl.duration) {
+	// 	tl.emplace_back(t, midi2int(Midi::TIMING_CLOCK), 0, 0);
+	// 	t += clock_freq;
+	// }
 
 	// Sort sequence by timestamps
 	std::stable_sort(tl.begin(), tl.end(), [] (auto& a, auto& b) {
@@ -669,8 +700,8 @@ inline Timeline compile(Lexer& lx, size_t bpm, size_t note) {
 	});
 
 	// Start/Stop
-	tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::START), 0, 0);
-	tl.emplace(tl.end(), tl.duration, midi2int(Midi::STOP), 0, 0);
+	// tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::START), 0, 0);
+	// tl.emplace(tl.end(), tl.duration, midi2int(Midi::STOP), 0, 0);
 
 	// // Reset state of MIDI devices
 	// for (size_t i = CHANNEL_MIN; i != CHANNEL_MAX; ++i) {

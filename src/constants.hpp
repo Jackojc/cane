@@ -111,6 +111,8 @@ constexpr auto LOCAL_CONTROL_OFF = 0;
 	X(IDENT,   "ident") \
 	X(INT,     "int") \
 	\
+	X(WITH, "$") \
+	\
 	/* Grouping */ \
 	X(LPAREN, "(") \
 	X(RPAREN, ")") \
@@ -120,7 +122,6 @@ constexpr auto LOCAL_CONTROL_OFF = 0;
 	X(GLOBAL_NOTE, "note") \
 	\
 	X(ALIAS, "alias") \
-	X(DEF,   "def") \
 	X(LET,   "let") \
 	\
 	/* Sequence */ \
@@ -129,12 +130,15 @@ constexpr auto LOCAL_CONTROL_OFF = 0;
 	X(BEAT, "!") \
 	\
 	/* Sequence Operators */ \
+	X(CHAIN, "=>") \
+	\
 	X(SEND, "send") \
 	X(MAP,  "map") \
 	X(BPM,  "@") \
 	\
 	X(CAR, "car") \
 	X(CDR, "cdr") \
+	X(DBG, "?") \
 	\
 	X(LEN_OF,  "len") \
 	X(BEAT_OF, "beats") \
@@ -151,8 +155,6 @@ constexpr auto LOCAL_CONTROL_OFF = 0;
 	\
 	X(INVERT, "~") \
 	X(REV,    "'") \
-	\
-	X(DBG, "?") \
 	\
 	/* Literal Operators */ \
 	X(ADD, "+") \

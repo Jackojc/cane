@@ -10,13 +10,14 @@ provide-module -override cane %{
 
 	# literals
 	add-highlighter shared/cane/other/ regex "\b\d+" 0:value             # decimal
-	add-highlighter shared/cane/other/ regex "\b0[xX][a-fA-F0-9]+" 0:value # hex
-	add-highlighter shared/cane/other/ regex "\b0[bB][0-1]+" 0:value       # binary
 	add-highlighter shared/cane/other/ regex "!|\." 0:value              # steps
+
+	# add-highlighter shared/cane/other/ regex "\b0[xX][a-fA-F0-9]+" 0:value # hex
+	# add-highlighter shared/cane/other/ regex "\b0[bB][0-1]+" 0:value       # binary
 
 	# keywords and operators
 	add-highlighter shared/cane/other/ regex "\b(map|send|def|car|cdr|let|beats|skips|len|alias|bpm|note)\b" 0:keyword
-	add-highlighter shared/cane/other/ regex "\+|-|\*|/|'|\?|~|=>|@|:|\||&|\^|,|<|>|\*\*" 0:operator
+	add-highlighter shared/cane/other/ regex "\$|\+|-|\*|/|'|\?|~|=>|@|:|\||&|\^|,|<|>|\*\*" 0:operator
 }
 
 hook global BufCreate .*\.(cn|cane) %{ set-option buffer filetype cane }

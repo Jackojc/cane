@@ -37,7 +37,6 @@ struct MidiEvent {
 
 struct Sequence: public std::vector<Event> {
 	uint64_t bpm = BPM_DEFAULT;
-	uint8_t channel = CHANNEL_DEFAULT;
 	Sequence(): std::vector<Event>::vector() {}
 };
 
@@ -49,11 +48,12 @@ struct Timeline: public std::vector<MidiEvent> {
 struct Context {
 	std::unordered_map<View, double> constants;
 	std::unordered_map<View, uint8_t> channels;
-	std::unordered_map<View, Sequence> definitions;
+	std::unordered_map<View, Sequence> chains;
 
 	std::unordered_set<View> symbols;
 
 	Timeline tl;
+	Unit time = Unit::zero();
 
 	size_t global_bpm;
 	size_t global_note;
