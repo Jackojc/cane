@@ -647,6 +647,8 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 		Timeline tl = send(ctx, lx, lx.peek().view, ctx.time);
 
 		ctx.time = std::max(tl.duration, ctx.time);
+		ctx.tl.duration = std::max(tl.duration, ctx.tl.duration);
+
 		ctx.tl.insert(ctx.tl.end(), tl.begin(), tl.end());
 
 		while (lx.peek().kind == Symbols::WITH) {
@@ -655,6 +657,8 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 			Timeline tl = send(ctx, lx, lx.peek().view, orig);
 
 			ctx.time = std::max(tl.duration, ctx.time);
+			ctx.tl.duration = std::max(tl.duration, ctx.tl.duration);
+
 			ctx.tl.insert(ctx.tl.end(), tl.begin(), tl.end());
 		}
 	}
@@ -678,21 +682,21 @@ inline Timeline compile(Lexer& lx, size_t bpm, size_t note) {
 	Timeline tl = std::move(ctx.tl);
 
 	// Active sensing
-	// Unit t = Unit::zero();
-	// while (t < tl.duration) {
-	// 	tl.emplace_back(t, midi2int(Midi::ACTIVE_SENSE), 0, 0);
-	// 	t += ACTIVE_SENSING_INTERVAL;
-	// }
+	Unit t = Unit::zero();
+	while (t < tl.duration) {
+		tl.emplace_back(t, midi2int(Midi::ACTIVE_SENSE), 0, 0);
+		t += ACTIVE_SENSING_INTERVAL;
+	}
 
 	// MIDI clock pulse
 	// We fire off a MIDI tick 24 times
 	// for every quarter note
-	// Unit clock_freq = std::chrono::duration_cast<cane::Unit>(std::chrono::minutes { 1 }) / (bpm * 24);
-	// t = Unit::zero();
-	// while (t < tl.duration) {
-	// 	tl.emplace_back(t, midi2int(Midi::TIMING_CLOCK), 0, 0);
-	// 	t += clock_freq;
-	// }
+	Unit clock_freq = std::chrono::duration_cast<cane::Unit>(std::chrono::minutes { 1 }) / (bpm * 24);
+	t = Unit::zero();
+	while (t < tl.duration) {
+		tl.emplace_back(t, midi2int(Midi::TIMING_CLOCK), 0, 0);
+		t += clock_freq;
+	}
 
 	// Sort sequence by timestamps
 	std::stable_sort(tl.begin(), tl.end(), [] (auto& a, auto& b) {
@@ -700,15 +704,15 @@ inline Timeline compile(Lexer& lx, size_t bpm, size_t note) {
 	});
 
 	// Start/Stop
-	// tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::START), 0, 0);
-	// tl.emplace(tl.end(), tl.duration, midi2int(Midi::STOP), 0, 0);
+	tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::START), 0, 0);
+	tl.emplace(tl.end(), tl.duration, midi2int(Midi::STOP), 0, 0);
 
 	// // Reset state of MIDI devices
-	// for (size_t i = CHANNEL_MIN; i != CHANNEL_MAX; ++i) {
-	// 	tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::CHANNEL_MODE), ALL_SOUND_OFF, 0);
-	// 	tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::CHANNEL_MODE), ALL_NOTES_OFF, 0);
-	// 	tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::CHANNEL_MODE), ALL_RESET_CC, 0);
-	// }
+	for (size_t i = CHANNEL_MIN; i != CHANNEL_MAX; ++i) {
+		tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::CHANNEL_MODE), ALL_SOUND_OFF, 0);
+		tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::CHANNEL_MODE), ALL_NOTES_OFF, 0);
+		tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::CHANNEL_MODE), ALL_RESET_CC, 0);
+	}
 
 	return tl;
 }
