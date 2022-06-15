@@ -28,7 +28,6 @@ namespace cane {
 		return (os << phase2str(p));
 	}
 
-
 	#define REPORTS \
 		X(ERROR,   error,   CANE_ANSI_FG_RED) \
 		X(WARNING, warning, CANE_ANSI_FG_BLUE) \
@@ -60,7 +59,6 @@ namespace cane {
 		return (os << report2str(r));
 	}
 
-
 	template <Reports R = Reports::ERROR, typename... Ts>
 	inline std::ostream& general_report(std::ostream& os, Ts&&... args) {
 		auto highlight = report2colour(R);
@@ -68,6 +66,7 @@ namespace cane {
 		return outlnfmt(os, std::forward<Ts>(args)...);
 	}
 
+	struct Error {};
 
 	template <Reports R = Reports::ERROR, typename... Ts>
 	inline std::ostream& report(
@@ -100,20 +99,30 @@ namespace cane {
 		outlnfmt(os, std::forward<Ts>(args)...);
 
 		outln(os);
-		outfmt(os, " " CANE_ANSI_FG_CYAN "{}" CANE_ANSI_RESET " " CANE_ANSI_FG_CYAN "|" CANE_ANSI_RESET " ", line_n);
 
 		if (sv.is_eof())
 			outlnfmt(os, "{}EOF{}"_sv, highlight, CANE_ANSI_RESET);
 
-		else
-			outlnfmt(os, "{}{}{}{}{}"_sv, before, highlight, sv, CANE_ANSI_RESET, after);
+		else {
+			out(os, "  " CANE_ANSI_FG_CYAN "|" CANE_ANSI_RESET "  ", before, highlight);
 
-		outln(os);
+			while (not sv.is_eof()) {
+				View line = cane::consume(sv, not_equal("\n"_sv));
 
-		return os;
+				if (not sv.is_eof()) {
+					View chr = take(sv);
+
+					outln(os, line);
+					out(os, "  " CANE_ANSI_FG_CYAN "|" CANE_ANSI_RESET "  ", highlight);
+				}
+
+				else
+					outln(os, line, CANE_ANSI_RESET, after);
+			}
+		}
+
+		return outln(os);
 	}
-
-	struct Error {};
 
 	template <typename... Ts>
 	[[noreturn]] inline void report_error(Ts&&... args) {

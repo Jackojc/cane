@@ -42,7 +42,7 @@ namespace cane {
 		// If the size of the view is 0, it means the pointers
 		// are equal and so we are at the end.
 		constexpr bool is_eof() const {
-			return begin == end or (size() == 1 and *begin == '\0');
+			return begin == end;
 		}
 	};
 
@@ -275,7 +275,7 @@ namespace cane {
 
 	template <typename F>
 	constexpr View consume(View& sv, const F& fn) {
-		View out = sv;
+		View out { sv.begin, sv.begin };
 
 		while (not sv.is_eof() and fn(peek(sv)))
 			out = encompass(out, take(sv));

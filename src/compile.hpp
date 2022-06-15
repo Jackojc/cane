@@ -707,7 +707,7 @@ inline Timeline compile(Lexer& lx, size_t bpm, size_t note) {
 	tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::START), 0, 0);
 	tl.emplace(tl.end(), tl.duration, midi2int(Midi::STOP), 0, 0);
 
-	// // Reset state of MIDI devices
+	// Reset state of MIDI devices
 	for (size_t i = CHANNEL_MIN; i != CHANNEL_MAX; ++i) {
 		tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::CHANNEL_MODE), ALL_SOUND_OFF, 0);
 		tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::CHANNEL_MODE), ALL_NOTES_OFF, 0);
