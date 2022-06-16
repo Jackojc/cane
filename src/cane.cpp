@@ -8,15 +8,14 @@
 #include <filesystem>
 #include <memory>
 
-#include <lib.hpp>
-
-#include <conflict/conflict.hpp>
-
 extern "C" {
 	#include <jack/jack.h>
 	#include <jack/midiport.h>
 	#include <jack/ringbuffer.h>
 }
+
+#include <lib.hpp>
+#include <conflict/conflict.hpp>
 
 struct jack_deleter {
 	template <typename T> constexpr void operator()(T arg) const {
@@ -147,10 +146,7 @@ int main(int argc, const char* argv[]) {
 		// information so this is crucial.
 		if (jack_set_sample_rate_callback(midi.client, [] (jack_nframes_t sample_rate, void* arg) {
 			JackData& midi = *static_cast<JackData*>(arg);
-
-			cane::general_warning(cane::STR_SAMPLE_RATE_CHANGE, midi.sample_rate, sample_rate);
 			midi.sample_rate = sample_rate;
-
 			return 0;
 		}, static_cast<void*>(&midi)))
 			cane::general_error(cane::STR_SAMPLE_RATE_CALLBACK_ERROR);
@@ -159,53 +155,10 @@ int main(int argc, const char* argv[]) {
 		// Notify of buffer size changes
 		if (jack_set_buffer_size_callback(midi.client, [] (jack_nframes_t buffer_size, void* arg) {
 			JackData& midi = *static_cast<JackData*>(arg);
-
-			cane::general_warning(cane::STR_BUFFER_SIZE_CHANGE, midi.buffer_size, buffer_size);
 			midi.buffer_size = buffer_size;
-
 			return 0;
 		}, static_cast<void*>(&midi)))
 			cane::general_error(cane::STR_BUFFER_SIZE_CALLBACK_ERROR);
-
-
-		// Notify of port connections
-		if (jack_set_port_connect_callback(midi.client, [] (
-			jack_port_id_t a, jack_port_id_t b, int connect, void* arg
-		) {
-			JackData& midi = *static_cast<JackData*>(arg);
-
-			const char* name_a = jack_port_name(jack_port_by_id(midi.client, a));
-			const char* name_b = jack_port_name(jack_port_by_id(midi.client, b));
-
-			if (connect)
-				cane::general_warning(cane::STR_PORT_CONNECT, name_a, name_b);
-		}, static_cast<void*>(&midi)))
-			cane::general_error(cane::STR_PORT_CONNECT_CALLBACK_ERROR);
-
-
-		// Notify of port register or unregister
-		if (jack_set_port_registration_callback(midi.client, [] (
-			jack_port_id_t port, int reg, void* arg
-		) {
-			JackData& midi = *static_cast<JackData*>(arg);
-
-			const char* name = jack_port_name(jack_port_by_id(midi.client, port));
-			cane::View str = reg ? cane::STR_PORT_REGISTER: cane::STR_PORT_UNREGISTER;
-
-			cane::general_warning(str, name);
-		}, static_cast<void*>(&midi)))
-			cane::general_error(cane::STR_PORT_REGISTRATION_CALLBACK_ERROR);
-
-
-		// Notify of port rename
-		if (jack_set_port_rename_callback(midi.client, [] (
-			jack_port_id_t port, const char* old_name, const char* new_name, void* arg
-		) {
-			JackData& midi = *static_cast<JackData*>(arg);
-			cane::general_warning(cane::STR_PORT_RENAME, old_name, new_name);
-		}, static_cast<void*>(&midi)))
-			cane::general_error(cane::STR_PORT_RENAME_CALLBACK_ERROR);
-
 
 		// MIDI out callback
 		if (jack_set_process_callback(midi.client, [] (jack_nframes_t nframes, void *arg) {
@@ -264,9 +217,6 @@ int main(int argc, const char* argv[]) {
 			return 0;
 		}
 
-		// Print port that we're going to use.
-		cane::general_notice(cane::STR_FOUND, ports[0]);
-
 		if (jack_connect(midi.client, jack_port_name(midi.port), ports[0]))
 			cane::general_error(cane::STR_PATCH_ERROR);
 
@@ -304,13 +254,8 @@ int main(int argc, const char* argv[]) {
 			cane::Timeline timeline = cane::compile(lx, global_bpm, global_note);
 		auto t2 = clock::now();
 
-
-		cane::err(std::fixed, std::setprecision(2));
-		cane::general_notice(cane::STR_COMPILED, cane::UnitMillis { t2 - t1 }.count(), cane::STR_MILLI_SUFFIX);
-
 		if (timeline.empty())
 			return 0;
-
 
 		CANE_DEBUG_RUN(cane::print(timeline));
 
@@ -323,18 +268,18 @@ int main(int argc, const char* argv[]) {
 		midi.it = timeline.begin();
 		midi.end = timeline.cend();
 
-		// cane::general_notice(cane::STR_LENGTH, cane::UnitSeconds { timeline.duration }.count(), cane::STR_SECOND_SUFFIX);
-
-
 		// Call this or else our callback is never called.
 		if (jack_activate(midi.client))
 			cane::general_error(cane::STR_ACTIVATE_ERROR);
 
+		std::this_thread::sleep_for(1ms);
+
 		// Sleep until timeline is completed.
 		size_t count = 1;
 		size_t barw = 50;
+
 		while (midi.it != midi.end) {
-			cane::print(CANE_ANSI_BOLD "[");
+			cane::print("\r", CANE_ANSI_BOLD, count, "% [");
 
 			for (size_t i = 0; i != barw; ++i) {
 				size_t perc = count / (100 / barw);
@@ -348,7 +293,7 @@ int main(int argc, const char* argv[]) {
 			auto remaining = cane::UnitSeconds{timeline.duration}.count();
 
 			std::cout << std::fixed << std::setprecision(2);
-			cane::print(CANE_ANSI_RESET CANE_ANSI_BOLD "] ", so_far, "s/", remaining, "s\r" CANE_ANSI_RESET);
+			cane::print(CANE_ANSI_RESET CANE_ANSI_BOLD "] ", so_far, "s/", remaining, "s" CANE_ANSI_RESET);
 			std::cout.flush();
 
 			count++;
