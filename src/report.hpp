@@ -104,20 +104,22 @@ namespace cane {
 			outlnfmt(os, "{}EOF{}"_sv, highlight, CANE_ANSI_RESET);
 
 		else {
-			out(os, "  " CANE_ANSI_FG_CYAN "|" CANE_ANSI_RESET "  ", before, highlight);
+			// out(os, "  " CANE_ANSI_FG_CYAN "|" CANE_ANSI_RESET "  ", before, highlight);
+			View line = cane::consume(sv, not_equal("\n"_sv));
+			View chr = take(sv);
+
+			outln(os, "  " CANE_ANSI_FG_CYAN "|" CANE_ANSI_RESET "  ", before, highlight, line);
 
 			while (not sv.is_eof()) {
 				View line = cane::consume(sv, not_equal("\n"_sv));
 
 				if (not sv.is_eof()) {
 					View chr = take(sv);
-
-					outln(os, line);
-					out(os, "  " CANE_ANSI_FG_CYAN "|" CANE_ANSI_RESET "  ", highlight);
+    				outln(os, "  " CANE_ANSI_FG_CYAN "|" CANE_ANSI_RESET "  ", highlight, line);
 				}
 
 				else
-					outln(os, line, CANE_ANSI_RESET, after);
+    				outln(os, "  " CANE_ANSI_FG_CYAN ">" CANE_ANSI_RESET "  ", highlight, line, CANE_ANSI_RESET, after);
 			}
 		}
 

@@ -681,6 +681,9 @@ inline Timeline compile(Lexer& lx, size_t bpm, size_t note) {
 
 	Timeline tl = std::move(ctx.tl);
 
+	if (tl.empty())
+		return tl;
+
 	// Active sensing
 	Unit t = Unit::zero();
 	while (t < tl.duration) {

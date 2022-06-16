@@ -272,8 +272,6 @@ int main(int argc, const char* argv[]) {
 		if (jack_activate(midi.client))
 			cane::general_error(cane::STR_ACTIVATE_ERROR);
 
-		std::this_thread::sleep_for(1ms);
-
 		// Sleep until timeline is completed.
 		size_t count = 1;
 		size_t barw = 50;
