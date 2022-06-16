@@ -331,8 +331,31 @@ int main(int argc, const char* argv[]) {
 			cane::general_error(cane::STR_ACTIVATE_ERROR);
 
 		// Sleep until timeline is completed.
-		while (midi.it != midi.end)
-			std::this_thread::sleep_for(1ms);
+		size_t count = 1;
+		size_t barw = 50;
+		while (midi.it != midi.end) {
+			cane::print(CANE_ANSI_BOLD "[");
+
+			for (size_t i = 0; i != barw; ++i) {
+				size_t perc = count / (100 / barw);
+
+				if (i < perc)       cane::print(CANE_ANSI_FG_YELLOW "=");
+				else if (i == perc) cane::print(CANE_ANSI_FG_YELLOW ">");
+				else                cane::print(CANE_ANSI_FG_BLUE   "-");
+			}
+
+			auto so_far = cane::UnitSeconds{(timeline.duration / 100) * count}.count();
+			auto remaining = cane::UnitSeconds{timeline.duration}.count();
+
+			std::cout << std::fixed << std::setprecision(2);
+			cane::print(CANE_ANSI_RESET CANE_ANSI_BOLD "] ", so_far, "s/", remaining, "s\r" CANE_ANSI_RESET);
+			std::cout.flush();
+
+			count++;
+			std::this_thread::sleep_for(timeline.duration / 100);
+		}
+
+		cane::println();
 	}
 
 	catch (cane::Error) {
