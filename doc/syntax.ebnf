@@ -4,7 +4,7 @@ comment ::= ? #.+$ ?
 
 
 sequence ::= ( '!' | '.' )*
-euclidean ::= [ ':' ] <lit_expr> ':' <lit_expr>
+euclidean ::= ( ':' <lit_expr> | <literal> ) ':' <lit_expr>
 
 channel ::= ( <literal> | <identifier> )
 
@@ -37,7 +37,9 @@ seq_expr ::=
 let   ::= "let" <identifier> <lit_expr>
 alias ::= "alias" <identifier> <literal>
 def   ::= "def" <identifier> <seq_expr>
+bpm   ::= "bpm" <lit_expr>
+note  ::= "note" <lit_expr>
 
-stat ::= <let> | <alias> | <def> | <seq_expr>
+stat ::= <let> | <alias> | <def> | <bpm> | <note> | <seq_expr>
 
 program ::= <stat>*

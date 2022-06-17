@@ -64,6 +64,10 @@ constexpr auto is_literal_primary = [] (auto x) {
 			Symbols::GLOBAL_NOTE);
 };
 
+constexpr auto is_meta = partial_eq_any(
+	Symbols::GLOBAL_NOTE,
+	Symbols::GLOBAL_BPM);
+
 enum class OpFix {
 	LIT_PREFIX,
 	LIT_INFIX,
@@ -155,6 +159,14 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 	lx.error(Phases::INTERNAL, view, STR_UNREACHABLE, sym2str(kind));
 }
 
+inline void check_globals(Context& ctx, Lexer& lx, View stat_v) {
+	if ((ctx.flags & CTX_BPM) != CTX_BPM)
+		lx.error(Phases::SEMANTIC, encompass(stat_v, lx.prev().view), STR_NO_BPM);
+
+	else if ((ctx.flags & CTX_NOTE) != CTX_NOTE)
+		lx.error(Phases::SEMANTIC, encompass(stat_v, lx.prev().view), STR_NO_NOTE);
+}
+
 inline double literal(Context& ctx, Lexer& lx, View lit_v) {
 	CANE_LOG(LOG_INFO);
 
@@ -179,7 +191,15 @@ inline Sequence euclide(Context& ctx, Lexer& lx, View expr_v, Sequence seq) {
 	CANE_LOG(LOG_INFO);
 
 	uint64_t steps = 0;
-	uint64_t beats = literal_expr(ctx, lx, lx.peek().view, 0);
+	uint64_t beats = 0;
+
+	if (lx.peek().kind == Symbols::SEP) {
+		lx.next();  // skip `:`
+		beats = literal_expr(ctx, lx, lx.peek().view, 0);
+	}
+
+	else
+		beats = literal(ctx, lx, lx.peek().view);
 
 	lx.expect(equal(Symbols::SEP), lx.peek().view, STR_EXPECT, sym2str(Symbols::SEP));
 	lx.next();  // skip `:`
@@ -239,11 +259,13 @@ inline double literal_primary(Context& ctx, Lexer& lx, View lit_v, double lit, s
 
 		case Symbols::GLOBAL_BPM: {
 			lx.next();  // skip `bpm`
+			check_globals(ctx, lx, lit_v);
 			lit = ctx.global_bpm;
 		} break;
 
 		case Symbols::GLOBAL_NOTE: {
 			lx.next();  // skip `note`
+			check_globals(ctx, lx, lit_v);
 			lit = ctx.global_note;
 		} break;
 
@@ -367,12 +389,8 @@ inline Sequence sequence_primary(Context& ctx, Lexer& lx, View expr_v, Sequence 
 	CANE_LOG(LOG_INFO, sym2str(tok.kind));
 
 	switch (tok.kind) {
-		case Symbols::INT: {
-			seq = euclide(ctx, lx, lx.peek().view, std::move(seq));
-		} break;
-
+		case Symbols::INT:
 		case Symbols::SEP: {
-			lx.next();  // skip `:`
 			seq = euclide(ctx, lx, lx.peek().view, std::move(seq));
 		} break;
 
@@ -588,8 +606,10 @@ inline Timeline send(Context& ctx, Lexer& lx, View stat_v, Unit time) {
 	lx.next();  // skip `send`
 
 	uint8_t chan = channel(ctx, lx);
-
 	Sequence seq = sequence_expr(ctx, lx, lx.peek().view, 0);
+
+	check_globals(ctx, lx, stat_v);
+
 	Timeline tl = sequence_compile(std::move(seq), chan, time);
 
 	return tl;
@@ -600,8 +620,25 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 
 	Token tok = lx.peek();
 
-	// Alias a sink.
-	if (tok.kind == Symbols::ALIAS) {
+	if (tok.kind == Symbols::GLOBAL_BPM) {
+		CANE_LOG(LOG_INFO, sym2str(Symbols::GLOBAL_BPM));
+		lx.next();  // skip `bpm`
+
+		uint64_t bpm = literal_expr(ctx, lx, lx.peek().view, 0);
+		ctx.global_bpm = bpm;
+		ctx.flags |= CTX_BPM;
+	}
+
+	else if (tok.kind == Symbols::GLOBAL_NOTE) {
+		CANE_LOG(LOG_INFO, sym2str(Symbols::GLOBAL_NOTE));
+		lx.next();  // skip `note`
+
+		uint64_t note = literal_expr(ctx, lx, lx.peek().view, 0);
+		ctx.global_note = note;
+		ctx.flags |= CTX_NOTE;
+	}
+
+	else if (tok.kind == Symbols::ALIAS) {
 		CANE_LOG(LOG_INFO, sym2str(Symbols::ALIAS));
 		lx.next();  // skip `alias`
 
@@ -667,13 +704,10 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 		lx.error(Phases::SYNTACTIC, tok.view, STR_STATEMENT);
 }
 
-inline Timeline compile(Lexer& lx, size_t bpm, size_t note) {
+inline Timeline compile(Lexer& lx) {
 	CANE_LOG(LOG_WARN);
 
-	Context ctx;
-
-	ctx.global_bpm = bpm;
-	ctx.global_note = note;
+	Context ctx {};
 
 	// Compile
 	while (lx.peek().kind != Symbols::TERMINATOR)
@@ -694,7 +728,7 @@ inline Timeline compile(Lexer& lx, size_t bpm, size_t note) {
 	// MIDI clock pulse
 	// We fire off a MIDI tick 24 times
 	// for every quarter note
-	Unit clock_freq = std::chrono::duration_cast<cane::Unit>(std::chrono::minutes { 1 }) / (bpm * 24);
+	Unit clock_freq = std::chrono::duration_cast<cane::Unit>(std::chrono::minutes { 1 }) / (ctx.global_bpm * 24);
 	t = Unit::zero();
 	while (t < tl.duration) {
 		tl.emplace_back(t, midi2int(Midi::TIMING_CLOCK), 0, 0);

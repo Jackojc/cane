@@ -45,6 +45,12 @@ struct Timeline: public std::vector<MidiEvent> {
 	Timeline(): std::vector<MidiEvent>::vector() {}
 };
 
+enum {
+	CTX_NONE = 0b00,
+	CTX_NOTE = 0b01,
+	CTX_BPM  = 0b10,
+};
+
 struct Context {
 	std::unordered_map<View, double> constants;
 	std::unordered_map<View, uint8_t> channels;
@@ -57,6 +63,8 @@ struct Context {
 
 	size_t global_bpm;
 	size_t global_note;
+
+	uint8_t flags = CTX_NONE;
 };
 
 inline std::ostream& operator<<(std::ostream& os, Sequence& s) {

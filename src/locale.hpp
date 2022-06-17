@@ -44,6 +44,7 @@ namespace cane {
 	constexpr View STR_CHAN_OPERATOR = "expecting a channel operator"_sv;
 
 	constexpr View STR_STATEMENT = "expecting a statement"_sv;
+	constexpr View STR_META      = "expecting metadata"_sv;
 
 	constexpr View STR_EXPECT       = "expecting `{}`"_sv;
 	constexpr View STR_UNKNOWN_CHAR = "unknown character `{}`"_sv;

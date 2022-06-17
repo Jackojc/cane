@@ -68,18 +68,14 @@ inline std::string read_file(std::filesystem::path path) {
 int main(int argc, const char* argv[]) {
 	std::string_view device;
 	std::string_view filename;
-	std::string_view bpm;
-	std::string_view note;
-	uint64_t flags;
+    uint64_t flags;
 
 	auto parser = conflict::parser {
 		conflict::option { { 'h', "help", "show help" }, flags, OPT_HELP },
 		conflict::option { { 'l', "list", "list available midi devices" }, flags, OPT_LIST },
 
 		conflict::string_option { { 'f', "file", "input file" }, "filename", filename },
-		conflict::string_option { { 'm', "midi", "midi device to connect to" }, "device", device },
-		conflict::string_option { { 'b', "bpm",  "global bpm" }, "bpm", bpm },
-		conflict::string_option { { 'n', "note", "base note" }, "note", note },
+		conflict::string_option { { 'm', "midi", "midi device to connect to" }, "device", device }
 	};
 
 	parser.apply_defaults();
@@ -101,12 +97,10 @@ int main(int argc, const char* argv[]) {
 				break;
 		}
 
-
 		if (flags & OPT_HELP) {
 			parser.print_help();
 			return 0;
 		}
-
 
 		// Setup JACK
 		using namespace std::chrono_literals;
@@ -225,16 +219,6 @@ int main(int argc, const char* argv[]) {
 		if (filename.empty())
 			cane::general_error(cane::STR_OPT_NO_FILE);
 
-		if (bpm.empty())
-			cane::general_error(cane::STR_NO_BPM);
-
-		if (note.empty())
-			cane::general_error(cane::STR_NO_NOTE);
-
-		// TODO: verify that the string has valid digits
-		size_t global_bpm  = cane::b10_decode(cane::View { bpm.data(), bpm.data() + bpm.size() });
-		size_t global_note = cane::b10_decode(cane::View { note.data(), note.data() + note.size() });
-
 		std::string in = read_file(filename);
 
 		cane::View src { &*in.begin(), &*in.end() };
@@ -251,7 +235,7 @@ int main(int argc, const char* argv[]) {
 
 		// Compile
 		auto t1 = clock::now();
-			cane::Timeline timeline = cane::compile(lx, global_bpm, global_note);
+			cane::Timeline timeline = cane::compile(lx);
 		auto t2 = clock::now();
 
 		if (timeline.empty())
