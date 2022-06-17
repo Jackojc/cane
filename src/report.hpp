@@ -97,14 +97,12 @@ namespace cane {
 
 		// Overview.
 		outlnfmt(os, std::forward<Ts>(args)...);
-
 		outln(os);
 
 		if (sv.is_eof())
-			outlnfmt(os, "{}EOF{}"_sv, highlight, CANE_ANSI_RESET);
+			outln(os, "  " CANE_ANSI_FG_CYAN ">" CANE_ANSI_RESET "  ", highlight, "EOF", CANE_ANSI_RESET);
 
 		else {
-			// out(os, "  " CANE_ANSI_FG_CYAN "|" CANE_ANSI_RESET "  ", before, highlight);
 			View line = cane::consume(sv, not_equal("\n"_sv));
 			View chr = take(sv);
 

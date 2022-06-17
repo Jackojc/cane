@@ -260,16 +260,25 @@ namespace cane {
 
 	// Character iteration.
 	constexpr View next(View sv) {
+		if (sv.is_eof())
+			return { sv.begin, sv.begin };
+
 		return { cp_next(sv.begin), sv.end };
 	}
 
 	constexpr View take(View& sv) {
+		if (sv.is_eof())
+			return { sv.begin, sv.begin };
+
 		auto ptr = sv.begin;
 		sv = next(sv);
 		return { ptr, sv.begin };
 	}
 
 	constexpr View peek(View sv) {
+		if (sv.is_eof())
+			return { sv.begin, sv.begin };
+
 		return { sv.begin, cp_next(sv.begin) };
 	}
 
