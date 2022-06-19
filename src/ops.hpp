@@ -4,7 +4,7 @@
 namespace cane {
 
 constexpr Event operator!(Event x) {
-	x.kind = ~x.kind;
+	x.kind = !x.kind;
 	return x;
 }
 

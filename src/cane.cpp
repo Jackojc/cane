@@ -241,7 +241,9 @@ int main(int argc, const char* argv[]) {
 		if (timeline.empty())
 			return 0;
 
-		CANE_DEBUG_RUN(cane::print(timeline));
+		CANE_DBG_RUN(cane::print(std::cerr, timeline));
+		CANE_LOG(cane::LogLevel::DBG, "event(s) = ", timeline.size());
+		CANE_LOG(cane::LogLevel::DBG, "events/s = ", timeline.size() / cane::UnitSeconds{timeline.duration}.count());
 
 		// Setup MIDI events.
 		// Very important that we assign these here or else
@@ -261,28 +263,28 @@ int main(int argc, const char* argv[]) {
 		size_t barw = 50;
 
 		while (midi.it != midi.end) {
-			cane::print("\r", CANE_ANSI_BOLD, count, "% [");
+			cane::print(std::cout, "\r", CANE_BOLD, count, "% [");
 
 			for (size_t i = 0; i != barw; ++i) {
 				size_t perc = count / (100 / barw);
 
-				if (i < perc)       cane::print(CANE_ANSI_FG_YELLOW "=");
-				else if (i == perc) cane::print(CANE_ANSI_FG_YELLOW ">");
-				else                cane::print(CANE_ANSI_FG_BLUE   "-");
+				if (i < perc)       cane::print(std::cout, CANE_YELLOW "=");
+				else if (i == perc) cane::print(std::cout, CANE_YELLOW ">");
+				else                cane::print(std::cout, CANE_BLUE   "-");
 			}
 
 			auto so_far = cane::UnitSeconds{(timeline.duration / 100) * count}.count();
-			auto remaining = cane::UnitSeconds{timeline.duration}.count();
+			auto total = cane::UnitSeconds{timeline.duration}.count();
 
 			std::cout << std::fixed << std::setprecision(2);
-			cane::print(CANE_ANSI_RESET CANE_ANSI_BOLD "] ", so_far, "s/", remaining, "s" CANE_ANSI_RESET);
+			cane::print(std::cout, CANE_RESET CANE_BOLD "] ", so_far, "s/", total, "s" CANE_RESET);
 			std::cout.flush();
 
 			count++;
 			std::this_thread::sleep_for(timeline.duration / 100);
 		}
 
-		cane::println();
+		cane::println(std::cout);
 	}
 
 	catch (cane::Error) {

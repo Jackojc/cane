@@ -16,7 +16,7 @@ struct Lexer {
 
 	template <typename F, typename... Ts>
 	void expect(const F& fn, View sv, Ts&&... args) {
-		if (not fn(peek().kind))
+		if (not fn(peek()))
 			report_error(Phases::SYNTACTIC, original, sv, std::forward<Ts>(args)...);
 	}
 
@@ -51,15 +51,17 @@ struct Lexer {
 		auto& [begin, end] = view;
 
 		// Skip whitespace.
-		View ws = cane::consume_decode(src, cane::is_whitespace);
+		View ws = cane::take_while(src, [] (View sv) {
+			return cane::is_whitespace(decode(sv));
+		});
 		view = cane::peek(src);
 
-		if (src.is_eof()) {
+		if (src.empty()) {
 			kind = Symbols::TERMINATOR;
 		}
 
 		else if (cane::peek(src) == "#"_sv) {
-			view = cane::consume(src, not_equal("\n"_sv));  // Skip until \n and then return next token.
+			view = cane::take_while(src, [] (View sv) { return sv != "\n"_sv; });
 			return next();
 		}
 
@@ -111,13 +113,15 @@ struct Lexer {
 
 		else if (cane::is_number(decode(cane::peek(src)))) {
 			kind = Symbols::INT;
-			view = cane::consume_decode(src, cane::is_number);
+			view = cane::take_while(src, [] (View sv) {
+				return cane::is_number(decode(sv));
+			});
 		}
 
 		else if (cane::is_letter(decode(cane::peek(src))) or view == "_"_sv) {
 			kind = Symbols::IDENT;
-			view = cane::consume_decode(src, [] (cp c) {
-				return cane::is_alphanumeric(c) or c == '_';
+			view = cane::take_while(src, [] (View sv) {
+				return cane::is_alphanumeric(decode(sv)) or sv == "_"_sv;
 			});
 
 			if      (view == "map"_sv)   kind = Symbols::MAP;

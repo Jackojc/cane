@@ -181,8 +181,8 @@ inline std::ostream& operator<<(std::ostream& os, Symbols s) {
 }
 
 #define STEPS \
-	X(SKIP, Symbols::SKIP, CANE_ANSI_FG_BLUE) \
-	X(BEAT, Symbols::BEAT, CANE_ANSI_FG_YELLOW)
+	X(SKIP, Symbols::SKIP, CANE_BLUE) \
+	X(BEAT, Symbols::BEAT, CANE_YELLOW)
 
 	#define X(name, sym, colour) name,
 		enum Steps { STEPS };

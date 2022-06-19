@@ -1,125 +1,61 @@
 #ifndef CANE_PRINT_HPP
 #define CANE_PRINT_HPP
 
+// I/O
 namespace cane {
-
-	// generic stream
-	template <typename... Ts> inline std::ostream& out(std::ostream& os, Ts&&... args) {
+	template <typename... Ts>
+	inline std::ostream& print(std::ostream& os, Ts&&... args) {
 		return ((os << std::forward<Ts>(args)), ...);
 	}
 
-	template <typename... Ts> inline std::ostream& outln(std::ostream& os, Ts&&... args) {
+	template <typename... Ts>
+	inline std::ostream& println(std::ostream& os, Ts&&... args) {
 		return ((os << std::forward<Ts>(args)), ..., (os << '\n'));
 	}
 
-
-	// stdout
-	template <typename... Ts> inline std::ostream& print(Ts&&... args) {
-		return (out(std::cout, std::forward<Ts>(args)), ...);
-	}
-
-	template <typename... Ts> inline std::ostream& println(Ts&&... args) {
-		return (out(std::cout, std::forward<Ts>(args)), ..., out(std::cout, '\n'));
-	}
-
-
-	// stderr
-	template <typename... Ts> inline std::ostream& err(Ts&&... args) {
-		return (out(std::cerr, std::forward<Ts>(args)), ...);
-	}
-
-	template <typename... Ts> inline std::ostream& errln(Ts&&... args) {
-		return (out(std::cerr, std::forward<Ts>(args)), ..., out(std::cerr, '\n'));
-	}
-
-
-	// Formatted output.
-	// {} placeholders, escape with {{ or }}.
 	namespace detail {
 		template <typename T>
-		inline std::ostream& outfmt(std::ostream& os, View& fmt, T&& arg) {
-			// View view {};
+		inline std::ostream& fmt2(std::ostream& os, View& f, T&& arg, bool replace = true) {
+			View before       = take_while(f, [] (View sv) { return sv != "%"_sv; });
+			View placeholders = take_while(f, [] (View sv) { return sv == "%"_sv; });
 
-			bool have_left  = false;
-			bool have_right = false;
+			print(os, before);
 
-			// cp chr = peek(fmt);
+			for (size_t i = 0; i != placeholders.size() / 2; ++i)
+				print(os, "%");
 
-			while (true) {
-				if (fmt.is_eof())
-					break;
+			if (f.empty())
+				return os;
 
-				else if (eq_any(peek(fmt), "{"_sv, "}"_sv)) {
-					View cmp = peek(fmt);
-					View view = consume(fmt, equal(cmp));
+			if (replace and placeholders.size() % 2 == 1)
+				print(os, arg);
 
-					// Check if we have any pairs and if we have any
-					// valid placeholders.
-					size_t has_single = (view.size() % 2) == 1;
-					size_t pairs = view.size() / 2;
+			if (not replace and placeholders.size() % 2 == 1)
+				print(os, "%");
 
-					have_left  = (has_single and cmp == "{"_sv) or have_left;
-					have_right = (has_single and cmp == "}"_sv) or have_right;
+			return detail::fmt2(os, f, std::forward<T>(arg), replace);
+		}
 
-					// If we have a pair, print the next variadic argument.
-					if (have_left and have_right)
-						out(os, std::forward<T>(arg));
+		inline std::ostream& fmt(std::ostream& os, View& f) {
+			return detail::fmt2(os, f, 0, false);
+		}
 
-					// Print pairs which escape placeholders.
-					for (size_t i = 0; i < pairs; ++i)
-						out(os, cmp);
-				}
-
-				else {
-					View view = consume(fmt, partial_eq_none("{"_sv, "}"_sv));
-					out(os, view);
-				}
-
-				// If we have printed one of the variadic arguments, break so we
-				// can consume the next variadic argument. Otherwise we would
-				// print the same argument for every placeholder.
-				if (have_left and have_right)
-					break;
-			}
-
-			return os;
+		template <typename T, typename... Ts>
+		inline std::ostream& fmt(std::ostream& os, View& f, T&& arg, Ts&&... args) {
+			detail::fmt2(os, f, std::forward<T>(arg));
+			return fmt(os, f, std::forward<Ts>(args)...);
 		}
 	}
 
-	inline std::ostream& outfmt(std::ostream& os, View fmt) {
-		return out(os, fmt);
-	}
-
-	template <typename T, typename... Ts>
-	inline std::ostream& outfmt(std::ostream& os, View fmt, T&& first, Ts&&... args) {
-		detail::outfmt(os, fmt, std::forward<T>(first));
-		return outfmt(os, fmt, std::forward<Ts>(args)...);
+	template <typename... Ts>
+	inline std::ostream& fmt(std::ostream& os, View f, Ts&&... args) {
+		return detail::fmt(os, f, std::forward<Ts>(args)...);
 	}
 
 	template <typename... Ts>
-	inline std::ostream& outlnfmt(std::ostream& os, View fmt, Ts&&... args) {
-		return (outfmt(os, fmt, std::forward<Ts>(args)...) << '\n');
+	inline std::ostream& fmtln(std::ostream& os, View f, Ts&&... args) {
+		return (fmt(os, f, std::forward<Ts>(args)...) << '\n');
 	}
-
-
-	// Formatted print variants.
-	template <typename... Ts> inline std::ostream& printfmt(View fmt, Ts&&... args) {
-		return outfmt(std::cout, fmt, std::forward<Ts>(args)...);
-	}
-
-	template <typename... Ts> inline std::ostream& printlnfmt(View fmt, Ts&&... args) {
-		return outlnfmt(std::cout, fmt, std::forward<Ts>(args)...);
-	}
-
-
-	template <typename... Ts> inline std::ostream& errfmt(View fmt, Ts&&... args) {
-		return outfmt(std::cerr, fmt, std::forward<Ts>(args)...);
-	}
-
-	template <typename... Ts> inline std::ostream& errlnfmt(View fmt, Ts&&... args) {
-		return outlnfmt(std::cerr, fmt, std::forward<Ts>(args)...);
-	}
-
 }
 
 #endif

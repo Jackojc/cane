@@ -29,9 +29,9 @@ namespace cane {
 	}
 
 	#define REPORTS \
-		X(ERROR,   error,   CANE_ANSI_FG_RED) \
-		X(WARNING, warning, CANE_ANSI_FG_BLUE) \
-		X(NOTICE,  notice,  CANE_ANSI_FG_YELLOW)
+		X(ERROR,   error,   CANE_RED) \
+		X(WARNING, warning, CANE_BLUE) \
+		X(NOTICE,  notice,  CANE_YELLOW)
 
 		#define X(name, str, colour) name,
 			enum class Reports: int { REPORTS };
@@ -62,11 +62,17 @@ namespace cane {
 	template <Reports R = Reports::ERROR, typename... Ts>
 	inline std::ostream& general_report(std::ostream& os, Ts&&... args) {
 		auto highlight = report2colour(R);
-		outfmt(os, "{}" CANE_ANSI_BOLD "{}" CANE_ANSI_RESET " =>" CANE_ANSI_RESET " ", highlight, report2str(R));
-		return outlnfmt(os, std::forward<Ts>(args)...);
+		fmt(os, "%" CANE_BOLD "%" CANE_RESET " =>" CANE_RESET " ", highlight, report2str(R));
+		return fmtln(os, std::forward<Ts>(args)...);
 	}
 
 	struct Error {};
+
+	// Check if an interval overlaps with another.
+	template <typename T>
+	constexpr bool overlapping_intervals(T a_begin, T a_end, T b_begin, T b_end) {
+		return a_begin <= b_end and a_end >= b_begin;
+	}
 
 	template <Reports R = Reports::ERROR, typename... Ts>
 	inline std::ostream& report(
@@ -89,39 +95,39 @@ namespace cane {
 
 		auto highlight = report2colour(R);
 
-		outfmt(
+		fmt(
 			os,
-			"{}" CANE_ANSI_BOLD "{} {}: " CANE_ANSI_RESET "{}:{} " CANE_ANSI_BOLD "=>" CANE_ANSI_RESET " ",
+			"%" CANE_BOLD "% %: " CANE_RESET "%:% " CANE_BOLD "=>" CANE_RESET " ",
 			highlight, phase2str(phase), report2str(R), line_n, column_n
 		);
 
 		// Overview.
-		outlnfmt(os, std::forward<Ts>(args)...);
-		outln(os);
+		fmtln(os, std::forward<Ts>(args)...);
+		println(os);
 
-		if (sv.is_eof())
-			outln(os, "  " CANE_ANSI_FG_CYAN ">" CANE_ANSI_RESET "  ", highlight, "EOF", CANE_ANSI_RESET);
+		if (sv.empty())
+			println(os, "  " CANE_CYAN ">" CANE_RESET "  ", highlight, "EOF", CANE_RESET);
 
 		else {
-			View line = cane::consume(sv, not_equal("\n"_sv));
+			View line = cane::take_while(sv, [] (View sv) { return sv != "\n"_sv; });
 			View chr = take(sv);
 
-			outln(os, "  " CANE_ANSI_FG_CYAN "|" CANE_ANSI_RESET "  ", before, highlight, line);
+			println(os, "  " CANE_CYAN "|" CANE_RESET "  ", before, highlight, line);
 
-			while (not sv.is_eof()) {
-				View line = cane::consume(sv, not_equal("\n"_sv));
+			while (not sv.empty()) {
+				View line = cane::take_while(sv, [] (View sv) { return sv != "\n"_sv; });
 
-				if (not sv.is_eof()) {
+				if (not sv.empty()) {
 					View chr = take(sv);
-    				outln(os, "  " CANE_ANSI_FG_CYAN "|" CANE_ANSI_RESET "  ", highlight, line);
+    				println(os, "  " CANE_CYAN "|" CANE_RESET "  ", highlight, line);
 				}
 
 				else
-    				outln(os, "  " CANE_ANSI_FG_CYAN ">" CANE_ANSI_RESET "  ", highlight, line, CANE_ANSI_RESET, after);
+    				println(os, "  " CANE_CYAN ">" CANE_RESET "  ", highlight, line, CANE_RESET, after);
 			}
 		}
 
-		return outln(os);
+		return println(os);
 	}
 
 	template <typename... Ts>

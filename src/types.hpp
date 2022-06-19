@@ -69,9 +69,9 @@ struct Context {
 
 inline std::ostream& operator<<(std::ostream& os, Sequence& s) {
 	for (auto& [note, kind]: s)
-		out(os, step2colour(kind), step2str(kind));
+		print(os, step2colour(kind), step2str(kind));
 
-	return out(os, CANE_ANSI_RESET);
+	return print(os, CANE_RESET);
 }
 
 
@@ -85,13 +85,13 @@ inline std::ostream& operator<<(std::ostream& os, Timeline& tl) {
 		std::string padding(longest.size() - sv.size(), ' ');
 
 		// French flag
-		out(os, CANE_ANSI_FG_BLUE, sv, padding, CANE_ANSI_RESET " ");
+		print(os, CANE_BLUE, sv, padding, CANE_RESET " ");
 
-		out(os, "[ ", CANE_ANSI_BOLD, (int)ev.data[1], " ");
-		out(os, (int)ev.data[2], CANE_ANSI_RESET " ] ");
+		print(os, "[ ", CANE_BOLD, (int)ev.data[1], " ");
+		print(os, (int)ev.data[2], CANE_RESET " ] ");
 
-		out(os, CANE_ANSI_FG_RED, UnitMillis { ev.time }.count(), cane::STR_MILLI_SUFFIX, CANE_ANSI_RESET);
-		outln(os);
+		print(os, CANE_RED, UnitMillis { ev.time }.count(), cane::STR_MILLI_SUFFIX, CANE_RESET);
+		println(os);
 	}
 
 	return os;

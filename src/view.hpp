@@ -8,10 +8,7 @@ namespace cane {
 		// that the standard provided std::strlen is not constexpr.
 		constexpr size_t length(const char* const str) {
 			const char *s = str;
-
-			while (*s)
-				++s;
-
+			while (*s) ++s;
 			return s - str;
 		}
 	}
@@ -33,7 +30,7 @@ namespace cane {
 
 		// Return size by getting the absolute difference between
 		// begin and end pointers.
-		constexpr size_t size() const {
+		[[nodiscard]] constexpr size_t size() const {
 			return
 				((end - begin) * (end > begin)) +  // end > begin => end - begin
 				((begin - end) * (begin > end));   // begin > end => begin - end
@@ -41,7 +38,7 @@ namespace cane {
 
 		// If the size of the view is 0, it means the pointers
 		// are equal and so we are at the end.
-		constexpr bool is_eof() const {
+		[[nodiscard]] constexpr bool empty() const {
 			return begin == end;
 		}
 	};
@@ -121,10 +118,7 @@ namespace cane {
 	[[nodiscard]] constexpr View take(View&);
 
 	template <typename F>
-	[[nodiscard]] constexpr View consume(View&, const F&);
-
-	template <typename F>
-	[[nodiscard]] constexpr View consume_decode(View&, const F&);
+	[[nodiscard]] constexpr View take_while(View&, const F&);
 
 	template <typename F>
 	constexpr size_t count(View, const F&);
@@ -134,7 +128,7 @@ namespace cane {
 	constexpr size_t length(View sv) {
 		size_t length = 0;
 
-		for (; not sv.is_eof(); sv = next(sv))
+		for (; not sv.empty(); sv = next(sv))
 			length++;
 
 		return length;
@@ -172,7 +166,7 @@ namespace cane {
 	constexpr bool validate(View sv) {
 		cp state = detail::CANE_UTF_VALID;
 
-		for (; state != detail::CANE_UTF_INVALID and not sv.is_eof(); sv = next(sv)) {
+		for (; state != detail::CANE_UTF_INVALID and not sv.empty(); sv = next(sv)) {
 			cp type = detail::INTERNAL_UTF_TABLE__[decode(peek(sv))];
 			state = detail::INTERNAL_UTF_TABLE__[256 + state + type];
 		}
@@ -185,16 +179,10 @@ namespace cane {
 	// We use the first byte to determine the
 	// number of bytes in the codepoint.
 	constexpr uint8_t cp_length(const char* ptr) {
-		// Cast to cp and shift first byte into most
-		// significant position then negate.
-		cp u = ~(static_cast<cp>(*ptr) << 24);
-
-		// Map result of countl_zero(u) to return value.
-		// 0 -> 1 byte(s)
-		// 2 -> 2 byte(s)
-		// 3 -> 3 byte(s)
-		// 4 -> 4 byte(s)
-		return std::array { 1, 1, 2, 3, 4 } [countl_zero(u)];
+		return 1u + (
+			((*ptr & 0b1110'0000) == 0b1100'0000) * 1u +
+			((*ptr & 0b1111'0000) == 0b1110'0000) * 2u +
+			((*ptr & 0b1111'1000) == 0b1111'0000) * 3u);
 	}
 
 	// Return ptr advanced by one codepoint.
@@ -260,14 +248,14 @@ namespace cane {
 
 	// Character iteration.
 	constexpr View next(View sv) {
-		if (sv.is_eof())
+		if (sv.empty())
 			return { sv.begin, sv.begin };
 
 		return { cp_next(sv.begin), sv.end };
 	}
 
 	constexpr View take(View& sv) {
-		if (sv.is_eof())
+		if (sv.empty())
 			return { sv.begin, sv.begin };
 
 		auto ptr = sv.begin;
@@ -276,27 +264,20 @@ namespace cane {
 	}
 
 	constexpr View peek(View sv) {
-		if (sv.is_eof())
+		if (sv.empty())
 			return { sv.begin, sv.begin };
 
 		return { sv.begin, cp_next(sv.begin) };
 	}
 
 	template <typename F>
-	constexpr View consume(View& sv, const F& fn) {
+	constexpr View take_while(View& sv, const F& fn) {
 		View out { sv.begin, sv.begin };
 
-		while (not sv.is_eof() and fn(peek(sv)))
+		while (not sv.empty() and fn(peek(sv)))
 			out = encompass(out, take(sv));
 
 		return out;
-	}
-
-	template <typename F>
-	constexpr View consume_decode(View& sv, const F& fn) {
-		return consume(sv, [&fn] (View sv) {
-			return fn(decode(sv));
-		});
 	}
 
 	// Return the outer view minus the inner view.
@@ -314,7 +295,7 @@ namespace cane {
 
 	// Extend `inner` to be a view of the same line it's on.
 	constexpr View extend_to_line(View outer, View inner) {
-		if (inner.is_eof()) return inner;
+		if (inner.empty()) return inner;
 
 		const auto& [sbegin, send] = outer;
 		auto& [begin, end] = inner;
@@ -336,11 +317,11 @@ namespace cane {
 	}
 
 	template <typename F> constexpr size_t count(View sv, const F& fn) {
-		if (sv.is_eof()) return 0;
+		if (sv.empty()) return 0;
 
 		size_t count = 0;
 
-		while (not sv.is_eof()) {
+		while (not sv.empty()) {
 			if (fn(peek(sv)))
 				count++;
 
