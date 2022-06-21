@@ -51,6 +51,8 @@ enum {
 	CTX_BPM  = 0b10,
 };
 
+using Handler = void(*)(Phases, View, View, std::string);
+
 struct Context {
 	std::unordered_map<View, double> constants;
 	std::unordered_map<View, uint8_t> channels;
@@ -65,6 +67,13 @@ struct Context {
 	size_t global_note;
 
 	uint8_t flags = CTX_NONE;
+
+	Handler error_handler;
+	Handler warning_handler;
+	Handler notice_handler;
+
+	inline Context(Handler&& error_handler_, Handler&& warning_handler_, Handler&& notice_handler_):
+		error_handler(error_handler_), warning_handler(warning_handler_), notice_handler(notice_handler_) {}
 };
 
 inline std::ostream& operator<<(std::ostream& os, Sequence& s) {

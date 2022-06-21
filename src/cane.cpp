@@ -220,13 +220,7 @@ int main(int argc, const char* argv[]) {
 			cane::general_error(cane::STR_OPT_NO_FILE);
 
 		std::string in = read_file(filename);
-
 		cane::View src { &*in.begin(), &*in.end() };
-		cane::Lexer lx { src };
-
-		if (not cane::validate(src))
-			lx.error(cane::Phases::ENCODING, src, cane::STR_ENCODING);
-
 
 		namespace time = std::chrono;
 
@@ -235,7 +229,17 @@ int main(int argc, const char* argv[]) {
 
 		// Compile
 		auto t1 = clock::now();
-			cane::Timeline timeline = cane::compile(lx);
+			cane::Timeline timeline = cane::compile(src,
+				[] (cane::Phases phase, cane::View original, cane::View sv, std::string str) {
+					cane::report_error(std::cerr, phase, original, sv, str);
+				},
+				[] (cane::Phases phase, cane::View original, cane::View sv, std::string str) {
+					cane::report_warning(std::cerr, phase, original, sv, str);
+				},
+				[] (cane::Phases phase, cane::View original, cane::View sv, std::string str) {
+					cane::report_notice(std::cerr, phase, original, sv, str);
+				}
+			);
 		auto t2 = clock::now();
 
 		if (timeline.empty())

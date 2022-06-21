@@ -95,7 +95,7 @@ enum class OpFix {
 	SEQ_POSTFIX,
 };
 
-inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) {
+inline std::pair<size_t, size_t> binding_power(Context& ctx, Lexer& lx, Token tok, OpFix fix) {
 	auto [view, kind] = tok;
 
 	enum { LEFT = 1, RIGHT = 0, };
@@ -175,21 +175,21 @@ inline std::pair<size_t, size_t> binding_power(Lexer& lx, Token tok, OpFix fix) 
 		} break;
 	}
 
-	lx.error(Phases::INTERNAL, view, STR_UNREACHABLE, sym2str(kind));
+	lx.error(ctx, Phases::INTERNAL, view, STR_UNREACHABLE, sym2str(kind));
 }
 
 inline void check_globals(Context& ctx, Lexer& lx, View stat_v) {
 	if ((ctx.flags & CTX_BPM) != CTX_BPM)
-		lx.error(Phases::SEMANTIC, encompass(stat_v, lx.prev().view), STR_NO_BPM);
+		lx.error(ctx, Phases::SEMANTIC, encompass(stat_v, lx.prev.view), STR_NO_BPM);
 
 	else if ((ctx.flags & CTX_NOTE) != CTX_NOTE)
-		lx.error(Phases::SEMANTIC, encompass(stat_v, lx.prev().view), STR_NO_NOTE);
+		lx.error(ctx, Phases::SEMANTIC, encompass(stat_v, lx.prev.view), STR_NO_NOTE);
 }
 
 inline double literal(Context& ctx, Lexer& lx, View lit_v) {
 	CANE_LOG(LogLevel::INF);
 
-	lx.expect(is_literal, lx.peek().view, STR_LITERAL);
+	lx.expect(ctx, is_literal, lx.peek.view, STR_LITERAL);
 	auto [view, kind] = lx.next();
 
 	return b10_decode(view);
@@ -198,9 +198,9 @@ inline double literal(Context& ctx, Lexer& lx, View lit_v) {
 inline Sequence sequence(Context& ctx, Lexer& lx, View expr_v, Sequence seq) {
 	CANE_LOG(LogLevel::INF);
 
-	lx.expect(is_step, lx.peek().view, STR_STEP);
+	lx.expect(ctx, is_step, lx.peek.view, STR_STEP);
 
-	while (is_step(lx.peek()))
+	while (is_step(lx.peek))
 		seq.emplace_back(sym2step(lx.next().kind));
 
 	return seq;
@@ -212,27 +212,27 @@ inline Sequence euclide(Context& ctx, Lexer& lx, View expr_v, Sequence seq) {
 	uint64_t steps = 0;
 	uint64_t beats = 0;
 
-	if (lx.peek().kind == Symbols::SEP) {
+	if (lx.peek.kind == Symbols::SEP) {
 		lx.next();  // skip `:`
-		beats = literal_expr(ctx, lx, lx.peek().view, 0);
+		beats = literal_expr(ctx, lx, lx.peek.view, 0);
 	}
 
 	else
-		beats = literal(ctx, lx, lx.peek().view);
+		beats = literal(ctx, lx, lx.peek.view);
 
-	lx.expect(is(Symbols::SEP), lx.peek().view, STR_EXPECT, sym2str(Symbols::SEP));
+	lx.expect(ctx, is(Symbols::SEP), lx.peek.view, STR_EXPECT, sym2str(Symbols::SEP));
 	lx.next();  // skip `:`
 
-	steps = literal_expr(ctx, lx, lx.peek().view, 0);
+	steps = literal_expr(ctx, lx, lx.peek.view, 0);
 
 	if (beats > steps)
-		lx.error(Phases::SEMANTIC, encompass(expr_v, lx.prev().view), STR_LESSER_EQ, steps);
+		lx.error(ctx, Phases::SEMANTIC, encompass(expr_v, lx.prev.view), STR_LESSER_EQ, steps);
 
 	for (size_t i = 0; i != static_cast<size_t>(steps); ++i)
 		seq.emplace_back(((i * beats) % steps) < static_cast<size_t>(beats));
 
 	if (seq.empty())
-		lx.error(Phases::SEMANTIC, encompass(expr_v, lx.prev().view), STR_EMPTY);
+		lx.error(ctx, Phases::SEMANTIC, encompass(expr_v, lx.prev.view), STR_EMPTY);
 
 	return seq;
 }
@@ -240,40 +240,40 @@ inline Sequence euclide(Context& ctx, Lexer& lx, View expr_v, Sequence seq) {
 inline double literal_const(Context& ctx, Lexer& lx, View lit_v) {
 	CANE_LOG(LogLevel::INF);
 
-	lx.expect(is(Symbols::IDENT), lx.peek().view, STR_IDENT);
+	lx.expect(ctx, is(Symbols::IDENT), lx.peek.view, STR_IDENT);
 	auto [view, kind] = lx.next();
 
 	if (auto it = ctx.constants.find(view); it != ctx.constants.end())
 		return it->second;
 
-	lx.error(Phases::SEMANTIC, view, STR_UNDEFINED, view);
+	lx.error(ctx, Phases::SEMANTIC, view, STR_UNDEFINED, view);
 }
 
 inline Sequence sequence_const(Context& ctx, Lexer& lx, View expr_v) {
 	CANE_LOG(LogLevel::INF);
 
-	lx.expect(is(Symbols::IDENT), lx.peek().view, STR_IDENT);
+	lx.expect(ctx, is(Symbols::IDENT), lx.peek.view, STR_IDENT);
 	auto [view, kind] = lx.next();
 
 	if (auto it = ctx.chains.find(view); it != ctx.chains.end())
 		return it->second;
 
-	lx.error(Phases::SEMANTIC, view, STR_UNDEFINED, view);
+	lx.error(ctx, Phases::SEMANTIC, view, STR_UNDEFINED, view);
 }
 
 inline double literal_primary(Context& ctx, Lexer& lx, View lit_v, double lit, size_t bp) {
 	CANE_LOG(LogLevel::INF);
 
-	Token tok = lx.peek();
+	Token tok = lx.peek;
 	CANE_LOG(LogLevel::INF, sym2str(tok.kind));
 
 	switch (tok.kind) {
 		case Symbols::INT: {
-			lit = literal(ctx, lx, lx.peek().view);
+			lit = literal(ctx, lx, lx.peek.view);
 		} break;
 
 		case Symbols::IDENT: {
-			lit = literal_const(ctx, lx, lx.peek().view);
+			lit = literal_const(ctx, lx, lx.peek.view);
 		} break;
 
 		case Symbols::GLOBAL_BPM: {
@@ -293,11 +293,11 @@ inline double literal_primary(Context& ctx, Lexer& lx, View lit_v, double lit, s
 
 			lit = literal_expr(ctx, lx, lit_v, 0);  // Reset binding power.
 
-			lx.expect(is(Symbols::RPAREN), lx.peek().view, STR_EXPECT, sym2str(Symbols::RPAREN));
+			lx.expect(ctx, is(Symbols::RPAREN), lx.peek.view, STR_EXPECT, sym2str(Symbols::RPAREN));
 			lx.next();  // skip `)`
 		} break;
 
-		default: { lx.error(Phases::SYNTACTIC, tok.view, STR_LIT_PRIMARY); } break;
+		default: { lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_LIT_PRIMARY); } break;
 	}
 
 	return lit;
@@ -314,7 +314,7 @@ inline double literal_prefix(Context& ctx, Lexer& lx, View lit_v, double lit, si
 		case Symbols::BEAT_OF: { lit = sequence_beats (sequence_expr(ctx, lx, tok.view, bp)); } break;
 		case Symbols::SKIP_OF: { lit = sequence_skips (sequence_expr(ctx, lx, tok.view, bp)); } break;
 
-		default: { lx.error(Phases::SYNTACTIC, tok.view, STR_LIT_OPERATOR); } break;
+		default: { lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_LIT_OPERATOR); } break;
 	}
 
 	return lit;
@@ -332,7 +332,7 @@ inline double literal_infix(Context& ctx, Lexer& lx, View lit_v, double lit, siz
 		case Symbols::MUL: { lit = lit * literal_expr(ctx, lx, lit_v, bp); } break;
 		case Symbols::DIV: { lit = lit / literal_expr(ctx, lx, lit_v, bp); } break;
 
-		default: { lx.error(Phases::SYNTACTIC, tok.view, STR_LIT_OPERATOR); } break;
+		default: { lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_LIT_OPERATOR); } break;
 	}
 
 	return lit;
@@ -342,10 +342,10 @@ inline double literal_expr(Context& ctx, Lexer& lx, View lit_v, size_t bp) {
 	CANE_LOG(LogLevel::WRN);
 
 	double lit = 0;
-	Token tok = lx.peek();
+	Token tok = lx.peek;
 
 	if (is_literal_prefix(tok)) {
-		auto [lbp, rbp] = binding_power(lx, tok, OpFix::LIT_PREFIX);
+		auto [lbp, rbp] = binding_power(ctx, lx, tok, OpFix::LIT_PREFIX);
 		lit = literal_prefix(ctx, lx, lit_v, lit, rbp);
 	}
 
@@ -353,19 +353,19 @@ inline double literal_expr(Context& ctx, Lexer& lx, View lit_v, size_t bp) {
 		lit = literal_primary(ctx, lx, lit_v, lit, 0);
 
 	else
-		lx.error(Phases::SYNTACTIC, tok.view, STR_LIT_PRIMARY);
+		lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_LIT_PRIMARY);
 
-	tok = lx.peek();
+	tok = lx.peek;
 
 	while (is_literal_infix(tok)) {
 		CANE_LOG(LogLevel::INF, sym2str(tok.kind));
-		auto [lbp, rbp] = binding_power(lx, tok, OpFix::LIT_INFIX);
+		auto [lbp, rbp] = binding_power(ctx, lx, tok, OpFix::LIT_INFIX);
 
 		if (lbp < bp)
 			break;
 
 		lit = literal_infix(ctx, lx, lit_v, lit, rbp);
-		tok = lx.peek();
+		tok = lx.peek;
 	}
 
 	return lit;
@@ -375,28 +375,28 @@ inline uint8_t channel(Context& ctx, Lexer& lx) {
 	CANE_LOG(LogLevel::INF);
 
 	uint8_t chan = CHANNEL_MIN;
-	Token tok = lx.peek();
+	Token tok = lx.peek;
 
 	// Sink can be either a literal number or an alias defined previously.
 	if (is_literal(tok))
-		chan = literal(ctx, lx, lx.peek().view);
+		chan = literal(ctx, lx, lx.peek.view);
 
-	else if (lx.peek().kind == Symbols::IDENT) {
+	else if (lx.peek.kind == Symbols::IDENT) {
 		lx.next();  // skip identifier
 
 		auto it = ctx.channels.find(tok.view);
 
 		if (it == ctx.channels.end())
-			lx.error(Phases::SEMANTIC, tok.view, STR_UNDEFINED, tok.view);
+			lx.error(ctx, Phases::SEMANTIC, tok.view, STR_UNDEFINED, tok.view);
 
 		chan = it->second;
 	}
 
 	else
-		lx.error(Phases::SYNTACTIC, tok.view, STR_IDENT_LITERAL);
+		lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_IDENT_LITERAL);
 
 	if (chan > CHANNEL_MAX or chan < CHANNEL_MIN)
-		lx.error(Phases::SEMANTIC, tok.view, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
+		lx.error(ctx, Phases::SEMANTIC, tok.view, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
 
 	return chan - 1;
 }
@@ -404,22 +404,22 @@ inline uint8_t channel(Context& ctx, Lexer& lx) {
 inline Sequence sequence_primary(Context& ctx, Lexer& lx, View expr_v, Sequence seq, size_t bp) {
 	CANE_LOG(LogLevel::INF);
 
-	Token tok = lx.peek();
+	Token tok = lx.peek;
 	CANE_LOG(LogLevel::INF, sym2str(tok.kind));
 
 	switch (tok.kind) {
 		case Symbols::INT:
 		case Symbols::SEP: {
-			seq = euclide(ctx, lx, lx.peek().view, std::move(seq));
+			seq = euclide(ctx, lx, lx.peek.view, std::move(seq));
 		} break;
 
 		case Symbols::SKIP:
 		case Symbols::BEAT: {
-			seq = sequence(ctx, lx, lx.peek().view, std::move(seq));
+			seq = sequence(ctx, lx, lx.peek.view, std::move(seq));
 		} break;
 
 		case Symbols::IDENT: {
-			seq = sequence_const(ctx, lx, lx.peek().view);
+			seq = sequence_const(ctx, lx, lx.peek.view);
 		} break;
 
 		case Symbols::LPAREN: {
@@ -427,11 +427,11 @@ inline Sequence sequence_primary(Context& ctx, Lexer& lx, View expr_v, Sequence 
 
 			seq = sequence_expr(ctx, lx, expr_v, 0);  // Reset binding power.
 
-			lx.expect(is(Symbols::RPAREN), lx.peek().view, STR_EXPECT, sym2str(Symbols::RPAREN));
+			lx.expect(ctx, is(Symbols::RPAREN), lx.peek.view, STR_EXPECT, sym2str(Symbols::RPAREN));
 			lx.next();  // skip `)`
 		} break;
 
-		default: { lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_PRIMARY); } break;
+		default: { lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_SEQ_PRIMARY); } break;
 	}
 
 	return seq;
@@ -447,7 +447,7 @@ inline Sequence sequence_prefix(Context& ctx, Lexer& lx, View expr_v, Sequence s
 		case Symbols::REV:    { seq = sequence_reverse (sequence_expr(ctx, lx, expr_v, bp)); } break;
 		case Symbols::INVERT: { seq = sequence_invert  (sequence_expr(ctx, lx, expr_v, bp)); } break;
 
-		default: { lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_OPERATOR); } break;
+		default: { lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_SEQ_OPERATOR); } break;
 	}
 
 	return seq;
@@ -469,28 +469,28 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 		case Symbols::ROTR: { seq = sequence_rotr (std::move(seq), literal_expr(ctx, lx, tok.view, 0)); } break;
 
 		case Symbols::REP: {
-			View before_v = lx.peek().view;
+			View before_v = lx.peek.view;
 			uint64_t reps = literal_expr(ctx, lx, before_v, 0);
 
 			// We don't want to shrink the sequence, it can only grow.
 			if (reps == 0)
-				lx.error(Phases::SEMANTIC, encompass(before_v, lx.prev().view), STR_GREATER, 0);
+				lx.error(ctx, Phases::SEMANTIC, encompass(before_v, lx.prev.view), STR_GREATER, 0);
 
 			seq = sequence_repeat(std::move(seq), reps);
 		} break;
 
 		case Symbols::BPM: {
-			View before_v = lx.peek().view;
+			View before_v = lx.peek.view;
 			uint64_t bpm = literal_expr(ctx, lx, before_v, 0);
 			seq.bpm = bpm;
 		} break;
 
 		case Symbols::MAP: {
-			lx.expect(is_literal_primary, lx.peek().view, STR_LIT_EXPR);
+			lx.expect(ctx, is_literal_primary, lx.peek.view, STR_LIT_EXPR);
 
 			std::vector<uint64_t> notes;
-			while (is_literal_primary(lx.peek())) {
-				uint64_t note = literal_expr(ctx, lx, lx.peek().view, 0);
+			while (is_literal_primary(lx.peek)) {
+				uint64_t note = literal_expr(ctx, lx, lx.peek.view, 0);
 				notes.emplace_back(note);
 			}
 
@@ -502,18 +502,18 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 		} break;
 
 		case Symbols::CHAIN: {
-			lx.expect(is(Symbols::IDENT), lx.peek().view, STR_IDENT);
+			lx.expect(ctx, is(Symbols::IDENT), lx.peek.view, STR_IDENT);
 			auto [view, kind] = lx.next();
 
 			// Assign or warn if re-assigned.
 			if (auto [it, succ] = ctx.symbols.emplace(view); not succ)
-				lx.error(Phases::SEMANTIC, view, STR_CONFLICT, view);
+				lx.error(ctx, Phases::SEMANTIC, view, STR_CONFLICT, view);
 
 			if (auto [it, succ] = ctx.chains.try_emplace(view, seq); not succ)
-	    		lx.error(Phases::SEMANTIC, view, STR_REDEFINED, view);
+	    		lx.error(ctx, Phases::SEMANTIC, view, STR_REDEFINED, view);
 		} break;
 
-		default: { lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_OPERATOR); } break;
+		default: { lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_SEQ_OPERATOR); } break;
 	}
 
 	return seq;
@@ -533,10 +533,10 @@ inline Sequence sequence_postfix(Context& ctx, Lexer& lx, View expr_v, Sequence 
 			auto mini = sequence_minify(seq);
 			size_t count = seq.size() / mini.size();
 
-			lx.notice(Phases::SEMANTIC, encompass(expr_v, tok.view), STR_DEBUG, mini, count, seq.size());
+			lx.notice(ctx, Phases::SEMANTIC, encompass(expr_v, tok.view), STR_DEBUG, mini, count, seq.size());
 		} break;
 
-		default: { lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_OPERATOR); } break;
+		default: { lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_SEQ_OPERATOR); } break;
 	}
 
 	return seq;
@@ -548,10 +548,10 @@ inline Sequence sequence_expr(Context& ctx, Lexer& lx, View expr_v, size_t bp) {
 	Sequence seq {};
 	seq.bpm = ctx.global_bpm;
 
-	Token tok = lx.peek();
+	Token tok = lx.peek;
 
 	if (is_sequence_prefix(tok)) {
-		auto [lbp, rbp] = binding_power(lx, tok, OpFix::SEQ_PREFIX);
+		auto [lbp, rbp] = binding_power(ctx, lx, tok, OpFix::SEQ_PREFIX);
 		seq = sequence_prefix(ctx, lx, expr_v, std::move(seq), rbp);
 	}
 
@@ -559,9 +559,9 @@ inline Sequence sequence_expr(Context& ctx, Lexer& lx, View expr_v, size_t bp) {
 		seq = sequence_primary(ctx, lx, expr_v, std::move(seq), 0);
 
 	else
-		lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_PRIMARY);
+		lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_SEQ_PRIMARY);
 
-	tok = lx.peek();
+	tok = lx.peek;
 
 	while (
 		is_sequence_infix(tok) or
@@ -570,7 +570,7 @@ inline Sequence sequence_expr(Context& ctx, Lexer& lx, View expr_v, size_t bp) {
 		CANE_LOG(LogLevel::INF, sym2str(tok.kind));
 
 		if (is_sequence_postfix(tok)) {
-			auto [lbp, rbp] = binding_power(lx, tok, OpFix::SEQ_POSTFIX);
+			auto [lbp, rbp] = binding_power(ctx, lx, tok, OpFix::SEQ_POSTFIX);
 			if (lbp < bp)
 				break;
 
@@ -578,7 +578,7 @@ inline Sequence sequence_expr(Context& ctx, Lexer& lx, View expr_v, size_t bp) {
 		}
 
 		else if (is_sequence_infix(tok)) {
-			auto [lbp, rbp] = binding_power(lx, tok, OpFix::SEQ_INFIX);
+			auto [lbp, rbp] = binding_power(ctx, lx, tok, OpFix::SEQ_INFIX);
 			if (lbp < bp)
 				break;
 
@@ -586,9 +586,9 @@ inline Sequence sequence_expr(Context& ctx, Lexer& lx, View expr_v, size_t bp) {
 		}
 
 		else
-			lx.error(Phases::SYNTACTIC, tok.view, STR_SEQ_OPERATOR);
+			lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_SEQ_OPERATOR);
 
-		tok = lx.peek();
+		tok = lx.peek;
 	}
 
 	return seq;
@@ -621,11 +621,11 @@ inline Timeline sequence_compile(Sequence seq, uint8_t chan, Unit time) {
 inline Timeline send(Context& ctx, Lexer& lx, View stat_v, Unit time) {
 	CANE_LOG(LogLevel::INF);
 
-	lx.expect(is(Symbols::SEND), lx.peek().view, STR_EXPECT, sym2str(Symbols::SEND));
+	lx.expect(ctx, is(Symbols::SEND), lx.peek.view, STR_EXPECT, sym2str(Symbols::SEND));
 	lx.next();  // skip `send`
 
 	uint8_t chan = channel(ctx, lx);
-	Sequence seq = sequence_expr(ctx, lx, lx.peek().view, 0);
+	Sequence seq = sequence_expr(ctx, lx, lx.peek.view, 0);
 
 	check_globals(ctx, lx, stat_v);
 
@@ -637,13 +637,13 @@ inline Timeline send(Context& ctx, Lexer& lx, View stat_v, Unit time) {
 inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 	CANE_LOG(LogLevel::WRN);
 
-	Token tok = lx.peek();
+	Token tok = lx.peek;
 
 	if (tok.kind == Symbols::GLOBAL_BPM) {
 		CANE_LOG(LogLevel::INF, sym2str(Symbols::GLOBAL_BPM));
 		lx.next();  // skip `bpm`
 
-		uint64_t bpm = literal_expr(ctx, lx, lx.peek().view, 0);
+		uint64_t bpm = literal_expr(ctx, lx, lx.peek.view, 0);
 		ctx.global_bpm = bpm;
 		ctx.flags |= CTX_BPM;
 	}
@@ -652,7 +652,7 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 		CANE_LOG(LogLevel::INF, sym2str(Symbols::GLOBAL_NOTE));
 		lx.next();  // skip `note`
 
-		uint64_t note = literal_expr(ctx, lx, lx.peek().view, 0);
+		uint64_t note = literal_expr(ctx, lx, lx.peek.view, 0);
 		ctx.global_note = note;
 		ctx.flags |= CTX_NOTE;
 	}
@@ -661,56 +661,56 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 		CANE_LOG(LogLevel::INF, sym2str(Symbols::ALIAS));
 		lx.next();  // skip `alias`
 
-		lx.expect(is(Symbols::IDENT), lx.peek().view, STR_IDENT);
+		lx.expect(ctx, is(Symbols::IDENT), lx.peek.view, STR_IDENT);
 		auto [view, kind] = lx.next();  // get identifier
 
-		uint8_t chan = literal(ctx, lx, lx.peek().view);
+		uint8_t chan = literal(ctx, lx, lx.peek.view);
 
 		if (chan > CHANNEL_MAX or chan < CHANNEL_MIN)
-			lx.error(Phases::SEMANTIC, lx.prev().view, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
+			lx.error(ctx, Phases::SEMANTIC, lx.prev.view, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
 
 		// Assign or warn if re-assigned.
 		if (auto [it, succ] = ctx.symbols.emplace(view); not succ)
-			lx.error(Phases::SEMANTIC, view, STR_CONFLICT, view);
+			lx.error(ctx, Phases::SEMANTIC, view, STR_CONFLICT, view);
 
 		if (auto [it, succ] = ctx.channels.try_emplace(view, chan); not succ)
-			lx.error(Phases::SEMANTIC, view, STR_REDEFINED, view);
+			lx.error(ctx, Phases::SEMANTIC, view, STR_REDEFINED, view);
 	}
 
 	else if (tok.kind == Symbols::LET) {
 		CANE_LOG(LogLevel::INF, sym2str(Symbols::LET));
 		lx.next();  // skip `let`
 
-		lx.expect(is(Symbols::IDENT), lx.peek().view, STR_IDENT);
+		lx.expect(ctx, is(Symbols::IDENT), lx.peek.view, STR_IDENT);
 		auto [view, kind] = lx.next();  // get identifier
 
-		double lit = literal_expr(ctx, lx, lx.peek().view, 0);
+		double lit = literal_expr(ctx, lx, lx.peek.view, 0);
 
 		// Assign or warn if re-assigned.
 		if (auto [it, succ] = ctx.symbols.emplace(view); not succ)
-			lx.error(Phases::SEMANTIC, view, STR_CONFLICT, view);
+			lx.error(ctx, Phases::SEMANTIC, view, STR_CONFLICT, view);
 
 		if (auto [it, succ] = ctx.constants.try_emplace(view, lit); not succ)
-			lx.error(Phases::SEMANTIC, view, STR_REDEFINED, view);
+			lx.error(ctx, Phases::SEMANTIC, view, STR_REDEFINED, view);
 	}
 
 	else if (is_sequence_primary(tok) or is_sequence_prefix(tok)) {
-		Sequence seq = sequence_expr(ctx, lx, lx.peek().view, 0);
+		Sequence seq = sequence_expr(ctx, lx, lx.peek.view, 0);
 	}
 
 	else if (tok.kind == Symbols::SEND) {
 		Unit orig = ctx.time;
-		Timeline tl = send(ctx, lx, lx.peek().view, ctx.time);
+		Timeline tl = send(ctx, lx, lx.peek.view, ctx.time);
 
 		ctx.time = std::max(tl.duration, ctx.time);
 		ctx.tl.duration = std::max(tl.duration, ctx.tl.duration);
 
 		ctx.tl.insert(ctx.tl.end(), tl.begin(), tl.end());
 
-		while (lx.peek().kind == Symbols::WITH) {
+		while (lx.peek.kind == Symbols::WITH) {
 			lx.next();  // skip `$`
 
-			Timeline tl = send(ctx, lx, lx.peek().view, orig);
+			Timeline tl = send(ctx, lx, lx.peek.view, orig);
 
 			ctx.time = std::max(tl.duration, ctx.time);
 			ctx.tl.duration = std::max(tl.duration, ctx.tl.duration);
@@ -720,17 +720,28 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 	}
 
 	else
-		lx.error(Phases::SYNTACTIC, tok.view, STR_STATEMENT);
+		lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_STATEMENT);
 }
 
-inline Timeline compile(Lexer& lx) {
+inline Timeline compile(
+	View src,
+	Handler&& error_handler,
+	Handler&& warning_handler,
+	Handler&& notice_handler
+) {
 	CANE_LOG(LogLevel::WRN);
 
-	Context ctx {};
+	Context ctx { std::move(error_handler), std::move(warning_handler), std::move(notice_handler) };
+	Lexer lx { src, ctx };
+
+	lx.next();
+
+	if (not cane::validate(src))
+		lx.error(ctx, cane::Phases::ENCODING, src, cane::STR_ENCODING);
 
 	// Compile
-	while (lx.peek().kind != Symbols::TERMINATOR)
-		statement(ctx, lx, lx.peek().view);
+	while (lx.peek.kind != Symbols::TERMINATOR)
+		statement(ctx, lx, lx.peek.view);
 
 	Timeline tl = std::move(ctx.tl);
 

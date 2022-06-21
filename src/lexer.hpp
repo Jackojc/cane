@@ -4,43 +4,50 @@
 namespace cane {
 
 struct Lexer {
-	cane::View original {};
-	cane::View src {};
+	Context& ctx;
 
-	cane::Token peek_ {};
-	cane::Token prev_ {};
+	View original {};
+	View src {};
 
-	constexpr Lexer(cane::View src_): original(src_), src(src_) {
-		next();  // this can throw
-	}
+	Token peek {};
+	Token prev {};
+
+	constexpr Lexer(cane::View src_, Context& ctx_):
+		ctx(ctx_), original(src_), src(src_) {}
 
 	template <typename F, typename... Ts>
-	void expect(const F& fn, View sv, Ts&&... args) {
-		if (not fn(peek()))
-			report_error(Phases::SYNTACTIC, original, sv, std::forward<Ts>(args)...);
+	inline void expect(Context& ctx, F&& fn, View sv, Ts&&... args) {
+		if (fn(peek))
+			return;
+
+		std::ostringstream ss;
+		fmt(ss, std::forward<Ts>(args)...);
+
+		ctx.error_handler(Phases::SYNTACTIC, original, sv, ss.str());
+
+		throw Error {};
 	}
 
 	template <typename... Ts>
-	[[noreturn]] void error(Phases phase, View sv, Ts&&... args) {
-		report_error(phase, original, sv, std::forward<Ts>(args)...);
+	[[noreturn]] inline void error(Context& ctx, Phases phase, View sv, Ts&&... args) {
+		std::ostringstream ss;
+		fmt(ss, std::forward<Ts>(args)...);
+		ctx.error_handler(phase, original, sv, ss.str());
+		throw Error {};
 	}
 
 	template <typename... Ts>
-	void warning(Phases phase, View sv, Ts&&... args) {
-		report_warning(phase, original, sv, std::forward<Ts>(args)...);
+	inline void warning(Context& ctx, Phases phase, View sv, Ts&&... args) {
+		std::ostringstream ss;
+		fmt(ss, std::forward<Ts>(args)...);
+		ctx.warning_handler(phase, original, sv, ss.str());
 	}
 
 	template <typename... Ts>
-	void notice(Phases phase, View sv, Ts&&... args) {
-		report_notice(phase, original, sv, std::forward<Ts>(args)...);
-	}
-
-	inline Token peek() const {
-		return peek_;
-	}
-
-	inline Token prev() const {
-		return prev_;
+	inline void notice(Context& ctx, Phases phase, View sv, Ts&&... args) {
+		std::ostringstream ss;
+		fmt(ss, std::forward<Ts>(args)...);
+		ctx.notice_handler(phase, original, sv, ss.str());
 	}
 
 	inline Token next() {
@@ -54,6 +61,7 @@ struct Lexer {
 		View ws = cane::take_while(src, [] (View sv) {
 			return cane::is_whitespace(decode(sv));
 		});
+
 		view = cane::peek(src);
 
 		if (src.empty()) {
@@ -61,7 +69,10 @@ struct Lexer {
 		}
 
 		else if (cane::peek(src) == "#"_sv) {
-			view = cane::take_while(src, [] (View sv) { return sv != "\n"_sv; });
+			view = cane::take_while(src, [] (View sv) {
+				return sv != "\n"_sv;
+			});
+
 			return next();
 		}
 
@@ -136,17 +147,17 @@ struct Lexer {
 		}
 
 		// If the kind is still NONE by this point, we can assume we didn't find
-		// a valid // token. The reason this check is disconnected from the above
+		// a valid token. The reason this check is disconnected from the above
 		// if-else chain is because some checks are nested and only fail after
 		// succeeding with the original check so we wouldn't fall through if this
 		// check was connected.
 		if (kind == Symbols::NONE)
-			report_error(Phases::LEXICAL, original, view, STR_UNKNOWN_CHAR, view);
+			error(ctx, Phases::LEXICAL, view, STR_UNKNOWN_CHAR, view);
 
-		Token out = peek_;
+		Token out = peek;
 
-		prev_ = peek_;
-		peek_ = tok;
+		prev = peek;
+		peek = tok;
 
 		return out;
 	}

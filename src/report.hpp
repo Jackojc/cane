@@ -71,16 +71,16 @@ namespace cane {
 	// Check if an interval overlaps with another.
 	template <typename T>
 	constexpr bool overlapping_intervals(T a_begin, T a_end, T b_begin, T b_end) {
-		return a_begin <= b_end and a_end >= b_begin;
+    	return a_begin <= b_end and a_end >= b_begin;
 	}
 
-	template <Reports R = Reports::ERROR, typename... Ts>
+	template <Reports R = Reports::ERROR>
 	inline std::ostream& report(
 		std::ostream& os,
 		Phases phase,
 		const View src,
 		View sv,
-		Ts&&... args
+		std::string str
 	) {
 		if (not overlapping_intervals(src.begin, src.end, sv.begin, sv.end))
 			return report(os, Phases::INTERNAL, ""_sv, ""_sv, "`sv` does not exist in the range of `src`"_sv);
@@ -101,8 +101,7 @@ namespace cane {
 			highlight, phase2str(phase), report2str(R), line_n, column_n
 		);
 
-		// Overview.
-		fmtln(os, std::forward<Ts>(args)...);
+		println(os, str);
 		println(os);
 
 		if (sv.empty())
@@ -131,21 +130,19 @@ namespace cane {
 	}
 
 	template <typename... Ts>
-	[[noreturn]] inline void report_error(Ts&&... args) {
-		report<Reports::ERROR>(std::cerr, std::forward<Ts>(args)...);
-		throw Error {};
+	inline std::ostream& report_error(std::ostream& os, Ts&&... args) {
+		return report<Reports::ERROR>(os, std::forward<Ts>(args)...);
 	}
 
 	template <typename... Ts>
-	inline void report_warning(Ts&&... args) {
-		report<Reports::WARNING>(std::cerr, std::forward<Ts>(args)...);
+	inline std::ostream& report_warning(std::ostream& os, Ts&&... args) {
+		return report<Reports::WARNING>(os, std::forward<Ts>(args)...);
 	}
 
 	template <typename... Ts>
-	inline void report_notice(Ts&&... args) {
-		report<Reports::NOTICE>(std::cerr, std::forward<Ts>(args)...);
+	inline std::ostream& report_notice(std::ostream& os, Ts&&... args) {
+		return report<Reports::NOTICE>(os, std::forward<Ts>(args)...);
 	}
-
 
 	template <typename... Ts>
 	[[noreturn]] inline void general_error(Ts&&... args) {
@@ -162,7 +159,6 @@ namespace cane {
 	inline void general_notice(Ts&&... args) {
 		general_report<Reports::NOTICE>(std::cerr, std::forward<Ts>(args)...);
 	}
-
 }
 
 #endif

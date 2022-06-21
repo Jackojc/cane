@@ -14,8 +14,25 @@ namespace cane {
 	}
 
 	namespace detail {
-		template <typename T>
-		inline std::ostream& fmt2(std::ostream& os, View& f, T&& arg, bool replace = true) {
+		inline std::ostream& fmt(std::ostream& os, View& f) {
+			while (not f.empty()) {
+				View before       = take_while(f, [] (View sv) { return sv != "%"_sv; });
+				View placeholders = take_while(f, [] (View sv) { return sv == "%"_sv; });
+
+				print(os, before);
+
+				for (size_t i = 0; i != placeholders.size() / 2; ++i)
+					print(os, "%");
+
+				if (placeholders.size() % 2 == 1)
+					print(os, "%");
+			}
+
+			return print(os, f);
+		}
+
+		template <typename T, typename... Ts>
+		inline std::ostream& fmt(std::ostream& os, View& f, T&& arg, Ts&&... args) {
 			View before       = take_while(f, [] (View sv) { return sv != "%"_sv; });
 			View placeholders = take_while(f, [] (View sv) { return sv == "%"_sv; });
 
@@ -24,26 +41,18 @@ namespace cane {
 			for (size_t i = 0; i != placeholders.size() / 2; ++i)
 				print(os, "%");
 
+			if (placeholders.size() % 2 == 1) {
+				print(os, arg);
+				detail::fmt(os, f, std::forward<Ts>(args)...);
+			}
+
+			else
+				detail::fmt(os, f, std::forward<T>(arg), std::forward<Ts>(args)...);
+
 			if (f.empty())
 				return os;
 
-			if (replace and placeholders.size() % 2 == 1)
-				print(os, arg);
-
-			if (not replace and placeholders.size() % 2 == 1)
-				print(os, "%");
-
-			return detail::fmt2(os, f, std::forward<T>(arg), replace);
-		}
-
-		inline std::ostream& fmt(std::ostream& os, View& f) {
-			return detail::fmt2(os, f, 0, false);
-		}
-
-		template <typename T, typename... Ts>
-		inline std::ostream& fmt(std::ostream& os, View& f, T&& arg, Ts&&... args) {
-			detail::fmt2(os, f, std::forward<T>(arg));
-			return fmt(os, f, std::forward<Ts>(args)...);
+			return os;
 		}
 	}
 
