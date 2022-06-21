@@ -2,7 +2,6 @@
 #define CANE_REPORT_HPP
 
 namespace cane {
-
 	#define PHASES \
 		X(INTERNAL,  internal) \
 		X(ENCODING,  encoding) \

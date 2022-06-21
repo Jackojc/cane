@@ -45,12 +45,6 @@ struct Timeline: public std::vector<MidiEvent> {
 	Timeline(): std::vector<MidiEvent>::vector() {}
 };
 
-enum {
-	CTX_NONE = 0b00,
-	CTX_NOTE = 0b01,
-	CTX_BPM  = 0b10,
-};
-
 using Handler = void(*)(Phases, View, View, std::string);
 
 struct Context {
@@ -65,8 +59,6 @@ struct Context {
 
 	size_t global_bpm;
 	size_t global_note;
-
-	uint8_t flags = CTX_NONE;
 
 	Handler error_handler;
 	Handler warning_handler;

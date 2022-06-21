@@ -178,14 +178,6 @@ inline std::pair<size_t, size_t> binding_power(Context& ctx, Lexer& lx, Token to
 	lx.error(ctx, Phases::INTERNAL, view, STR_UNREACHABLE, sym2str(kind));
 }
 
-inline void check_globals(Context& ctx, Lexer& lx, View stat_v) {
-	if ((ctx.flags & CTX_BPM) != CTX_BPM)
-		lx.error(ctx, Phases::SEMANTIC, encompass(stat_v, lx.prev.view), STR_NO_BPM);
-
-	else if ((ctx.flags & CTX_NOTE) != CTX_NOTE)
-		lx.error(ctx, Phases::SEMANTIC, encompass(stat_v, lx.prev.view), STR_NO_NOTE);
-}
-
 inline double literal(Context& ctx, Lexer& lx, View lit_v) {
 	CANE_LOG(LogLevel::INF);
 
@@ -278,13 +270,11 @@ inline double literal_primary(Context& ctx, Lexer& lx, View lit_v, double lit, s
 
 		case Symbols::GLOBAL_BPM: {
 			lx.next();  // skip `bpm`
-			check_globals(ctx, lx, lit_v);
 			lit = ctx.global_bpm;
 		} break;
 
 		case Symbols::GLOBAL_NOTE: {
 			lx.next();  // skip `note`
-			check_globals(ctx, lx, lit_v);
 			lit = ctx.global_note;
 		} break;
 
@@ -627,8 +617,6 @@ inline Timeline send(Context& ctx, Lexer& lx, View stat_v, Unit time) {
 	uint8_t chan = channel(ctx, lx);
 	Sequence seq = sequence_expr(ctx, lx, lx.peek.view, 0);
 
-	check_globals(ctx, lx, stat_v);
-
 	Timeline tl = sequence_compile(std::move(seq), chan, time);
 
 	return tl;
@@ -639,25 +627,7 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 
 	Token tok = lx.peek;
 
-	if (tok.kind == Symbols::GLOBAL_BPM) {
-		CANE_LOG(LogLevel::INF, sym2str(Symbols::GLOBAL_BPM));
-		lx.next();  // skip `bpm`
-
-		uint64_t bpm = literal_expr(ctx, lx, lx.peek.view, 0);
-		ctx.global_bpm = bpm;
-		ctx.flags |= CTX_BPM;
-	}
-
-	else if (tok.kind == Symbols::GLOBAL_NOTE) {
-		CANE_LOG(LogLevel::INF, sym2str(Symbols::GLOBAL_NOTE));
-		lx.next();  // skip `note`
-
-		uint64_t note = literal_expr(ctx, lx, lx.peek.view, 0);
-		ctx.global_note = note;
-		ctx.flags |= CTX_NOTE;
-	}
-
-	else if (tok.kind == Symbols::ALIAS) {
+	if (tok.kind == Symbols::ALIAS) {
 		CANE_LOG(LogLevel::INF, sym2str(Symbols::ALIAS));
 		lx.next();  // skip `alias`
 
@@ -740,6 +710,42 @@ inline Timeline compile(
 		lx.error(ctx, cane::Phases::ENCODING, src, cane::STR_ENCODING);
 
 	// Compile
+	enum {
+		META_NONE,
+		META_NOTE = 0b01,
+		META_BPM  = 0b10,
+	};
+
+	uint8_t flags = META_NONE;
+
+	while (is_meta(lx.peek)) {
+		auto [view, kind] = lx.next();
+
+		switch (kind) {
+			case Symbols::GLOBAL_BPM: {
+				CANE_LOG(LogLevel::INF, sym2str(Symbols::GLOBAL_BPM));
+				uint64_t bpm = literal_expr(ctx, lx, lx.peek.view, 0);
+				ctx.global_bpm = bpm;
+				flags |= META_BPM;
+			} break;
+
+			case Symbols::GLOBAL_NOTE: {
+				CANE_LOG(LogLevel::INF, sym2str(Symbols::GLOBAL_NOTE));
+				uint64_t note = literal_expr(ctx, lx, lx.peek.view, 0);
+				ctx.global_note = note;
+				flags |= META_NOTE;
+			} break;
+
+			default: { lx.error(ctx, Phases::SYNTACTIC, view, STR_META); } break;
+		}
+	}
+
+	if ((flags & META_BPM) != META_BPM)
+		lx.error(ctx, Phases::SEMANTIC, lx.peek.view, STR_NO_BPM);
+
+	if ((flags & META_NOTE) != META_NOTE)
+		lx.error(ctx, Phases::SEMANTIC, lx.peek.view, STR_NO_NOTE);
+
 	while (lx.peek.kind != Symbols::TERMINATOR)
 		statement(ctx, lx, lx.peek.view);
 
