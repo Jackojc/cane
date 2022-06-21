@@ -68,7 +68,7 @@ inline std::string read_file(std::filesystem::path path) {
 int main(int argc, const char* argv[]) {
 	std::string_view device;
 	std::string_view filename;
-    uint64_t flags;
+	uint64_t flags;
 
 	auto parser = conflict::parser {
 		conflict::option { { 'h', "help", "show help" }, flags, OPT_HELP },

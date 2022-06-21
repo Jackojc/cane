@@ -71,7 +71,7 @@ namespace cane {
 	// Check if an interval overlaps with another.
 	template <typename T>
 	constexpr bool overlapping_intervals(T a_begin, T a_end, T b_begin, T b_end) {
-    	return a_begin <= b_end and a_end >= b_begin;
+		return a_begin <= b_end and a_end >= b_begin;
 	}
 
 	template <Reports R = Reports::ERROR>
@@ -111,18 +111,22 @@ namespace cane {
 			View line = cane::take_while(sv, [] (View sv) { return sv != "\n"_sv; });
 			View chr = take(sv);
 
-			println(os, "  " CANE_CYAN "|" CANE_RESET "  ", before, highlight, line);
+			if (sv.empty())
+				println(os, "  " CANE_CYAN ">" CANE_RESET "  ", before, highlight, line);
+
+			else
+				println(os, "  " CANE_CYAN "|" CANE_RESET "  ", before, highlight, line);
 
 			while (not sv.empty()) {
 				View line = cane::take_while(sv, [] (View sv) { return sv != "\n"_sv; });
 
 				if (not sv.empty()) {
 					View chr = take(sv);
-    				println(os, "  " CANE_CYAN "|" CANE_RESET "  ", highlight, line);
+					println(os, "  " CANE_CYAN "|" CANE_RESET "  ", highlight, line);
 				}
 
 				else
-    				println(os, "  " CANE_CYAN ">" CANE_RESET "  ", highlight, line, CANE_RESET, after);
+					println(os, "  " CANE_CYAN ">" CANE_RESET "  ", highlight, line, CANE_RESET, after);
 			}
 		}
 

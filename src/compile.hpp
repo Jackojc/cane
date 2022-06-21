@@ -734,7 +734,7 @@ inline Timeline compile(
 	Context ctx { std::move(error_handler), std::move(warning_handler), std::move(notice_handler) };
 	Lexer lx { src, ctx };
 
-	lx.next();
+	lx.next(); // important
 
 	if (not cane::validate(src))
 		lx.error(ctx, cane::Phases::ENCODING, src, cane::STR_ENCODING);
