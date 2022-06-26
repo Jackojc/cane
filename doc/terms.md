@@ -14,12 +14,12 @@
 ### `chaining`
 > Assigning a sequence to a symbol.
 
-### `step stretching`
-> When a sequence inherits the length of another sequence in an infix expression.
-
-### `bpm stretching`
-> When a sequence inherits the BPM of another sequence in an infix expression.
-
-### `sink`
+### `channel`
 > Represents a timeline of events on a particular MIDI channel.
+
+### `sink`/`sinking`/`send`
+> Sending a sequence to a MIDI channel.
+
+### `layering`
+> Playing multiple sequences at the same time as opposed to in sequence.
 
