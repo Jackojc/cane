@@ -12,7 +12,7 @@
 | <_seq_> `car` | Car | Sequences | Evaluates to the first step of a sequence | `!... car` | `!` |
 | <_seq_> `cdr` | Cdr | Sequences | Evaluates to a sequence without the first step | `.!!! cdr` | `!!!` |
 | <_seq_> `,` <_seq_> | Concatenate | Sequences | Joins two sequences into a single sequence | `3:8, 2:8` | `!..!..!.!...!...` |
-| <_seq_> `|` <_seq_> | Disjunction (Logical OR) | Sequences | Performs the element-wise disjunction of two sequences | `!... | .!..` | `!!..` |
+| <_seq_> `\|` <_seq_> | Disjunction (Logical OR) | Sequences | Performs the element-wise disjunction of two sequences | `!... \| .!..` | `!!..` |
 | <_seq_> `&` <_seq_> | Conjunction (Logical AND) | Sequences | Performs the element-wise conjunction of two sequences | `!... & !.!.` | `!...` |
 | <_seq_> `^` <_seq_> | Exclusive Disjunction (Logical XOR) | Sequences | Performs the element-wise exclusive disjunction of two sequences | `!... ^ !.!.` | `..!.` |
 | <_seq_> `<` <_lit_> | Rotate Left | Sequences | Rotates the steps of a sequence to the left (with wrap-around) | `!..! < 1` | `..!!` |
@@ -36,7 +36,7 @@ Low to high precedence.
 | --- |
 | `?` `=>` `map` |
 | `car` `cdr` |
-| `,` `|` `&` `^` `<` `>` `**` `@` |
+| `,` `\|` `&` `^` `<` `>` `**` `@` |
 | `'` `~` |
 
 | Literal Operators |
