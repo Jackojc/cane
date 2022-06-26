@@ -113,6 +113,34 @@ expected.
 
 `send kick 4:16`
 
+### Layering
+Normally, sequences are played one after the other but you can use layering
+to play two sequences at the same time to build up more complex rhythms.
+
+If we start off with a simple beat like this:
+```
+send kick 2:16
+send snare 2:16 > 2
+send hihat 8:16
+```
+When playing it you'll find that each sequence plays on its own after the other.
+This obviously isn't what we want so to make the sequences play simultaneously,
+we use the layer statement (`$`). Applying it to the above example, we get:
+```
+send kick 2:16 $
+send snare 2:16 > 2 $
+send hihat 8:16
+```
+And voila, our sequences now play together as expected.
+
+### Debug
+It is sometimes useful to visualise sequences instead of relying solely on your
+ears to do the work. In Cane, you can visualise the steps in a sequence with
+the debug operator (`?`).
+
+Compiling `4:16?` will give us a short notice showing us the shortest repeating
+subset of the sequence. In this case it is `!...`(x4).
+
 ### File Extensions
 `.cn` or `.cane` are accepted file extensions.
 
