@@ -12,37 +12,35 @@ and euclidean rhythms.
 
 ### Example
 ```
-# Channels
-alias kick    ~> 1
-alias snare   ~> 4
-alias hihat   ~> 5
-alias hammer  ~> 7
-alias pop     ~> 8
-alias ride    ~> 9
-alias crunchy ~> 10
+# Metadata
+bpm 120
+note 60 # Middle C
 
-# Sequences
-8:16               @240 => kick
-4:16 >> 2          @240 => pop
-3:8 >> 3, (.**8)   @240 => ride
-2:6 ** 2, 3:4 >> 3 @240 => crunchy
-2:16               @240 => hammer
+# Constants
+let qn bpm * 4 # Quarter Note
+let hn bpm * 2 # Half Note
+let fn bpm     # Full Note
 
-# 2:3 Polyrhythm
-!**4 => a
-!**6 => b
+# MIDI Channels
+alias c_bd 1 # Bass Drum
+alias c_cl 2 # Clap
+alias c_sh 3 # Shaker
+alias c_ch 4 # Closed HiHat
+alias c_oh 6 # Open HiHat
 
-a fit b fit kick => hihat
-b fit b fit kick => snare
+# Notes
+let bd 69 # c_bd:  Bass Drum
+let cl 69 # c_cl:  Clap
+let sh 58 # c_kt2: Shaker
+let ch 69 # c_ch:  Closed HiHat
+let oh 69 # c_oh:  Open HiHat
 
-# Send sequences to MIDI channels
-kick **4    ~> kick
-pop **4     ~> pop
-ride **4    ~> ride
-crunchy **4 ~> crunchy
-hammer **4  ~> hammer
-snare **4   ~> snare
-hihat **4   ~> hihat
+# French House
+send c_bd !... !... !... !... map bd @ qn $
+send c_cl .... !... .... !... map cl @ qn $
+send c_sh !!!. !.!! !!!. !.!! map sh @ qn $
+send c_ch !!!! !!!! !!!! !!!! map ch @ qn $
+send c_oh .!.! .!.! .!.! .!.! map oh @ qn
 ```
 
 ### Introduction & Reference
@@ -53,12 +51,13 @@ The EBNF grammar is [here](doc/syntax.ebnf).
 
 ### Requirements
 - [JACK](https://jackaudio.org/) _or_ [PipeWire](https://pipewire.org/)
-- [a2jmidid](https://github.com/jackaudio/a2jmidid) (optional for ALSA MIDI support)
+- [a2jmidid](https://github.com/jackaudio/a2jmidid) (Optional for ALSA MIDI support)
+- [conflict](https://github.com/qookei/conflict) (Included as a git submodule)
 
 ### Build & Run
 Make sure to use a c++-17 compliant compiler.
 ```sh
-git clone https://github.com/Jackojc/cane && cd cane
+git clone --recursive https://github.com/Jackojc/cane && cd cane
 make dbg=no
 ./build/cane < foo.cn
 ```
@@ -66,6 +65,7 @@ make dbg=no
 ### Acknowledgements
 - [Gwion](https://github.com/Gwion/Gwion)
 - [Prop](https://pbat.ch/proj/prop.html)
+- [qookei](https://github.com/qookei)
 
 ### Tools
 - [LMMS](https://lmms.io/)

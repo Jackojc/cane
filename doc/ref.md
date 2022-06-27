@@ -45,6 +45,24 @@ Low to high precedence.
 | `*` `/` |
 | `len` `beats` `skips` |
 
+### Lexical Grammar
+If you're working on a syntax highlighter for Cane, you might find this section
+useful.
+
+You may also want to check the `examples/` directory or any of the existing
+highlighters in the `highlighters/` directory.
+
+| Class | Token |
+| --- | --- |
+| Keywords | `bpm` `note` `alias` `let` `send` `map` `car` `cdr` `len` `beats` `skips` |
+| Operators | `=>` `@` `?` `<` `>` `**` `\|` `&` `^` `,` `~` `'` `+` `-` `*` `/` |
+| Operators/Keywords | `$` `:` |
+| Values | `!` `.` |
+| Comments | `#.+$` |
+| Grouping | `(` `)` |
+| Identifier | `\S+` |
+| Literal | `\d+` |
+
 ### Metadata
 Every Cane file begins with a small meta-data section which contains
 two values: `bpm` and `note`.
