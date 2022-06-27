@@ -93,6 +93,23 @@ the total number of steps.
 Sequences can be assigned to a name using the chaining operator (`=>`) like so:
 `4:16 => x`. Assignments are immutable.
 
+### Notes
+Notes in Cane are just simply their corresponding MIDI values. For example, Middle
+C is MIDI value `60`.
+
+To map notes to a sequence, we use the `map` operator like so:
+```
+4:16 map 60 65 67
+```
+In the above example, we can see that the sequence has four beats but we have
+only mapped three notes. If there are too few notes, we map as many as we can
+and if there are too few notes, we simply loop back around to the start and map
+the first note.
+
+As mentioned in the meta-data section previously, you can set and later reference
+a global note value to base your song off allowing you to easily change the key of
+your song.
+
 ### Send
 The `send` keyword sinks a sequence to a MIDI channel. In other words, without
 `send`, your song will not send any MIDI.
@@ -139,7 +156,7 @@ ears to do the work. In Cane, you can visualise the steps in a sequence with
 the debug operator (`?`).
 
 Compiling `4:16?` will give us a short notice showing us the shortest repeating
-subset of the sequence. In this case it is `!...`(x4).
+sub-sequence. In this case it is: `!...`(x4).
 
 ### File Extensions
 `.cn` or `.cane` are accepted file extensions.
