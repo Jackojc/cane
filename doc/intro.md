@@ -1,7 +1,7 @@
+# Introduction
 > Note: this document is a work-in-progress and
 > contributions are welcome.
 
-# Introduction
 Cane is a small language designed for generating rhythms
 to be played over MIDI.
 

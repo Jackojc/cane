@@ -23,3 +23,6 @@
 ### `layering`
 > Playing multiple sequences at the same time as opposed to in sequence.
 
+### `note mapping`
+> Mapping a series of notes onto a sequence.
+

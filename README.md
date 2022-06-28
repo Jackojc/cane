@@ -1,8 +1,7 @@
 # cane
 > The beatings will continue until a banger is made
 
-A small MIDI sequencer DSL designed around polymeters, polyrhythms
-and euclidean rhythms.
+Cane is a small vector language designed for making beats with realtime MIDI.
 
 ![c++](https://img.shields.io/badge/c%2B%2B-17-blue.svg?style=flat)
 [![issues](https://img.shields.io/github/issues/Jackojc/cane.svg?style=flat)](https://github.com/Jackojc/cane/issues)
@@ -43,6 +42,14 @@ send c_ch !!!! !!!! !!!! !!!! map ch @ qn $
 send c_oh .!.! .!.! .!.! .!.! map oh @ qn
 ```
 
+### What Can Cane Do?
+- Control hardware and software synths through JACK MIDI
+- Play chords and melodies
+- Generate complex beats with relatively little effort
+- Embeddable in larger projects
+- Create polyrhythms and polymeters
+- Live-coding
+
 ### Introduction & Reference
 See the introduction [here](doc/intro.md)
 and see the reference [here](doc/ref.md).
@@ -61,6 +68,32 @@ git clone --recursive https://github.com/Jackojc/cane && cd cane
 make dbg=no
 ./build/cane < foo.cn
 ```
+
+### Rationale
+Cane is a project born out of frustration with existing tools. DAWs and other
+sequencing software generally don't favour a rapid iterative/experimental workflow.
+I want to be able to edit all parts of my song in the same place while listening
+to it play in realtime. This is generally just not possible with other tools or is
+awkward to use. I also want to favour use of the keyboard since I can type faster
+than I can hunt down context menus with the pointer which, again, allows for a very
+quick iterative approach to writing music.
+
+Most music software also tends to favour a very western influenced style of writing
+and hinders more exotic compositions. Cane tries to stay fairly agnostic to any
+particular style and allows for interesting rhythms and arrangements that would
+otherwise not be possible in a traditional DAW. Tempo in Cane can be varied throughout
+the song for example or sequences can easily play at many different tempos concurrently.
+The important point to note here is that this is all _easy_ in Cane.
+
+### Design
+- Cane is intentionally designed to be turing incomplete: all sequences should
+terminate. This makes the implementation quite simple as all sequences can be
+compiled to a linear timeline of events that fire out all at once when
+compilation is complete.
+- Cane is designed to enable an experimental and iterative workflow, one where you
+more often spend time removing things than adding them.
+- JACK was chosen as the backend for MIDI transport for its low latency properties
+which make it desirable for realtime use.
 
 ### Acknowledgements
 - [Gwion](https://github.com/Gwion/Gwion)
