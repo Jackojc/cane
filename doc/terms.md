@@ -12,10 +12,10 @@
 > A collection of steps.
 
 ### `chaining`
-> Assigning a sequence to a symbol.
+> Assigning a sequence to a name.
 
 ### `channel`
-> Represents a timeline of events on a particular MIDI channel.
+> A MIDI channel.
 
 ### `sink`/`sinking`/`send`
 > Sending a sequence to a MIDI channel.

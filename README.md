@@ -87,18 +87,17 @@ The important point to note here is that this is all _easy_ in Cane.
 
 ### Design
 - Cane is intentionally designed to be turing incomplete: all sequences should
-terminate. This makes the implementation quite simple as all sequences can be
-compiled to a linear timeline of events that fire out all at once when
-compilation is complete.
+terminate. This makes the language deterministic and keeps the implementation
+simple
 - Cane is designed to enable an experimental and iterative workflow, one where you
-more often spend time removing things than adding them.
+more often spend time removing things than adding them
 - JACK was chosen as the backend for MIDI transport for its low latency properties
-which make it desirable for realtime use.
+which make it desirable for realtime use
 
 ### Acknowledgements
 - [Gwion](https://github.com/Gwion/Gwion)
 - [Prop](https://pbat.ch/proj/prop.html)
-- [qookei](https://github.com/qookei)
+- [qookei](https://github.com/qookei) (for conflict)
 
 ### Tools
 - [LMMS](https://lmms.io/)
@@ -116,4 +115,4 @@ which make it desirable for realtime use.
 This project uses the GPL-3.0 license. (check [LICENSE](LICENSE))
 
 ### Progress & Discussion
-You can join the discord server in order to follow progress and/or contribute to discussion of the project. (https://discord.gg/H2qKkSd9gC)
+You can join the discord server in order to follow progress and/or contribute to discussion of the project: https://discord.gg/H2qKkSd9gC

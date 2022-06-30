@@ -2,49 +2,109 @@
 > Note: this document is a work-in-progress and
 > contributions are welcome.
 
-Cane is a small language designed for generating rhythms
-to be played over MIDI.
+Note: For installation and setup, this guide will assume you are running
+Void Linux (because that's what I'm familiar with) but a lot of these
+instructions should be applicable to most other distros.
 
-It takes some inspiration from
-[Gwion](https://github.com/Gwion/Gwion) and
-[Prop](https://paulbatchelor.github.io/proj/prop.html)
-aswell as various other small live-coding tools I've
-encountered on my adventures through the internet.
+### Setting Up An Audio Server
+Cane depends on the JACK audio server in order to facilitate the routing
+of MIDI.
 
-I made Cane in order to simplify the process of writing
-beat patterns through a primarily textual representation.
-I'm not a huge fan of the rigid structure of DAWs that
-appeal primarily to mainstream and general use which makes
-unconventional musical styles awkward to work with.
-I wanted something that allowed me to experiment with
-wacky rhythms without constraint in a way that felt
-natural to me.
+There are two options you can use for setting up a JACK server.
 
-The language is intentionally designed to be turing
-incomplete: all sequences should terminate. This
-makes the implementation quite simple as all sequences
-can be compiled to a linear timeline of events that fire
-out all at once when compilation is complete.
+1. JACK
+2. PipeWire
 
-There is a focus on euclidean rhythms, polyrhythms and
-polymeters in Cane and experimentation is encouraged.
+PipeWire includes an implementation of a JACK server and is fairly easy to set up
+so that's what we'll be using in this guide. Anyone wishing to use JACK is likely
+already using it and knows what to do.
 
-### Setting up JACK
-JACK is required to facilitate MIDI communication between
-hardware and/or software synthesizers/drum machines etc.
-JACK is used for its low latency characteristics which
-make it desirable for real-time use.
+To download PipeWire, we run:
+```sh
+$ xbps-install -S pipewire libjack-pipewire
+```
+
+We're also going to need the JACK development libraries for building Cane.
+```sh
+$ xbps-install -S jack-devel
+```
+
+Next, we need to make sure to point the dynamic linker to the PipeWire JACK
+libraries. There are two options we can use and the choice will really come down
+to personal preference.
+
+1. `pw-jack`
+2. Override JACK libraries with PipeWire libraries
+
+Overriding the JACK libraries may cause issues if you use JACK outside of PipeWire
+so use it only if you're confident that you'll be sticking to PipeWire.
+
+To use `pw-jack`, you just have to insert it in front of running `cane` like so:
+```sh
+$ pw-jack cane -f foo.cn -m bar
+```
+
+To override the JACK libraries, run:
+```sh
+$ echo "/usr/lib/pipewire-0.3/jack" > /etc/ld.so.conf.d/pipewire-jack.conf
+$ ldconfig
+```
+
+Lastly, we need to launch the PipeWire server:
+```sh
+$ pipewire
+```
+
+And with that, we should now be good to go. PipeWire usually doesn't require any
+complex configuration out of the box.
 
 ### Build & Install
+Run the following commands to clone the repository and build Cane:
+```sh
+$ git clone --recursive https://github.com/Jackojc/cane && cd cane
+$ make dbg=no  # Release build
+```
 
-### Your First Program
+This will place the Cane binary in `build/`. You can use Cane from here
+or install it by running:
+```sh
+$ make install
+```
 
-### Sequences & Steps
+You may wish to change the PREFIX directory:
+```sh
+$ PREFIX=/usr/bin make install
+```
 
-### Expressions & Statements
+You should now be able to run Cane:
+```sh
+$ cane -f foo.cn -m bar
+```
 
-### Sinks
+### Connecting To A MIDI Device
 
-### The Timeline
+### Sequences
+
+### Channels
+
+### A Basic Beat
+
+### Layering
+
+### Note Mapping
+
+### Four On The Floor
+
+### Euclidean Rhythms
+
+### Operators
+
+### Something Weird
 
 ### Where To Go From Here
+Now that you're familiar with the basics of Cane there are a few things you
+can do to learn more:
+
+- Check out the `examples/` directory for more complicated compositions
+- Read the [reference](ref.md) for a more in-depth look at how Cane works
+- Join the [Discord](https://discord.gg/Qqguu9SRvU) to talk with us
