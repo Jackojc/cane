@@ -99,7 +99,8 @@ I'm going to use LMMS here but feel free to use whatever you like.
 
 ##### Configuring LMMS
 Make sure that you have "Jack-MIDI" selected in the LMMS MIDI settings dialog:
-![LMMS MIDI Settings](img/lmms-midi.png)
+
+<img alt="LMMS MIDI Settings" src="img/lmms-midi.png" width=30%>
 
 LMMS must be compiled with support for JACK in order to use JACK directly. If
 your distribution of LMMS does not support JACK MIDI natively, you can instead
@@ -110,7 +111,8 @@ Once you've got LMMS set up to work with JACK MIDI, you're going to want to set
 up a synth to receive MIDI on a particular channel.
 
 You just have to go to the MIDI tab, enable MIDI input and set a channel:
-![LMMS Synth MIDI](img/lmms-synth.png)
+
+<img alt="LMMS Synth MIDI" src="img/lmms-synth.png" width=20%>
 
 We're now ready to start making some beats with Cane!
 
