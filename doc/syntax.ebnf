@@ -24,6 +24,8 @@ seq_prefix ::= "send" <channel> <seq_expr>
 seq_infix_expr ::= <seq_expr> ( '|' | '&' | '^' | ',' ) <seq_expr>
 seq_infix_lit  ::= <seq_expr> ( '<' | '>' | '**' | '@' ) <lit_expr>
 seq_infix_lit  ::= <seq_expr> "map" <lit_expr>+
+seq_infix_lit  ::= <seq_expr> "vel" <lit_expr>+
+seq_infix_lit  ::= <seq_expr> '=>' <identifier>
 seq_infix      ::= <seq_infix_expr> | <seq_infix_lit>
 
 seq_postfix ::= <seq_expr> ( '?' | "car" | "cdr" )
@@ -36,10 +38,9 @@ seq_expr ::=
 
 let   ::= "let" <identifier> <lit_expr>
 alias ::= "alias" <identifier> <literal>
-def   ::= "def" <identifier> <seq_expr>
 bpm   ::= "bpm" <lit_expr>
 note  ::= "note" <lit_expr>
 
-stat ::= <let> | <alias> | <def> | <bpm> | <note> | <seq_expr>
+stat ::= <let> | <alias> | <bpm> | <note> | <seq_expr>
 
 program ::= <stat>*

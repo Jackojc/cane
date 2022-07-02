@@ -28,11 +28,11 @@ alias c_ch 4 # Closed HiHat
 alias c_oh 6 # Open HiHat
 
 # Notes
-let bd 69 # c_bd:  Bass Drum
-let cl 69 # c_cl:  Clap
-let sh 58 # c_kt2: Shaker
-let ch 69 # c_ch:  Closed HiHat
-let oh 69 # c_oh:  Open HiHat
+let bd 69 # c_bd: Bass Drum
+let cl 69 # c_cl: Clap
+let sh 58 # c_sh: Shaker
+let ch 69 # c_ch: Closed HiHat
+let oh 69 # c_oh: Open HiHat
 
 # French House
 send c_bd !... !... !... !... map bd @ qn $

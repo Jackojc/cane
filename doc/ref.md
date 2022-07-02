@@ -9,6 +9,7 @@
 | <_seq_> `?` | Debug | Sequences | Print the sequence | `4:16?` | N/A |
 | <_seq_> `=>` <_identifier_> | Chain | Sequences | Assigns the sequence to a name and evaluates to itself | `!..!..!. => x` | `!..!..!.` |
 | <_seq_> `map` <_lit_> | Map | Sequences | Map a list of MIDI note values onto a sequence | `3:8 map note note+5 note+7` | `!..!..!.` |
+| <_seq_> `vel` <_lit_> | Map | Sequences | Map a list of velocity values onto a sequence | `3:8 vel 63 80 127` | `!..!..!.` |
 | <_seq_> `car` | Car | Sequences | Evaluates to the first step of a sequence | `!... car` | `!` |
 | <_seq_> `cdr` | Cdr | Sequences | Evaluates to a sequence without the first step | `.!!! cdr` | `!!!` |
 | <_seq_> `,` <_seq_> | Concatenate | Sequences | Joins two sequences into a single sequence | `3:8, 2:8` | `!..!..!.!...!...` |
@@ -34,7 +35,7 @@ Low to high precedence.
 
 | Sequence Operators |
 | --- |
-| `?` `=>` `map` |
+| `?` `=>` `map` `vel` |
 | `car` `cdr` |
 | `,` `\|` `&` `^` `<` `>` `**` `@` |
 | `'` `~` |
@@ -54,7 +55,7 @@ highlighters in the `highlighters/` directory.
 
 | Class | Token |
 | --- | --- |
-| Keywords | `bpm` `note` `alias` `let` `send` `map` `car` `cdr` `len` `beats` `skips` |
+| Keywords | `bpm` `note` `alias` `let` `send` `map` `vel` `car` `cdr` `len` `beats` `skips` |
 | Operators | `=>` `@` `?` `<` `>` `**` `\|` `&` `^` `,` `~` `'` `+` `-` `*` `/` |
 | Operators/Keywords | `$` `:` |
 | Values | `!` `.` |
