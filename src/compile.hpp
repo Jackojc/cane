@@ -60,6 +60,7 @@ constexpr bool is_sequence_infix(Token x) {
 		Symbols::REP,
 		Symbols::BPM,
 		Symbols::MAP,
+		Symbols::VEL,
 		Symbols::CHAIN);
 }
 
@@ -104,6 +105,7 @@ inline std::pair<size_t, size_t> binding_power(Context& ctx, Lexer& lx, Token to
 		DBG,
 		CHAIN = DBG,
 		MAP   = DBG,
+		VEL   = DBG,
 
 		CAR,
 		CDR = CAR,
@@ -155,6 +157,7 @@ inline std::pair<size_t, size_t> binding_power(Context& ctx, Lexer& lx, Token to
 
 		case OpFix::SEQ_INFIX: switch (kind) {
 			case Symbols::MAP:   return { MAP,   MAP   + LEFT };
+			case Symbols::VEL:   return { VEL,   VEL   + LEFT };
 			case Symbols::CHAIN: return { CHAIN, CHAIN + LEFT };
 			case Symbols::CAT:   return { CAT,   CAT   + LEFT };
 			case Symbols::OR:    return { OR,    OR    + LEFT };
@@ -485,9 +488,25 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 			}
 
 			size_t index = 0;
-			for (auto& [note, kind]: seq) {
+			for (auto& [note, vel, kind]: seq) {
 				note = notes[index];
 				index = (index + 1) % notes.size();
+			}
+		} break;
+
+		case Symbols::VEL: {
+			lx.expect(ctx, is_literal_primary, lx.peek.view, STR_LIT_EXPR);
+
+			std::vector<uint64_t> velocities;
+			while (is_literal_primary(lx.peek)) {
+				uint64_t vel = literal_expr(ctx, lx, lx.peek.view, 0);
+				velocities.emplace_back(vel);
+			}
+
+			size_t index = 0;
+			for (auto& [note, vel, kind]: seq) {
+				vel = velocities[index];
+				index = (index + 1) % velocities.size();
 			}
 		} break;
 
@@ -594,10 +613,10 @@ inline Timeline sequence_compile(Sequence seq, uint8_t chan, Unit time) {
 	auto ON = midi2int(Midi::NOTE_ON) | chan;
 	auto OFF = midi2int(Midi::NOTE_OFF) | chan;
 
-	for (auto& [note, kind]: seq) {
+	for (auto& [note, vel, kind]: seq) {
 		if (kind == BEAT) {
-			tl.emplace_back(time, ON, note, VELOCITY_DEFAULT);
-			tl.emplace_back(time + per, OFF, note, VELOCITY_DEFAULT);
+			tl.emplace_back(time, ON, note, vel);
+			tl.emplace_back(time + per, OFF, note, vel);
 		}
 
 		time += per;

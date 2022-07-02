@@ -16,14 +16,17 @@ constexpr auto ONE_MIN = std::chrono::duration_cast<Unit>(std::chrono::minutes {
 
 struct Event {
 	uint8_t note;
+	uint8_t velocity;
 	uint8_t kind;
 
 	constexpr Event(uint8_t kind_):
 		note(NOTE_DEFAULT),
+		velocity(VELOCITY_DEFAULT),
 		kind(kind_) {}
 
-	constexpr Event(uint8_t note_, uint8_t kind_):
+	constexpr Event(uint8_t note_, uint8_t vel_, uint8_t kind_):
 		note(note_),
+		velocity(vel_),
 		kind(kind_) {}
 };
 
@@ -69,7 +72,7 @@ struct Context {
 };
 
 inline std::ostream& operator<<(std::ostream& os, Sequence& s) {
-	for (auto& [note, kind]: s)
+	for (auto& [note, vel, kind]: s)
 		print(os, step2colour(kind), step2str(kind));
 
 	return print(os, CANE_RESET);

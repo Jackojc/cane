@@ -134,6 +134,7 @@ constexpr auto LOCAL_CONTROL_OFF = 0;
 	\
 	X(SEND, "send") \
 	X(MAP,  "map") \
+	X(VEL,  "vel") \
 	X(BPM,  "@") \
 	\
 	X(CAR, "car") \
