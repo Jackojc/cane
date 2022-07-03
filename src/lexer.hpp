@@ -136,6 +136,7 @@ struct Lexer {
 			});
 
 			if      (view == "map"_sv)   kind = Symbols::MAP;
+			else if (view == "vel"_sv)   kind = Symbols::VEL;
 			else if (view == "send"_sv)  kind = Symbols::SEND;
 			else if (view == "alias"_sv) kind = Symbols::ALIAS;
 			else if (view == "len"_sv)   kind = Symbols::LEN_OF;
