@@ -489,8 +489,10 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 
 			size_t index = 0;
 			for (auto& [note, vel, kind]: seq) {
-				note = notes[index];
-				index = (index + 1) % notes.size();
+				if (kind == BEAT) {
+					note = notes[index];
+					index = (index + 1) % notes.size();
+				}
 			}
 		} break;
 
@@ -505,8 +507,10 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 
 			size_t index = 0;
 			for (auto& [note, vel, kind]: seq) {
-				vel = velocities[index];
-				index = (index + 1) % velocities.size();
+				if (kind == BEAT) {
+					vel = velocities[index];
+					index = (index + 1) % velocities.size();
+				}
 			}
 		} break;
 
