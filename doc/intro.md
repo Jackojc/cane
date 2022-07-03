@@ -116,21 +116,127 @@ You just have to go to the MIDI tab, enable MIDI input and set a channel:
 
 We're now ready to start making some beats with Cane!
 
-### Sequences
-
-### Channels
-
 ### A Basic Beat
+Let's begin with something simple.
 
-### Layering
+We'll need two instruments for this beat: A bass drum and a snare drum.
 
-### Note Mapping
+LMMS comes with many presets, so pick out two that you like and drag them
+over to the "Song-Editor".
+
+<img alt="LMMS Drum and Snare" src="img/lmms-bass-snare.png" width=20%>
+<img alt="LMMS Presets" src="img/lmms-presets.png" width=20%>
+
+Once you've picked out two synths that you like, set them up to receive
+MIDI like shown previously.
+
+<img alt="LMMS Drum and Snare MIDI" src="img/lmms-bass-snare-midi.png" width=20%>
+
+First things first, let's set up a global tempo and a base note while we're at it.
+```
+# Metadata
+bpm 120
+note 60
+```
+
+Next, we'll define some useful constants.
+```
+let qn bpm * 4  # Quarter Note
+let hn bpm * 2  # Half Note
+let fn bpm      # Full Note
+```
+
+Now we're going to assign names to the MIDI channels we set up earlier in LMMs.
+```
+# MIDI Channels
+alias c_bd 1
+alias c_sn 2
+```
+
+One final bit of boilerplate before we get onto the fun part; We are going to
+define the notes to use for our instruments. Because we're just dealing with
+drums here, we want to use a single note throughout the sequence. If you're
+working with samples here, this is especially important so as not to stretch
+the sample by pitching up or down (unless you want that of course).
+
+When we have our synth open in LMMS, it tells us the base note for a synth at
+the bottom above the piano:
+
+<img alt="LMMS Base Note" src="img/lmms-basenote.png" width=20%>
+
+If we right click this small white rectangle, it will show us the value of the
+base note. In my case, this value is `69` for both the snare and bass but you
+should use whatever value is shown for you. If you're working with samples,
+you will need to set this value yourself to avoid stretching.
+
+```
+let bd 69  # Base Note for Bass Drum
+let sn 69  # Bass Note for Snare Drum
+```
+
+Okay nice! The boilerplate is out of the way and we can get to the fun part!
+
+##### Bass Drum
+We'll lay out our sequence for the bass drum first:
+```
+!..! ..!. ..!. .... map bd @ qn => bd_bar  # Assign this bar to `bd_bar`
+```
+
+We've done a few things here so lets break it down:
+
+1. Our sequence consists of a series of "steps" either `!` or `.`. These represent
+beats and skips. `!` produces a note while `.` simply passes time.
+
+2. We've used "note mapping" (`map bd`) to map the value of `bd` (`69`
+in my case) across all of the active steps in the sequence. This means whenever
+we encounter `!`, we emit a MIDI note with the value of `bd`. Inactive steps are
+simply skipped when doing note mapping.
+
+3. The tempo for the sequence is set using the bpm operator (`@ qn`). We have a
+16 step sequence here and want to use quarter notes so we use the `qn` value we
+assigned earlier.
+
+4. Finally, we assign this sequence to a name `bd_bar` so we can reference it later.
+
+##### Snare Drum
+The code for the snare drum sequence is much the same but substituting `bd` with
+`sn` and obviously using a different sequence of steps.
+```
+.... !... .... !... map sn @ qn => sn_bar  # Assign this bar to `sn_bar`
+```
+
+Excellent! We now have a 16 step sequence consisting of our snare and bass drum.
+If you try to run Cane now though, you'll notice that nothing happens. This is
+because we have simply _defined_ the sequences but not sent them to the appropriate
+MIDI channels so let us go ahead and do that:
+```
+send c_bd bd_bar  # We use the `send` keyword to "send" a sequence to a MIDI channel.
+send c_sn sn_bar
+```
+
+Now give it a try running with Cane... Uh-oh. Something is wrong here, we wanted
+both of our instruments to play together on top of eachother but they're playing
+in sequence one after the other.
+
+This is where we have to introduce the concept of "layering" in Cane which is
+fundamental to building beats. The layering operator (`$`) is a statement much like
+`send` meaning we can only use it inbetween two `send` statements and _not_ two
+sequence expressions.
+
+We simply use it like this:
+```
+send c_bd bd_bar $
+send c_sn sn_bar
+```
+
+Perfect! If we now try running this with Cane, we get the result we wanted: The
+bass drum and snare drum are playing together and we have our basic hiphop style
+bar!
+
+I encourage you to play around and experiment here before we move onto something
+a little bit more complex.
 
 ### Four On The Floor
-
-### Euclidean Rhythms
-
-### Operators
 
 ### Something Weird
 
