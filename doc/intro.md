@@ -124,13 +124,14 @@ We'll need two instruments for this beat: A bass drum and a snare drum.
 LMMS comes with many presets, so pick out two that you like and drag them
 over to the "Song-Editor".
 
-<img alt="LMMS Drum and Snare" src="img/lmms-bass-snare.png" width=20%>
-<img alt="LMMS Presets" src="img/lmms-presets.png" width=20%>
+<img alt="LMMS Presets" src="img/lmms-presets.png" width=15%>
+
+<img alt="LMMS Drum and Snare" src="img/lmms-bass-snare.png" width=25%>
 
 Once you've picked out two synths that you like, set them up to receive
 MIDI like shown previously.
 
-<img alt="LMMS Drum and Snare MIDI" src="img/lmms-bass-snare-midi.png" width=20%>
+<img alt="LMMS Drum and Snare MIDI" src="img/lmms-bass-snare-midi.png" width=35%>
 
 First things first, let's set up a global tempo and a base note while we're at it.
 ```
@@ -162,7 +163,7 @@ the sample by pitching up or down (unless you want that of course).
 When we have our synth open in LMMS, it tells us the base note for a synth at
 the bottom above the piano:
 
-<img alt="LMMS Base Note" src="img/lmms-basenote.png" width=20%>
+<img alt="LMMS Base Note" src="img/lmms-basenote.png" width=25%>
 
 If we right click this small white rectangle, it will show us the value of the
 base note. In my case, this value is `69` for both the snare and bass but you
