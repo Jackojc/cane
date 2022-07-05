@@ -1,30 +1,40 @@
 # cane
-
 .POSIX:
 
 include config.mk
 
-all: options build
+all: options cane
 
 config:
-	@mkdir -p $(BUILD_DIR)
+	@mkdir -p build/
 
 options:
 	@printf "cxx \033[32m$(CXX)\033[0m | "
-	@printf "dbg \033[32m$(dbg)\033[0m | "
-	@printf "san \033[32m$(san)\033[0m | "
-	@printf "libs \033[32m$(LIBS)\033[0m | "
-	@printf "cxxflags \033[32m-std=$(CXXSTD) $(CXXFLAGS)\033[0m\n"
+	@printf "dbg \033[32m$(DBG)\033[0m\n"
 
-build: $(SRCS)
-
-$(SRCS): options config
-	@printf "tgt \033[32m$@\033[0m\n"
-	@$(CXX) -std=$(CXXSTD) $(CXXWARN) $(CXXFLAGS) $(LDFLAGS) $(CPPFLAGS) $(INC) \
-		-o $@ $(SRC_DIR)/$(basename $(notdir $@)).cpp $(LIBS)
+cane: config options
+	$(CXX) $(CANE_CXXFLAGS) src/cane.cpp -o build/cane $(CANE_LDFLAGS)
 
 clean:
-	rm -rf $(BUILD_DIR)/ *.gcda
+	rm -rf build/cane cane-$(VERSION).tar.gz
 
-.PHONY: all options clean
+dist: clean cane
+	mkdir -p cane-$(VERSION)
+	cp -R LICENSE Makefile README.md config.mk src/ doc/ modules/ cane-$(VERSION)
+	tar -cf - cane-$(VERSION) | gzip > cane-$(VERSION).tar.gz
+	rm -rf cane-$(VERSION)
+
+install: cane
+	mkdir -p $(DESTDIR)$(PREFIX)/bin
+	cp -f build/cane $(DESTDIR)$(PREFIX)/bin
+	chmod 755 $(DESTDIR)$(PREFIX)/bin/cane
+	mkdir -p $(DESTDIR)$(MANPREFIX)/man1
+	sed "s/VERSION/$(VERSION)/g" < doc/cane.1 > $(DESTDIR)$(MANPREFIX)/man1/cane.1
+	chmod 644 $(DESTDIR)$(MANPREFIX)/man1/cane.1
+
+uninstall:
+	rm -f $(DESTDIR)$(PREFIX)/bin/cane
+	rm -f $(DESTDIR)$(MANPREFIX)/man1/cane.1
+
+.PHONY: all config options clean dist install uninstall
 

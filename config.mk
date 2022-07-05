@@ -1,35 +1,38 @@
-CXX ?= clang++
-CXXWARN ?= -Werror -Wall -Wextra -Wno-unused -pedantic -Wno-unused-parameter
+# cane version (ISO 8601)
+VERSION=2022-07-5
 
-CXXSTD ?= c++17
+PREFIX=/usr/local
+MANPREFIX=$(PREFIX)/share/man
 
-BUILD_DIR=build
-SRC_DIR=src
+INC=-Isrc/ -Imodules/conflict/include
+LIB=-ljack
 
-SRCS=$(basename $(subst $(SRC_DIR),$(BUILD_DIR),$(wildcard $(SRC_DIR)/*.cpp)))
+CXX=g++
 
-# Libraries to include and link
-INC=-Isrc/ -Imodules/conflict/include/
-LIBS=-ljack
+CANE_CXXSTD=c++17
+CANE_CXXWARN=-Werror -Wall -Wextra -Wno-unused -pedantic -Wno-unused-parameter
 
-# Flags
-dbg ?= yes
-san ?= no
+CANE_DBG_CPPFLAGS=-DCANE_VERSION=\"$(VERSION)\"
+CANE_DBG_CXXFLAGS=-std=$(CANE_CXXSTD) $(CANE_CXXWARN) $(CANE_CPPFLAGS) \
+	-Og -g -fno-omit-frame-pointer $(CXXFLAGS) $(INC)
+CANE_DBG_LDFLAGS=$(LIB) $(LDFLAGS)
 
-# Debug flags
-ifeq ($(dbg),no)
-	CXXFLAGS+=-O3 -march=native -flto -DNDEBUG -s
-else ifeq ($(dbg),yes)
-	CXXFLAGS+=-O0 -g -fno-omit-frame-pointer
+CANE_REL_CPPFLAGS=-DCANE_VERSION=\"$(VERSION)\" -DNDEBUG
+CANE_REL_CXXFLAGS=-std=$(CANE_CXXSTD) $(CANE_CXXWARN) $(CANE_CPPFLAGS) \
+	-march=native -O3 $(CXXFLAGS) $(INC)
+CANE_REL_LDFLAGS=-flto -s $(LIB) $(LDFLAGS)
+
+DBG?=no
+
+ifeq ($(DBG),no)
+	CANE_CPPFLAGS=$(CANE_REL_CPPFLAGS)
+	CANE_CXXFLAGS=$(CANE_REL_CXXFLAGS)
+	CANE_LDFLAGS=$(CANE_REL_LDFLAGS)
+else ifeq ($(DBG),yes)
+	CANE_CPPFLAGS=$(CANE_DBG_CPPFLAGS)
+	CANE_CXXFLAGS=$(CANE_DBG_CXXFLAGS)
+	CANE_LDFLAGS=$(CANE_DBG_LDFLAGS)
 else
-$(error dbg should be either yes or no)
-endif
-
-# Sanitizer flags
-ifeq ($(san),yes)
-	CXXFLAGS+=-fsanitize=undefined,leak
-else ifeq ($(san),no)
-else
-$(error san should be either yes or no)
+$(error DBG should be either yes or no)
 endif
 
