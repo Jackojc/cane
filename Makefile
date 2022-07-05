@@ -6,7 +6,7 @@ include config.mk
 all: options cane
 
 config:
-	@mkdir -p build/
+	mkdir -p build/
 
 options:
 	@printf "cxx \033[32m$(CXX)\033[0m | "

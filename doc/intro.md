@@ -61,6 +61,11 @@ $ pipewire
 And with that, we should now be good to go. PipeWire usually doesn't require any
 complex configuration out of the box.
 
+If you need any more information about PipeWire, check the following resources:
+- https://docs.voidlinux.org/config/media/pipewire.html
+- https://wiki.archlinux.org/title/PipeWire
+- https://pipewire.org/
+
 ### Build & Install
 Run the following commands to clone the repository and build Cane:
 ```sh
@@ -133,9 +138,8 @@ MIDI like shown previously.
 
 <img alt="LMMS Drum and Snare MIDI" src="img/lmms-bass-snare-midi.png" width=35%>
 
-First things first, let's set up a global tempo and a base note while we're at it.
+First things first, let's set up a global tempo and a base note.
 ```
-# Metadata
 bpm 120
 note 60
 ```
@@ -161,14 +165,14 @@ working with samples here, this is especially important so as not to stretch
 the sample by pitching up or down (unless you want that of course).
 
 When we have our synth open in LMMS, it tells us the base note for a synth at
-the bottom above the piano:
+the bottom above the piano keys:
 
 <img alt="LMMS Base Note" src="img/lmms-basenote.png" width=25%>
 
 If we right click this small white rectangle, it will show us the value of the
 base note. In my case, this value is `69` for both the snare and bass but you
 should use whatever value is shown for you. If you're working with samples,
-you will need to set this value yourself to avoid stretching.
+you will need to adjust the base note in LMMS to avoid stretching.
 
 ```
 let bd 69  # Base Note for Bass Drum
@@ -201,30 +205,34 @@ assigned earlier.
 
 ##### Snare Drum
 The code for the snare drum sequence is much the same but substituting `bd` with
-`sn` and obviously using a different sequence of steps.
+`sn` and obviously using a different sequence.
 ```
 .... !... .... !... map sn @ qn => sn_bar  # Assign this bar to `sn_bar`
 ```
 
 Excellent! We now have a 16 step sequence consisting of our snare and bass drum.
-If you try to run Cane now though, you'll notice that nothing happens. This is
-because we have simply _defined_ the sequences but not sent them to the appropriate
-MIDI channels so let us go ahead and do that:
+If you try to run Cane now:
+```sh
+$ cane -f beat.cn -m lmms
 ```
-send c_bd bd_bar  # We use the `send` keyword to "send" a sequence to a MIDI channel.
+you'll notice that nothing happens. This is because we have simply _defined_
+the sequences but have not sent them to the appropriate MIDI channels so let us
+go ahead and do that:
+```
+send c_bd bd_bar  # `send` will output the sequence on the named MIDI channel.
 send c_sn sn_bar
 ```
 
-Now give it a try running with Cane... Uh-oh. Something is wrong here, we wanted
-both of our instruments to play together on top of eachother but they're playing
+Give it a try by running Cane... Uh-oh. Something is wrong here. We wanted
+both of our instruments to play together on top of each other but they're playing
 in sequence one after the other.
 
 This is where we have to introduce the concept of "layering" in Cane which is
 fundamental to building beats. The layering operator (`$`) is a statement much like
-`send` meaning we can only use it inbetween two `send` statements and _not_ two
-sequence expressions.
+`send` meaning we can only use it inbetween two `send` statements and _not_
+between two sequence expressions.
 
-We simply use it like this:
+We use it like this:
 ```
 send c_bd bd_bar $
 send c_sn sn_bar
