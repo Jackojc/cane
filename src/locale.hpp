@@ -76,7 +76,7 @@ namespace cane {
 	constexpr View STR_SAMPLE_RATE_CHANGE = "sample rate was changed from `%` to `%`Hz"_sv;
 	constexpr View STR_LOST_EVENT         = "`%` MIDI event(s) lost"_sv;
 	constexpr View STR_NO_DEVICE          = "no MIDI device specified"_sv;
-	constexpr View STR_DEVICE             = "device `%`"_sv;
+	constexpr View STR_DEVICE             = "%"_sv;
 	constexpr View STR_FOUND              = "found port `%`"_sv;
 	constexpr View STR_NOT_FOUND          = "port `%` not found"_sv;
 	constexpr View STR_CONNECT_ERROR      = "could not connect to the JACK server"_sv;

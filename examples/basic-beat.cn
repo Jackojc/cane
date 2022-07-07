@@ -1,0 +1,21 @@
+bpm 120
+note 60
+
+let qn bpm * 4  # Quarter Note
+let hn bpm * 2  # Half Note
+let fn bpm      # Full Note
+
+# MIDI Channels
+alias c_bd 1
+alias c_sn 2
+
+let bd 69  # Base Note for Bass Drum
+let sn 69  # Bass Note for Snare Drum
+
+!..! ..!. ..!. .... map bd @ qn => bd_bar  # Assign this bar to `bd_bar`
+.... !... .... !... map sn @ qn => sn_bar  # Assign this bar to `sn_bar`
+
+send c_bd bd_bar $
+send c_sn sn_bar
+
+
