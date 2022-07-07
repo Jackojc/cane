@@ -245,7 +245,7 @@ bar!
 I encourage you to play around and experiment here before we move onto something
 a little bit more complex.
 
-([full code](examples/basic-beat.cn))
+([full code](/examples/basic-beat.cn))
 
 ### Four On The Floor
 Now let's try something a bit more complex. We're going to write a "four on the
@@ -366,7 +366,7 @@ $ send c_gb b_gb map
 	o1 + 8  o1      o1      o1
 ```
 
-([full code](examples/four-on-the-floor.cn))
+([full code](/examples/four-on-the-floor.cn))
 
 ### Something Weird
 
