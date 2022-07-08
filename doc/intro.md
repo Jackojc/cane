@@ -245,6 +245,7 @@ bar!
 I encourage you to play around and experiment here before we move onto something
 a little bit more complex.
 
+([sample](snd/basic-beat.ogg))
 ([full code](/examples/basic-beat.cn))
 
 ### Four On The Floor
@@ -366,6 +367,7 @@ $ send c_gb b_gb map
 	o1 + 8  o1      o1      o1
 ```
 
+([sample](snd/four-on-the-floor.ogg))
 ([full code](/examples/four-on-the-floor.cn))
 
 ### Something Weird
