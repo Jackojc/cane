@@ -3,14 +3,21 @@
 
 namespace cane {
 
-constexpr size_t CHANNEL_MIN      = 1u;
-constexpr size_t CHANNEL_MAX      = 16u;
-constexpr size_t BPM_MIN          = 1u;
-constexpr size_t BPM_DEFAULT      = 120u;
+constexpr size_t CHANNEL_MIN     = 1u;
+constexpr size_t CHANNEL_MAX     = 16u;
+constexpr size_t CHANNEL_DEFAULT = 1u;
 
-constexpr size_t CHANNEL_DEFAULT  = 1u;
-constexpr size_t NOTE_DEFAULT     = 60u; // Middle C
+constexpr size_t NOTE_MIN     = 0u;
+constexpr size_t NOTE_MAX     = 127u;
+constexpr size_t NOTE_DEFAULT = 60u; // Middle C
+
+constexpr size_t VELOCITY_MIN     = 0u;
+constexpr size_t VELOCITY_MAX     = 127u;
 constexpr size_t VELOCITY_DEFAULT = 127u;
+
+constexpr size_t BPM_MIN     = 1u;
+constexpr size_t BPM_DEFAULT = 120u;
+
 
 constexpr auto ACTIVE_SENSING_INTERVAL = std::chrono::milliseconds { 250 };
 

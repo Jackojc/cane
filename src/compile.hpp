@@ -483,7 +483,12 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 
 			std::vector<uint64_t> notes;
 			while (is_literal_primary(lx.peek)) {
-				uint64_t note = literal_expr(ctx, lx, lx.peek.view, 0);
+				View before_v = lx.peek.view;
+				uint64_t note = literal_expr(ctx, lx, before_v, 0);
+
+				if (note > NOTE_MAX or note < NOTE_MIN)
+					lx.error(ctx, Phases::SEMANTIC, encompass(before_v, lx.prev.view), STR_BETWEEN, NOTE_MIN, NOTE_MAX);
+
 				notes.emplace_back(note);
 			}
 
@@ -501,7 +506,12 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 
 			std::vector<uint64_t> velocities;
 			while (is_literal_primary(lx.peek)) {
-				uint64_t vel = literal_expr(ctx, lx, lx.peek.view, 0);
+				View before_v = lx.peek.view;
+				uint64_t vel = literal_expr(ctx, lx, before_v, 0);
+
+				if (vel > VELOCITY_MAX or vel < VELOCITY_MIN)
+					lx.error(ctx, Phases::SEMANTIC, encompass(before_v, lx.prev.view), STR_BETWEEN, VELOCITY_MIN, VELOCITY_MAX);
+
 				velocities.emplace_back(vel);
 			}
 
