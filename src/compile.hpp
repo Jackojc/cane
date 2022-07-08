@@ -665,19 +665,21 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 		lx.next();  // skip `alias`
 
 		lx.expect(ctx, is(Symbols::IDENT), lx.peek.view, STR_IDENT);
-		auto [view, kind] = lx.next();  // get identifier
+		while (lx.peek.kind == Symbols::IDENT) {
+			auto [view, kind] = lx.next();  // get identifier
 
-		uint8_t chan = literal(ctx, lx, lx.peek.view);
+			uint8_t chan = literal(ctx, lx, lx.peek.view);
 
-		if (chan > CHANNEL_MAX or chan < CHANNEL_MIN)
-			lx.error(ctx, Phases::SEMANTIC, lx.prev.view, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
+			if (chan > CHANNEL_MAX or chan < CHANNEL_MIN)
+				lx.error(ctx, Phases::SEMANTIC, lx.prev.view, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
 
-		// Assign or warn if re-assigned.
-		if (auto [it, succ] = ctx.symbols.emplace(view); not succ)
-			lx.error(ctx, Phases::SEMANTIC, view, STR_CONFLICT, view);
+			// Assign or warn if re-assigned.
+			if (auto [it, succ] = ctx.symbols.emplace(view); not succ)
+				lx.error(ctx, Phases::SEMANTIC, view, STR_CONFLICT, view);
 
-		if (auto [it, succ] = ctx.channels.try_emplace(view, chan); not succ)
-			lx.error(ctx, Phases::SEMANTIC, view, STR_REDEFINED, view);
+			if (auto [it, succ] = ctx.channels.try_emplace(view, chan); not succ)
+				lx.error(ctx, Phases::SEMANTIC, view, STR_REDEFINED, view);
+		}
 	}
 
 	else if (tok.kind == Symbols::LET) {
@@ -685,16 +687,18 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 		lx.next();  // skip `let`
 
 		lx.expect(ctx, is(Symbols::IDENT), lx.peek.view, STR_IDENT);
-		auto [view, kind] = lx.next();  // get identifier
+		while (lx.peek.kind == Symbols::IDENT) {
+			auto [view, kind] = lx.next();  // get identifier
 
-		double lit = literal_expr(ctx, lx, lx.peek.view, 0);
+			double lit = literal_expr(ctx, lx, lx.peek.view, 0);
 
-		// Assign or warn if re-assigned.
-		if (auto [it, succ] = ctx.symbols.emplace(view); not succ)
-			lx.error(ctx, Phases::SEMANTIC, view, STR_CONFLICT, view);
+			// Assign or warn if re-assigned.
+			if (auto [it, succ] = ctx.symbols.emplace(view); not succ)
+				lx.error(ctx, Phases::SEMANTIC, view, STR_CONFLICT, view);
 
-		if (auto [it, succ] = ctx.constants.try_emplace(view, lit); not succ)
-			lx.error(ctx, Phases::SEMANTIC, view, STR_REDEFINED, view);
+			if (auto [it, succ] = ctx.constants.try_emplace(view, lit); not succ)
+				lx.error(ctx, Phases::SEMANTIC, view, STR_REDEFINED, view);
+		}
 	}
 
 	else if (is_sequence_primary(tok) or is_sequence_prefix(tok)) {

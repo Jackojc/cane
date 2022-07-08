@@ -36,8 +36,8 @@ seq_expr ::=
 	'(' <seq_expr> ')'
 
 
-let   ::= "let" <identifier> <lit_expr>
-alias ::= "alias" <identifier> <literal>
+let   ::= "let" ( <identifier> <lit_expr> )+
+alias ::= "alias" ( <identifier> <literal> )+
 bpm   ::= "bpm" <lit_expr>
 note  ::= "note" <lit_expr>
 
