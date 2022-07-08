@@ -641,18 +641,27 @@ inline Timeline sequence_compile(Sequence seq, uint8_t chan, Unit time) {
 	return tl;
 }
 
-inline Timeline send(Context& ctx, Lexer& lx, View stat_v, Unit time) {
-	CANE_LOG(LogLevel::INF);
-
-	lx.expect(ctx, is(Symbols::SEND), lx.peek.view, STR_EXPECT, sym2str(Symbols::SEND));
-	lx.next();  // skip `send`
-
-	uint8_t chan = channel(ctx, lx);
+inline void timeline(Context& ctx, Lexer& lx, View stat_v, Unit orig) {
 	Sequence seq = sequence_expr(ctx, lx, lx.peek.view, 0);
 
-	Timeline tl = sequence_compile(std::move(seq), chan, time);
+	if (lx.peek.kind == Symbols::SEND) {
+		lx.next();  // skip `~>`
 
-	return tl;
+		// Unit orig = ctx.time;
+
+		uint8_t chan = channel(ctx, lx);
+		Timeline tl = sequence_compile(std::move(seq), chan, orig);
+
+		ctx.time = std::max(tl.duration, ctx.time);
+		ctx.tl.duration = std::max(tl.duration, ctx.tl.duration);
+
+		ctx.tl.insert(ctx.tl.end(), tl.begin(), tl.end());
+
+		while (lx.peek.kind == Symbols::WITH) {
+			lx.next();  // skip `$`
+			timeline(ctx, lx, stat_v, orig);
+		}
+	}
 }
 
 inline void statement(Context& ctx, Lexer& lx, View stat_v) {
@@ -667,7 +676,6 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 		lx.expect(ctx, is(Symbols::IDENT), lx.peek.view, STR_IDENT);
 		while (lx.peek.kind == Symbols::IDENT) {
 			auto [view, kind] = lx.next();  // get identifier
-
 			uint8_t chan = literal(ctx, lx, lx.peek.view);
 
 			if (chan > CHANNEL_MAX or chan < CHANNEL_MIN)
@@ -689,7 +697,6 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 		lx.expect(ctx, is(Symbols::IDENT), lx.peek.view, STR_IDENT);
 		while (lx.peek.kind == Symbols::IDENT) {
 			auto [view, kind] = lx.next();  // get identifier
-
 			double lit = literal_expr(ctx, lx, lx.peek.view, 0);
 
 			// Assign or warn if re-assigned.
@@ -701,30 +708,8 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 		}
 	}
 
-	else if (is_sequence_primary(tok) or is_sequence_prefix(tok)) {
-		Sequence seq = sequence_expr(ctx, lx, lx.peek.view, 0);
-	}
-
-	else if (tok.kind == Symbols::SEND) {
-		Unit orig = ctx.time;
-		Timeline tl = send(ctx, lx, lx.peek.view, ctx.time);
-
-		ctx.time = std::max(tl.duration, ctx.time);
-		ctx.tl.duration = std::max(tl.duration, ctx.tl.duration);
-
-		ctx.tl.insert(ctx.tl.end(), tl.begin(), tl.end());
-
-		while (lx.peek.kind == Symbols::WITH) {
-			lx.next();  // skip `$`
-
-			Timeline tl = send(ctx, lx, lx.peek.view, orig);
-
-			ctx.time = std::max(tl.duration, ctx.time);
-			ctx.tl.duration = std::max(tl.duration, ctx.tl.duration);
-
-			ctx.tl.insert(ctx.tl.end(), tl.begin(), tl.end());
-		}
-	}
+	else if (is_sequence_primary(tok) or is_sequence_prefix(tok))
+		timeline(ctx, lx, stat_v, ctx.time);
 
 	else
 		lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_STATEMENT);

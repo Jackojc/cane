@@ -1,10 +1,10 @@
 syntax "cane" "\.cn"
 
 # Keywords
-color red "\<bpm|note|alias|let|send|map|vel|car|cdr|len|beat|skips\>"
+color red "\<bpm|note|alias|let|map|vel|car|cdr|len|beat|skips\>"
 
 # Operator
-color green "=>|@|\?|<|>|\*\*|\||&|\^|,|~|'|\+|\-|\*"
+color green "=>|~>|@|\?|<|>|\*\*|\||&|\^|,|~|'|\+|\-|\*"
 
 # Operators/Keywords
 color brightgreen "\$|:"

@@ -19,8 +19,6 @@ lit_expr ::=
 
 
 seq_prefix ::= ( '~' | '\'' ) <seq_expr>
-seq_prefix ::= "send" <channel> <seq_expr>
-
 seq_infix_expr ::= <seq_expr> ( '|' | '&' | '^' | ',' ) <seq_expr>
 seq_infix_lit  ::= <seq_expr> ( '<' | '>' | '**' | '@' ) <lit_expr>
 seq_infix_lit  ::= <seq_expr> "map" <lit_expr>+
@@ -40,7 +38,8 @@ let   ::= "let" ( <identifier> <lit_expr> )+
 alias ::= "alias" ( <identifier> <literal> )+
 bpm   ::= "bpm" <lit_expr>
 note  ::= "note" <lit_expr>
+send ::= <seq_expr> '~>' <channel>
 
-stat ::= <let> | <alias> | <bpm> | <note> | <seq_expr>
+stat ::= <let> | <alias> | <bpm> | <note> | <send> | <seq_expr>
 
 program ::= <stat>*

@@ -84,7 +84,6 @@ struct Lexer {
 		else if (view == ":"_sv) { kind = Symbols::SEP;  src = cane::next(src); }
 
 		else if (view == "?"_sv) { kind = Symbols::DBG;    src = cane::next(src); }
-		else if (view == "~"_sv) { kind = Symbols::INVERT; src = cane::next(src); }
 		else if (view == "'"_sv) { kind = Symbols::REV;    src = cane::next(src); }
 		else if (view == "|"_sv) { kind = Symbols::OR;     src = cane::next(src); }
 		else if (view == "^"_sv) { kind = Symbols::XOR;    src = cane::next(src); }
@@ -100,6 +99,17 @@ struct Lexer {
 
 		else if (view == "@"_sv) { kind = Symbols::BPM;  src = cane::next(src); }
 		else if (view == "$"_sv) { kind = Symbols::WITH; src = cane::next(src); }
+
+		else if (view == "~"_sv) {
+			kind = Symbols::INVERT;
+			src = cane::next(src);
+
+			if (cane::peek(src) == ">"_sv) {
+				kind = Symbols::SEND;
+				view = encompass(view, cane::peek(src));
+				src = cane::next(src);
+			}
+		}
 
 		else if (view == "*"_sv) {
 			kind = Symbols::MUL;
@@ -137,7 +147,6 @@ struct Lexer {
 
 			if      (view == "map"_sv)   kind = Symbols::MAP;
 			else if (view == "vel"_sv)   kind = Symbols::VEL;
-			else if (view == "send"_sv)  kind = Symbols::SEND;
 			else if (view == "alias"_sv) kind = Symbols::ALIAS;
 			else if (view == "len"_sv)   kind = Symbols::LEN_OF;
 			else if (view == "let"_sv)   kind = Symbols::LET;
