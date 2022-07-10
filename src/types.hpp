@@ -55,7 +55,6 @@ using Handler = void(*)(Phases, View, View, std::string);
 
 struct Context {
 	std::unordered_map<View, double> constants;
-	std::unordered_map<View, uint8_t> channels;
 	std::unordered_map<View, Sequence> chains;
 
 	std::unordered_set<View> symbols;

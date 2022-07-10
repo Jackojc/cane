@@ -147,7 +147,6 @@ struct Lexer {
 
 			if      (view == "map"_sv)   kind = Symbols::MAP;
 			else if (view == "vel"_sv)   kind = Symbols::VEL;
-			else if (view == "alias"_sv) kind = Symbols::ALIAS;
 			else if (view == "len"_sv)   kind = Symbols::LEN_OF;
 			else if (view == "let"_sv)   kind = Symbols::LET;
 			else if (view == "car"_sv)   kind = Symbols::CAR;

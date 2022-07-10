@@ -365,36 +365,6 @@ inline double literal_expr(Context& ctx, Lexer& lx, View lit_v, size_t bp) {
 	return lit;
 }
 
-inline uint8_t channel(Context& ctx, Lexer& lx) {
-	CANE_LOG(LogLevel::INF);
-
-	uint8_t chan = CHANNEL_MIN;
-	Token tok = lx.peek;
-
-	// Sink can be either a literal number or an alias defined previously.
-	if (is_literal(tok))
-		chan = literal(ctx, lx, lx.peek.view);
-
-	else if (lx.peek.kind == Symbols::IDENT) {
-		lx.next();  // skip identifier
-
-		auto it = ctx.channels.find(tok.view);
-
-		if (it == ctx.channels.end())
-			lx.error(ctx, Phases::SEMANTIC, tok.view, STR_UNDEFINED, tok.view);
-
-		chan = it->second;
-	}
-
-	else
-		lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_IDENT_LITERAL);
-
-	if (chan > CHANNEL_MAX or chan < CHANNEL_MIN)
-		lx.error(ctx, Phases::SEMANTIC, tok.view, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
-
-	return chan - 1;
-}
-
 inline Sequence sequence_primary(Context& ctx, Lexer& lx, View expr_v, Sequence seq, size_t bp) {
 	CANE_LOG(LogLevel::INF);
 
@@ -638,8 +608,8 @@ inline Timeline sequence_compile(Sequence seq, uint8_t chan, Unit time) {
 
 	Timeline tl {};
 
-	auto ON = midi2int(Midi::NOTE_ON) | chan;
-	auto OFF = midi2int(Midi::NOTE_OFF) | chan;
+	auto ON = midi2int(Midi::NOTE_ON) | (chan - 1);
+	auto OFF = midi2int(Midi::NOTE_OFF) | (chan - 1);
 
 	for (auto& [dur, note, vel, kind]: seq) {
 		if (kind == BEAT) {
@@ -661,7 +631,12 @@ inline void timeline(Context& ctx, Lexer& lx, View stat_v, Unit orig) {
 	if (lx.peek.kind == Symbols::SEND) {
 		lx.next();  // skip `~>`
 
-		uint8_t chan = channel(ctx, lx);
+		View before_v = lx.peek.view;
+		uint64_t chan = literal_expr(ctx, lx, before_v, 0);
+
+		if (chan > CHANNEL_MAX or chan < CHANNEL_MIN)
+			lx.error(ctx, Phases::SEMANTIC, encompass(before_v, lx.prev.view), STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
+
 		Timeline tl = sequence_compile(std::move(seq), chan, orig);
 
 		ctx.time = std::max(tl.duration, ctx.time);
@@ -681,28 +656,7 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 
 	Token tok = lx.peek;
 
-	if (tok.kind == Symbols::ALIAS) {
-		CANE_LOG(LogLevel::INF, sym2str(Symbols::ALIAS));
-		lx.next();  // skip `alias`
-
-		lx.expect(ctx, is(Symbols::IDENT), lx.peek.view, STR_IDENT);
-		while (lx.peek.kind == Symbols::IDENT) {
-			auto [view, kind] = lx.next();  // get identifier
-			uint8_t chan = literal(ctx, lx, lx.peek.view);
-
-			if (chan > CHANNEL_MAX or chan < CHANNEL_MIN)
-				lx.error(ctx, Phases::SEMANTIC, lx.prev.view, STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
-
-			// Assign or warn if re-assigned.
-			if (auto [it, succ] = ctx.symbols.emplace(view); not succ)
-				lx.error(ctx, Phases::SEMANTIC, view, STR_CONFLICT, view);
-
-			if (auto [it, succ] = ctx.channels.try_emplace(view, chan); not succ)
-				lx.error(ctx, Phases::SEMANTIC, view, STR_REDEFINED, view);
-		}
-	}
-
-	else if (tok.kind == Symbols::LET) {
+	if (tok.kind == Symbols::LET) {
 		CANE_LOG(LogLevel::INF, sym2str(Symbols::LET));
 		lx.next();  // skip `let`
 
