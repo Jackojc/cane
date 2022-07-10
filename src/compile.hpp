@@ -106,18 +106,19 @@ inline std::pair<size_t, size_t> binding_power(Context& ctx, Lexer& lx, Token to
 		CHAIN = DBG,
 		MAP   = DBG,
 		VEL   = DBG,
+		CAT   = DBG,
+
+		BPM,
 
 		CAR,
 		CDR = CAR,
 
-		CAT,
-		OR   = CAT,
-		AND  = CAT,
-		XOR  = CAT,
-		ROTL = CAT,
-		ROTR = CAT,
-		REP  = CAT,
-		BPM  = CAT,
+		OR,
+		AND  = OR,
+		XOR  = OR,
+		ROTL = OR,
+		ROTR = OR,
+		REP  = OR,
 
 		REV,
 		INVERT = REV,
@@ -473,9 +474,24 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 		} break;
 
 		case Symbols::BPM: {
-			View before_v = lx.peek.view;
-			uint64_t bpm = literal_expr(ctx, lx, before_v, 0);
-			seq.bpm = bpm;
+			lx.expect(ctx, is_literal_primary, lx.peek.view, STR_LIT_EXPR);
+
+			std::vector<Unit> durs;
+			while (is_literal_primary(lx.peek)) {
+				View before_v = lx.peek.view;
+				uint64_t bpm = literal_expr(ctx, lx, before_v, 0);
+
+				if (bpm < BPM_MIN)
+					lx.error(ctx, Phases::SEMANTIC, encompass(before_v, lx.prev.view), STR_GREATER, BPM_MIN);
+
+				durs.emplace_back(ONE_MIN / bpm);
+			}
+
+			size_t index = 0;
+			for (auto& [dur, note, vel, kind]: seq) {
+				dur = durs[index];
+				index = (index + 1) % durs.size();
+			}
 		} break;
 
 		case Symbols::MAP: {
@@ -493,7 +509,7 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 			}
 
 			size_t index = 0;
-			for (auto& [note, vel, kind]: seq) {
+			for (auto& [dur, note, vel, kind]: seq) {
 				if (kind == BEAT) {
 					note = notes[index];
 					index = (index + 1) % notes.size();
@@ -516,7 +532,7 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 			}
 
 			size_t index = 0;
-			for (auto& [note, vel, kind]: seq) {
+			for (auto& [dur, note, vel, kind]: seq) {
 				if (kind == BEAT) {
 					vel = velocities[index];
 					index = (index + 1) % velocities.size();
@@ -622,18 +638,16 @@ inline Timeline sequence_compile(Sequence seq, uint8_t chan, Unit time) {
 
 	Timeline tl {};
 
-	auto per = ONE_MIN / seq.bpm;
-
 	auto ON = midi2int(Midi::NOTE_ON) | chan;
 	auto OFF = midi2int(Midi::NOTE_OFF) | chan;
 
-	for (auto& [note, vel, kind]: seq) {
+	for (auto& [dur, note, vel, kind]: seq) {
 		if (kind == BEAT) {
 			tl.emplace_back(time, ON, note, vel);
-			tl.emplace_back(time + per, OFF, note, vel);
+			tl.emplace_back(time + dur, OFF, note, vel);
 		}
 
-		time += per;
+		time += dur;
 	}
 
 	tl.duration = time;
@@ -646,8 +660,6 @@ inline void timeline(Context& ctx, Lexer& lx, View stat_v, Unit orig) {
 
 	if (lx.peek.kind == Symbols::SEND) {
 		lx.next();  // skip `~>`
-
-		// Unit orig = ctx.time;
 
 		uint8_t chan = channel(ctx, lx);
 		Timeline tl = sequence_compile(std::move(seq), chan, orig);

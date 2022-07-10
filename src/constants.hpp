@@ -18,6 +18,8 @@ constexpr size_t VELOCITY_DEFAULT = 127u;
 constexpr size_t BPM_MIN     = 1u;
 constexpr size_t BPM_DEFAULT = 120u;
 
+constexpr auto DURATION_DEFAULT = std::chrono::milliseconds { 60'000 / BPM_DEFAULT };
+
 
 constexpr auto ACTIVE_SENSING_INTERVAL = std::chrono::milliseconds { 250 };
 
