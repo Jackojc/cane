@@ -6,8 +6,6 @@ comment ::= ? #.+$ ?
 sequence ::= ( '!' | '.' )*
 euclidean ::= ( ':' <lit_expr> | <literal> ) ':' <lit_expr>
 
-channel ::= ( <literal> | <identifier> )
-
 
 lit_infix ::= <lit_expr> ( '+' | '-' | '*' | '/' ) <lit_expr>
 lit_prefix ::= ( "len" | "beats" | "skips" ) <seq_expr>
@@ -20,9 +18,10 @@ lit_expr ::=
 
 seq_prefix ::= ( '~' | '\'' ) <seq_expr>
 seq_infix_expr ::= <seq_expr> ( '|' | '&' | '^' | ',' ) <seq_expr>
-seq_infix_lit  ::= <seq_expr> ( '<' | '>' | '**' | '@' ) <lit_expr>
+seq_infix_lit  ::= <seq_expr> ( '<' | '>' | '**' ) <lit_expr>
 seq_infix_lit  ::= <seq_expr> "map" <lit_expr>+
 seq_infix_lit  ::= <seq_expr> "vel" <lit_expr>+
+seq_infix_lit  ::= <seq_expr> '@' <lit_expr>+
 seq_infix_lit  ::= <seq_expr> '=>' <identifier>
 seq_infix      ::= <seq_infix_expr> | <seq_infix_lit>
 
@@ -35,10 +34,9 @@ seq_expr ::=
 
 
 let   ::= "let" ( <identifier> <lit_expr> )+
-alias ::= "alias" ( <identifier> <literal> )+
 bpm   ::= "bpm" <lit_expr>
 note  ::= "note" <lit_expr>
-send ::= <seq_expr> '~>' <channel>
+send ::= <seq_expr> '~>' <lit_expr>
 
 stat ::= <let> | <alias> | <bpm> | <note> | <send> | <seq_expr>
 

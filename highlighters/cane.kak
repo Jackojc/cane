@@ -16,7 +16,7 @@ provide-module -override cane %{
 	# add-highlighter shared/cane/other/ regex "\b0[bB][0-1]+" 0:value       # binary
 
 	# keywords and operators
-	add-highlighter shared/cane/other/ regex "\b(map|vel|car|cdr|let|beats|skips|len|alias|bpm|note)\b" 0:keyword
+	add-highlighter shared/cane/other/ regex "\b(map|vel|car|cdr|let|beats|skips|len|bpm|note)\b" 0:keyword
 	add-highlighter shared/cane/other/ regex "\$|\+|-|\*|/|'|\?|~|=>|~>|@|:|\||&|\^|,|<|>|\*\*" 0:operator
 }
 

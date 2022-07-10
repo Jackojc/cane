@@ -19,7 +19,7 @@
 | <_seq_> `<` <_lit_> | Rotate Left | Sequences | Rotates the steps of a sequence to the left (with wrap-around) | `!..! < 1` | `..!!` |
 | <_seq_> `>` <_lit_> | Rotate Right | Sequences | Rotates the steps of a sequence to the right (with wrap-around) | `!..! > 1` | `!!..` |
 | <_seq_> `**` <_lit_> | Repeat | Sequences | Repeats the sequence a number of times | `!..! ** 2` | `!..!!..!` |
-| <_seq_> `@` <_lit_> | BPM | Sequences | Sets the BPM for a sequence | `4:16 @ bpm` | N/A |
+| <_seq_> `@` <_lit_> | BPM | Sequences | Maps step durations for a sequence | `4:16 @ bpm` | N/A |
 | `'` <_seq_> | Reverse | Sequences | Reverses the steps in a sequence | `!...!.!.` | `.!.!...!` |
 | `~` <_seq_> | Invert (Logical NOT) | Sequences | Inverts the steps of a sequence | `!..!!.!!` | `.!!..!..` |
 | <_lit_> `+` <_lit_> | Addition | Literals | Adds two literals together | `1 + 2 + 3` | `6` |
@@ -35,9 +35,10 @@ Low to high precedence.
 
 | Sequence Operators |
 | --- |
-| `?` `=>` `map` `vel` |
+| `?` `=>` `map` `vel` `,` |
+| `@` |
 | `car` `cdr` |
-| `,` `\|` `&` `^` `<` `>` `**` `@` |
+| `\|` `&` `^` `<` `>` `**` |
 | `'` `~` |
 
 | Literal Operators |
@@ -55,9 +56,9 @@ highlighters in the `highlighters/` directory.
 
 | Class | Token |
 | --- | --- |
-| Keywords | `bpm` `note` `alias` `let` `send` `map` `vel` `car` `cdr` `len` `beats` `skips` |
+| Keywords | `bpm` `note` `let` `map` `vel` `car` `cdr` `len` `beats` `skips` |
 | Operators | `=>` `@` `?` `<` `>` `**` `\|` `&` `^` `,` `~` `'` `+` `-` `*` `/` |
-| Operators/Keywords | `$` `:` |
+| Operators/Keywords | `$` `:` `~>` |
 | Values | `!` `.` |
 | Comments | `#.+$` |
 | Grouping | `(` `)` |
@@ -130,24 +131,13 @@ a global note value to base your song off allowing you to easily change the key 
 your song.
 
 ### Send
-The `send` keyword sinks a sequence to a MIDI channel. In other words, without
-`send`, your song will not send any MIDI.
+The send (`~>`) statement sinks a sequence to a MIDI channel. In other words, without
+send, your song will not send any MIDI.
 
-`send` is _not_ an operator like most things in Cane. It is a statement and must
+send is _not_ an operator like most things in Cane. It is a statement and must
 appear at the beginning of an expression.
 
-As an example, you can send a sequence to MIDI channel 1 like so: `send 1 4:16`.
-
-### Aliases
-Aliases allow you to name a MIDI channel. This is usually a lot easier than having
-to remember which channel your instruments are on manually.
-
-You can define an alias like: `alias kick 1`.
-Aliases are constant and cannot be re-defined.
-You can use an alias in any context where a numeric channel value would be
-expected.
-
-`send kick 4:16`
+As an example, you can send a sequence to MIDI channel 1 like so: `4:16 ~> 1`.
 
 ### Layering
 Normally, sequences are played one after the other but you can use layering
@@ -155,17 +145,17 @@ to play two sequences at the same time to build up more complex rhythms.
 
 If we start off with a simple beat like this:
 ```
-send kick 2:16
-send snare 2:16 > 2
-send hihat 8:16
+2:16 ~> kick
+2:16 > 2 ~> snare
+8:16 ~> hihat
 ```
 When playing it you'll find that each sequence plays on its own after the other.
 This obviously isn't what we want so to make the sequences play simultaneously,
 we use the layer statement (`$`). Applying it to the above example, we get:
 ```
-send kick 2:16 $
-send snare 2:16 > 2 $
-send hihat 8:16
+2:16 ~> kick $
+2:16 > 2 ~> snare $
+8:16 ~> hihat
 ```
 And voila, our sequences now play together as expected.
 

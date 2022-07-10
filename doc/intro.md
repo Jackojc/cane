@@ -146,16 +146,18 @@ note 60
 
 Next, we'll define some useful constants.
 ```
-let qn bpm * 4  # Quarter Note
-let hn bpm * 2  # Half Note
-let fn bpm      # Full Note
+let
+	qn bpm * 4  # Quarter Note
+	hn bpm * 2  # Half Note
+	fn bpm      # Full Note
 ```
 
 Now we're going to assign names to the MIDI channels we set up earlier in LMMs.
 ```
 # MIDI Channels
-alias c_bd 1
-alias c_sn 2
+let
+	c_bd 1
+	c_sn 2
 ```
 
 One final bit of boilerplate before we get onto the fun part; We are going to
@@ -175,8 +177,9 @@ should use whatever value is shown for you. If you're working with samples,
 you will need to adjust the base note in LMMS to avoid stretching.
 
 ```
-let bd 69  # Base Note for Bass Drum
-let sn 69  # Bass Note for Snare Drum
+let
+	bd 69  # Base Note for Bass Drum
+	sn 69  # Bass Note for Snare Drum
 ```
 
 Okay nice! The boilerplate is out of the way and we can get to the fun part!
@@ -219,8 +222,8 @@ you'll notice that nothing happens. This is because we have simply _defined_
 the sequences but have not sent them to the appropriate MIDI channels so let us
 go ahead and do that:
 ```
-send c_bd bd_bar  # `send` will output the sequence on the named MIDI channel.
-send c_sn sn_bar
+bd_bar ~> c_bd  # send (`~>`) will output the sequence on the named MIDI channel.
+sn_bar ~> c_sn
 ```
 
 Give it a try by running Cane... Uh-oh. Something is wrong here. We wanted
@@ -234,8 +237,8 @@ between two sequence expressions.
 
 We use it like this:
 ```
-send c_bd bd_bar $
-send c_sn sn_bar
+bd_bar ~> c_bd $
+sn_bar ~> c_sn
 ```
 
 Perfect! If we now try running this with Cane, we get the result we wanted: The
@@ -257,37 +260,41 @@ To start off, we will define our metadata and some constants:
 bpm 124
 note 58  # A#3
 
-let en bpm * 8  # Eight Notes
-let qn bpm * 4  # Quarter Notes
-let hn bpm * 2  # Half Notes
-let fn bpm * 1  # Full Notes
+let
+	en bpm * 8  # Eight Notes
+	qn bpm * 4  # Quarter Notes
+	hn bpm * 2  # Half Notes
+	fn bpm * 1  # Full Notes
 
 let n note  # Shorthand
 
-let o1 n + 12 * 0
-let o2 n + 12 * 1
-let o3 n + 12 * 2
+let
+	o1 n + 12 * 0
+	o2 n + 12 * 1
+	o3 n + 12 * 2
 ```
 
 Next, let's define our MIDI channels and base notes:
 ```
 # MIDI Channels
-alias c_bd 1  # Bass Drum
-alias c_sn 2  # Snare Drum
-alias c_oh 3  # Open HiHat
-alias c_ch 4  # Closed HiHat
-alias c_cb 5  # Cowbell
-alias c_gb 6  # Gritty Bass
-alias c_sh 7  # Shaker
-alias c_bs 8  # Bass
+let
+	c_bd 1  # Bass Drum
+	c_sn 2  # Snare Drum
+	c_oh 3  # Open HiHat
+	c_ch 4  # Closed HiHat
+	c_cb 5  # Cowbell
+	c_gb 6  # Gritty Bass
+	c_sh 7  # Shaker
+	c_bs 8  # Bass
 
 # MIDI Base Notes
-let bd 69  # Bass Drum Base Note
-let sn 69  # Snare Drum Base Note
-let oh 69  # Open HiHat Base Note
-let ch 69  # Closed HiHat Base Note
-let cb 69  # Cowbell Base Note
-let sh 1   # Shaker Base Note
+let
+	bd 69  # Bass Drum Base Note
+	sn 69  # Snare Drum Base Note
+	oh 69  # Open HiHat Base Note
+	ch 69  # Closed HiHat Base Note
+	cb 69  # Cowbell Base Note
+	sh 1   # Shaker Base Note
 ```
 
 So far we haven't encountered anything new but let's introduce a new concept:
@@ -345,26 +352,28 @@ them.
 
 First, our underlying beat:
 ```
-  send c_bd b_bd map bd
-$ send c_sn b_sn map sn
-$ send c_ch b_ch map ch
-$ send c_cb b_cb map cb
-$ send c_sh b_sh map sh
+  b_bd map bd ~> c_bd
+$ b_sn map sn ~> c_sn
+$ b_ch map ch ~> c_ch
+$ b_cb map cb ~> c_cb
+$ b_sh map sh ~> c_sh
 ```
 
 Next, our melody:
 ```
-$ send c_bs b_bs map
+$ b_bs map
 	o1 - 4  o2 - 4  o1 - 4  o2 - 4
 	o1 - 7  o2 - 7  o1 - 7  o2 - 7
 	o1 - 5  o2 - 5  o1 - 5  o2 - 5
 	o1      o2      o1      o2
+~> c_bs
 
-$ send c_gb b_gb map
+$ b_gb map
 	o1 + 3  o1 + 3  o1 + 3  o1 + 5
 	o1 + 3  o1 + 5  o1 + 5  o1 + 8
 	o1 + 5  o1 + 8  o1 + 8  o1
 	o1 + 8  o1      o1      o1
+~> c_gb
 ```
 
 ([sample](snd/four-on-the-floor.ogg))
