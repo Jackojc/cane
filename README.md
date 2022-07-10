@@ -16,30 +16,33 @@ bpm 120
 note 60 # Middle C
 
 # Constants
-let qn bpm * 4 # Quarter Note
-let hn bpm * 2 # Half Note
-let fn bpm     # Full Note
+let
+	qn bpm * 4 # Quarter Note
+	hn bpm * 2 # Half Note
+	fn bpm     # Full Note
 
 # MIDI Channels
-alias c_bd 1 # Bass Drum
-alias c_cl 2 # Clap
-alias c_sh 3 # Shaker
-alias c_ch 4 # Closed HiHat
-alias c_oh 6 # Open HiHat
+let
+	c_bd 1 # Bass Drum
+	c_cl 2 # Clap
+	c_sh 3 # Shaker
+	c_ch 4 # Closed HiHat
+	c_oh 6 # Open HiHat
 
 # Notes
-let bd 69 # c_bd: Bass Drum
-let cl 69 # c_cl: Clap
-let sh 58 # c_sh: Shaker
-let ch 69 # c_ch: Closed HiHat
-let oh 69 # c_oh: Open HiHat
+let
+	bd 69 # c_bd: Bass Drum
+	cl 69 # c_cl: Clap
+	sh 58 # c_sh: Shaker
+	ch 69 # c_ch: Closed HiHat
+	oh 69 # c_oh: Open HiHat
 
 # French House
-send c_bd !... !... !... !... map bd @ qn $
-send c_cl .... !... .... !... map cl @ qn $
-send c_sh !!!. !.!! !!!. !.!! map sh @ qn $
-send c_ch !!!! !!!! !!!! !!!! map ch @ qn $
-send c_oh .!.! .!.! .!.! .!.! map oh @ qn
+!... !... !... !... map bd @ qn ~> c_bd $
+.... !... .... !... map cl @ qn ~> c_cl $
+!!!. !.!! !!!. !.!! map sh @ qn ~> c_sh $
+!!!! !!!! !!!! !!!! map ch @ qn ~> c_ch $
+.!.! .!.! .!.! .!.! map oh @ qn ~> c_oh
 ```
 
 ### What Can Cane Do?
@@ -48,7 +51,7 @@ send c_oh .!.! .!.! .!.! .!.! map oh @ qn
 - Generate complex beats with relatively little effort
 - Embeddable in larger projects
 - Create polyrhythms and polymeters
-- Live-coding
+- Live-coding (TODO)
 
 ### Introduction & Reference
 See the introduction [here](doc/intro.md)
