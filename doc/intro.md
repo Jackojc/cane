@@ -375,10 +375,25 @@ b_gb map
 ~> c_gb
 ```
 
-We introduce a new concept here in the form of literal expressions. `map` takes
-a variable number of note values (>=1) which are just MIDI notes. We're referencing
-some of the constants we defined earlier to cut down on the verbosity of changing
-octaves.
+We introduce a new concept here in the form of literal expressions. Literal
+expressions support most of the usual arithmetic you'd expect like addition (`+`),
+subtraction (`-`), multiplication (`*`) & division (`/`) aswell as referencing
+constants. This makes it very easy to set up a number of tunable parameters at
+the beginning of your code that you can tweak in one place rather than all over
+the code.
+
+We've seen `map` before but we're using it in a slightly different way here. In
+this example, we are passing multiple MIDI note values to `map`. `map` will assign
+notes to _active_ steps in a circular fashion. That means if we have more active
+steps than notes, we will just loop back to the starting note and begin mapping
+from there once again until we reach the end of the sequence.
+
+Some of the constants we defined earlier are being used here to let us easily change
+octaves without being verbose. Without these handy constants, we would have to manually
+increment or decrement the note by `12`.
+
+That's it for our second example! Give it a listen and see what you think! There's
+a link to a sample I created below if you want to see how it compares/should sound.
 
 This pattern is fairly basic and lacks any polyphony or interesting rhythm but
 I would encourage you to experiment here and see if you can make something
