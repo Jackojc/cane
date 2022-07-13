@@ -34,7 +34,7 @@ seq_expr ::=
 
 
 let  ::= "let" ( <identifier> <lit_expr> )+
-send ::= <seq_expr> '~>' <lit_expr>
+send ::= <seq_expr> '~>' <lit_expr> [ '$' <send> ]
 
 stat ::= <let> | <send> | <seq_expr>
 
