@@ -54,7 +54,7 @@ namespace cane {
 	constexpr View STR_REDEFINED = "`%` has been re-defined"_sv;
 	constexpr View STR_CONFLICT  = "`%` conflicts with previously defined symbol"_sv;
 
-	constexpr View STR_DEBUG = "`%`x% (%)"_sv;
+	constexpr View STR_DEBUG = "`%`x% =% %s"_sv;
 
 	constexpr View STR_OPT_NO_FILE        = "no file specified"_sv;
 	constexpr View STR_OPT_INVALID_OPTION = "invalid option `%`"_sv;

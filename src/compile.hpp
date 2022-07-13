@@ -530,7 +530,14 @@ inline Sequence sequence_postfix(Context& ctx, Lexer& lx, View expr_v, Sequence 
 			auto mini = sequence_minify(seq);
 			size_t count = seq.size() / mini.size();
 
-			lx.notice(ctx, Phases::SEMANTIC, encompass(expr_v, tok.view), STR_DEBUG, mini, count, seq.size());
+			Unit length = Unit::zero();
+
+			for (auto& [dur, note, vel, kind]: seq)
+				length += dur;
+
+			size_t seconds = std::chrono::duration_cast<UnitSeconds>(length).count();
+
+			lx.notice(ctx, Phases::SEMANTIC, encompass(expr_v, tok.view), STR_DEBUG, mini, count, seq.size(), seconds);
 		} break;
 
 		default: { lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_SEQ_OPERATOR); } break;
