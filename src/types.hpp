@@ -68,9 +68,6 @@ struct Context {
 	Timeline tl;
 	Unit time = Unit::zero();
 
-	size_t global_bpm;
-	size_t global_note;
-
 	Handler error_handler;
 	Handler warning_handler;
 	Handler notice_handler;

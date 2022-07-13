@@ -19,7 +19,7 @@
 | <_seq_> `<` <_lit_> | Rotate Left | Sequences | Rotates the steps of a sequence to the left (with wrap-around) | `!..! < 1` | `..!!` |
 | <_seq_> `>` <_lit_> | Rotate Right | Sequences | Rotates the steps of a sequence to the right (with wrap-around) | `!..! > 1` | `!!..` |
 | <_seq_> `**` <_lit_> | Repeat | Sequences | Repeats the sequence a number of times | `!..! ** 2` | `!..!!..!` |
-| <_seq_> `@` <_lit_> | BPM | Sequences | Maps step durations for a sequence | `4:16 @ bpm` | N/A |
+| <_seq_> `@` <_lit_> | BPM | Sequences | Maps step durations for a sequence | `4:16 @ 120` | N/A |
 | `'` <_seq_> | Reverse | Sequences | Reverses the steps in a sequence | `!...!.!.` | `.!.!...!` |
 | `~` <_seq_> | Invert (Logical NOT) | Sequences | Inverts the steps of a sequence | `!..!!.!!` | `.!!..!..` |
 | <_lit_> `+` <_lit_> | Addition | Literals | Adds two literals together | `1 + 2 + 3` | `6` |
@@ -56,7 +56,7 @@ highlighters in the `highlighters/` directory.
 
 | Class | Token |
 | --- | --- |
-| Keywords | `bpm` `note` `let` `map` `vel` `car` `cdr` `len` `beats` `skips` |
+| Keywords | `let` `map` `vel` `car` `cdr` `len` `beats` `skips` |
 | Operators | `=>` `@` `?` `<` `>` `**` `\|` `&` `^` `,` `~` `'` `+` `-` `*` `/` |
 | Operators/Keywords | `$` `:` `~>` |
 | Values | `!` `.` |
@@ -64,21 +64,6 @@ highlighters in the `highlighters/` directory.
 | Grouping | `(` `)` |
 | Identifier | `\S+` |
 | Literal | `\d+` |
-
-### Metadata
-Every Cane file begins with a small meta-data section which contains
-two values: `bpm` and `note`.
-
-`bpm` defines a global tempo for the song and can be accessed in literal expression
-contexts using the same name: `bpm`. This value dictates the default tempo of sequences
-if you don't manually override it with the `@` operator. The global tempo also sets
-the MIDI clock rate for timing messages.
-
-`note` defines a global base note for sequences. By default, sequences will use
-this value for all beats but you can define a new note mapping using the `map`
-operator. You can choose to ignore this value entirely but it does provide an easy
-way to change the key of your song. You can access this value in literal expressions
-using `note`.
 
 ### Steps
 A step is the basic unit of a sequence and is either a beat or
@@ -97,9 +82,6 @@ operators.
 
 Constants can be defined like: `let foo 123 * 456`.
 As the name implies, constants are immutable.
-
-There are some implicitly defined constants like `bpm` and `note` which
-evaluate to their respective global values.
 
 ### Sequences
 Sequences are a collection of steps and the building blocks of Cane.
@@ -126,10 +108,6 @@ only mapped three notes. If there are too few notes, we map as many as we can
 and if there are too few notes, we simply loop back around to the start and map
 the first note.
 
-As mentioned in the meta-data section previously, you can set and later reference
-a global note value to base your song off allowing you to easily change the key of
-your song.
-
 ### Send
 The send (`~>`) statement sinks a sequence to a MIDI channel. In other words, without
 send, your song will not send any MIDI.
@@ -138,6 +116,9 @@ send is _not_ an operator like most things in Cane. It is a statement and must
 appear at the beginning of an expression.
 
 As an example, you can send a sequence to MIDI channel 1 like so: `4:16 ~> 1`.
+
+It is important to note that you should map step durations and notes before
+trying to send a sequence otherwise you'll get an error.
 
 ### Layering
 Normally, sequences are played one after the other but you can use layering
@@ -158,6 +139,9 @@ we use the layer statement (`$`). Applying it to the above example, we get:
 8:16 ~> hihat
 ```
 And voila, our sequences now play together as expected.
+
+### Nested Tuplets
+> TODO
 
 ### Debug
 It is sometimes useful to visualise sequences instead of relying solely on your

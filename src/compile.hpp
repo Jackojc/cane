@@ -82,12 +82,6 @@ constexpr bool is_literal_primary(Token x) {
 		is_literal(x);
 }
 
-// constexpr bool is_meta(Token x) {
-// 	return cmp_any(x.kind,
-// 		Symbols::GLOBAL_NOTE,
-// 		Symbols::GLOBAL_BPM);
-// }
-
 enum class OpFix {
 	LIT_PREFIX,
 	LIT_INFIX,
@@ -271,16 +265,6 @@ inline double literal_primary(Context& ctx, Lexer& lx, View lit_v, double lit, s
 		case Symbols::IDENT: {
 			lit = literal_const(ctx, lx, lx.peek.view);
 		} break;
-
-		// case Symbols::GLOBAL_BPM: {
-		// 	lx.next();  // skip `bpm`
-		// 	lit = ctx.global_bpm;
-		// } break;
-
-		// case Symbols::GLOBAL_NOTE: {
-		// 	lx.next();  // skip `note`
-		// 	lit = ctx.global_note;
-		// } break;
 
 		case Symbols::LPAREN: {
 			lx.next();  // skip `(`
@@ -706,43 +690,6 @@ inline Timeline compile(
 
 	if (not cane::validate(src))
 		lx.error(ctx, cane::Phases::ENCODING, src, cane::STR_ENCODING);
-
-	// Compile
-	// enum {
-	// 	META_NONE,
-	// 	META_NOTE = 0b01,
-	// 	META_BPM  = 0b10,
-	// };
-
-	// uint8_t flags = META_NONE;
-
-	// while (is_meta(lx.peek)) {
-	// 	auto [view, kind] = lx.next();
-
-	// 	switch (kind) {
-	// 		case Symbols::GLOBAL_BPM: {
-	// 			CANE_LOG(LogLevel::INF, sym2str(Symbols::GLOBAL_BPM));
-	// 			uint64_t bpm = literal_expr(ctx, lx, lx.peek.view, 0);
-	// 			ctx.global_bpm = bpm;
-	// 			flags |= META_BPM;
-	// 		} break;
-
-	// 		case Symbols::GLOBAL_NOTE: {
-	// 			CANE_LOG(LogLevel::INF, sym2str(Symbols::GLOBAL_NOTE));
-	// 			uint64_t note = literal_expr(ctx, lx, lx.peek.view, 0);
-	// 			ctx.global_note = note;
-	// 			flags |= META_NOTE;
-	// 		} break;
-
-	// 		default: { lx.error(ctx, Phases::SYNTACTIC, view, STR_META); } break;
-	// 	}
-	// }
-
-	// if ((flags & META_BPM) != META_BPM)
-	// 	lx.error(ctx, Phases::SEMANTIC, lx.peek.view, STR_NO_BPM);
-
-	// if ((flags & META_NOTE) != META_NOTE)
-	// 	lx.error(ctx, Phases::SEMANTIC, lx.peek.view, STR_NO_NOTE);
 
 	while (lx.peek.kind != Symbols::TERMINATOR)
 		statement(ctx, lx, lx.peek.view);

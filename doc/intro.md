@@ -138,14 +138,12 @@ MIDI like shown previously.
 
 <img alt="LMMS Drum and Snare MIDI" src="img/lmms-bass-snare-midi.png" width=35%>
 
-First things first, let's set up a global tempo and a base note.
+First things first, let's define some useful constants:
 ```
-bpm 120
-note 60
-```
+let
+	bpm 120
+	note 60
 
-Next, we'll define some useful constants.
-```
 let
 	qn bpm * 4  # Quarter Note
 	hn bpm * 2  # Half Note
@@ -255,10 +253,11 @@ a little bit more complex.
 Now let's try something a bit more complex. We're going to write a "four on the
 floor" pattern which is very common in Disco and EDM.
 
-To start off, we will define our metadata and some constants:
+To start off, we will define some useful constants again:
 ```
-bpm 124
-note 58  # A#3
+let
+	bpm 124
+	note 58  # A#3
 
 let
 	en bpm * 8  # Eight Notes
