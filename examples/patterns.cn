@@ -1,208 +1,211 @@
 # Patterns from: https://shittyrecording.studio/
-# Metadata
+let
 bpm 120
 note 60 # Middle C
 
 # Constants
-let qn bpm * 4 # Quarter Note
-let hn bpm * 2 # Half Note
-let fn bpm     # Full Note
+let
+qn bpm * 4 # Quarter Note
+hn bpm * 2 # Half Note
+fn bpm     # Full Note
 
 # MIDI Channels
-alias c_bd  1  # Bass Drum
-alias c_sn  2  # Snare
-alias c_kt1 3  # Drumkit 1
-alias c_rs  4  # Rimshot
-alias c_cl  5  # Clap
-alias c_kt2 6  # Drumkit 2
-alias c_cb  7  # Cowbell
-alias c_cy  8  # Cymbal
-alias c_ch  9  # Closed HiHat
-alias c_oh  10 # Open HiHat
+let
+c_bd  1  # Bass Drum
+c_sn  2  # Snare
+c_kt1 3  # Drumkit 1
+c_rs  4  # Rimshot
+c_cl  5  # Clap
+c_kt2 6  # Drumkit 2
+c_cb  7  # Cowbell
+c_cy  8  # Cymbal
+c_ch  9  # Closed HiHat
+c_oh  10 # Open HiHat
 
 # Notes to play on each MIDI channel
-let bd 69 # c_bd:  Bass Drum
-let sn 69 # c_sn:  Snare Drum
-let rs 69 # c_rs:  Rimshot
-let cl 69 # c_cl:  Clap
-let lt 48 # c_kt1: Low Tom
-let mt 49 # c_kt1: Middle Tom
-let ht 50 # c_kt1: High Tom
-let sh 58 # c_kt2: Shaker
-let cb 69 # c_cb:  Cowbell
-let cy 69 # c_cy:  Cymal
-let ch 69 # c_ch:  Closed HiHat
-let oh 69 # c_oh:  Open HiHat
+let
+bd 69 # c_bd:  Bass Drum
+sn 69 # c_sn:  Snare Drum
+rs 69 # c_rs:  Rimshot
+cl 69 # c_cl:  Clap
+lt 48 # c_kt1: Low Tom
+mt 49 # c_kt1: Middle Tom
+ht 50 # c_kt1: High Tom
+sh 58 # c_kt2: Shaker
+cb 69 # c_cb:  Cowbell
+cy 69 # c_cy:  Cymal
+ch 69 # c_ch:  Closed HiHat
+oh 69 # c_oh:  Open HiHat
 
 # One and Seven & Five and Thirteen
-send c_bd !... ..!. .... .... map bd @ qn $
-send c_sn .... !... .... !... map sn @ qn
+# !... ..!. .... .... map bd @ qn ~> c_bd $
+# .... !... .... !... map sn @ qn ~> c_sn
 
 # Boots N' Cats
-send c_bd !... .... !... .... map bd @ qn $
-send c_sn .... !... .... !... map sn @ qn $
-send c_ch !.!. !.!. !.!. !.!. map ch @ qn
+# !... .... !... .... map bd @ qn ~> c_bd $
+# .... !... .... !... map sn @ qn ~> c_sn $
+# !.!. !.!. !.!. !.!. map ch @ qn ~> c_ch
 
 # Tiny House
-send c_oh ..!. ..!. ..!. ..!. map oh @ qn $
-send c_bd !... !... !... !... map bd @ qn
+# ..!. ..!. ..!. ..!. map oh @ qn ~> c_oh $
+# !... !... !... !... map bd @ qn ~> c_bd
 
 # Good To Go
-send c_bd !..! ..!. ..!. .... map bd @ qn $
-send c_sn .... !... .... !... map sn @ qn
+# !..! ..!. ..!. .... map bd @ qn ~> c_bd $
+# .... !... .... !... map sn @ qn ~> c_sn
 
 # Hip Hop
-send c_bd !.!. ..!! .... ..!. map bd @ qn $
-send c_sn .... !... .... !... map sn @ qn $
-send c_ch !.!. !.!. !.!. !.!. map ch @ qn
+# !.!. ..!! .... ..!. map bd @ qn ~> c_bd $
+# .... !... .... !... map sn @ qn ~> c_sn $
+# !.!. !.!. !.!. !.!. map ch @ qn ~> c_ch
 
 # Standard Break 1
-send c_bd !... .... ..!. .... map bd @ qn $
-send c_sn .... !... .... !... map sn @ qn $
-send c_ch !.!. !.!. !!!. !.!. map ch @ qn
+# !... .... ..!. .... map bd @ qn ~> c_bd $
+# .... !... .... !... map sn @ qn ~> c_sn $
+# !.!. !.!. !!!. !.!. map ch @ qn ~> c_ch
 
 # Standard Break 2
-send c_bd !... .... ..!. .... map bd @ qn $
-send c_sn .... !... .... !... map sn @ qn $
-send c_ch !.!. !.!! !.!. ..!. map ch @ qn
+# !... .... ..!. .... map bd @ qn ~> c_bd $
+# .... !... .... !... map sn @ qn ~> c_sn $
+# !.!. !.!! !.!. ..!. map ch @ qn ~> c_ch
 
 # Rolling Break
-send c_bd !... ...! ..!. .... map bd @ qn $
-send c_sn .... !... .... !... map sn @ qn $
-send c_ch !.!. !.!. !.!. !.!. map ch @ qn
+# !... ...! ..!. .... map bd @ qn ~> c_bd $
+# .... !... .... !... map sn @ qn ~> c_sn $
+# !.!. !.!. !.!. !.!. map ch @ qn ~> c_ch
 
 # The Unknown Drummer
-send c_bd !..! ..!. ..!. .... map bd @ qn $
-send c_sn .!.. !..! .... !... map sn @ qn $
-send c_ch .!!. !!.! .... .!.. map ch @ qn $
-send c_oh .... .... !... ..!. map oh @ qn
+# !..! ..!. ..!. .... map bd @ qn ~> c_bd $
+# .!.. !..! .... !... map sn @ qn ~> c_sn $
+# .!!. !!.! .... .!.. map ch @ qn ~> c_ch $
+# .... .... !... ..!. map oh @ qn ~> c_oh
 
 # Rock 1
-send c_bd !... ...! !.!. .... map bd @ qn $
-send c_sn .... !... .... !... map sn @ qn $
-send c_cy !... .... .... .... map cy @ qn $
-send c_ch !.!. !.!. !.!. !.!. map ch @ qn
+# !... ...! !.!. .... map bd @ qn ~> c_bd $
+# .... !... .... !... map sn @ qn ~> c_sn $
+# !... .... .... .... map cy @ qn ~> c_cy $
+# !.!. !.!. !.!. !.!. map ch @ qn ~> c_ch
 
 # Rock 2
-send c_bd !... ...! !.!. .... map bd @ qn $
-send c_sn .... !... .... !... map sn @ qn $
-send c_ch !.!. !.!. !.!. !.!. map ch @ qn
+# !... ...! !.!. .... map bd @ qn ~> c_bd $
+# .... !... .... !... map sn @ qn ~> c_sn $
+# !.!. !.!. !.!. !.!. map ch @ qn ~> c_ch
 
 # Rock 3
-send c_bd !... ...! !.!. .... map bd @ qn $
-send c_sn .... !... .... !... map sn @ qn $
-send c_oh .... .... .... ..!. map oh @ qn $
-send c_ch !.!. !.!. !.!. !.!. map ch @ qn
+# !... ...! !.!. .... map bd @ qn ~> c_bd $
+# .... !... .... !... map sn @ qn ~> c_sn $
+# .... .... .... ..!. map oh @ qn ~> c_oh $
+# !.!. !.!. !.!. !.!. map ch @ qn ~> c_ch
 
 # Rock 4
-send c_bd !... ...! !.!. .... map bd @ qn $
-send c_sn .... !... .... !.!! map sn @ qn $
-send c_oh .... .... .... ..!. map oh @ qn $
-send c_ch !.!. !.!. !.!. !.!. map ch @ qn
+# !... ...! !.!. .... map bd @ qn ~> c_bd $
+# .... !... .... !.!! map sn @ qn ~> c_sn $
+# .... .... .... ..!. map oh @ qn ~> c_oh $
+# !.!. !.!. !.!. !.!. map ch @ qn ~> c_ch
 
 # Electro 1 - A
-send c_sn .... !... .... !... map sn @ qn $
-send c_bd !... ..!. .... .... map bd @ qn
+# .... !... .... !... map sn @ qn ~> c_sn $
+# !... ..!. .... .... map bd @ qn ~> c_bd
 
 # Electro 1 - B
-send c_sn .... !... .... !... map sn @ qn $
-send c_bd !... ..!. ..!. .!.. map bd @ qn
+# .... !... .... !... map sn @ qn ~> c_sn $
+# !... ..!. ..!. .!.. map bd @ qn ~> c_bd
 
 # Electro 2 - A
-send c_sn .... !... .... !... map sn @ qn $
-send c_bd !... ..!. .... .... map bd @ qn
+# .... !... .... !... map sn @ qn ~> c_sn $
+# !... ..!. .... .... map bd @ qn ~> c_bd
 
 # Electro 2 - B
-send c_sn .... !... .... !... map sn @ qn $
-send c_bd !... .... ..!. .!.. map bd @ qn
+# .... !... .... !... map sn @ qn ~> c_sn $
+# !... .... ..!. .!.. map bd @ qn ~> c_bd
 
 # Electro 3 - A
-send c_sn .... !... .... !... map sn @ qn $
-send c_bd !... ..!. ...! .... map bd @ qn
+# .... !... .... !... map sn @ qn ~> c_sn $
+# !... ..!. ...! .... map bd @ qn ~> c_bd
 
 # Electro 3 - B
-send c_sn .... !... .... !... map sn @ qn $
-send c_bd !... ..!. ...! .!.. map bd @ qn
+# .... !... .... !... map sn @ qn ~> c_sn $
+# !... ..!. ...! .!.. map bd @ qn ~> c_bd
 
 # Electro 4
-send c_sn .... !... .... !... map sn @ qn $
-send c_bd !... ..!. ..!. .!.. map bd @ qn
+# .... !... .... !... map sn @ qn ~> c_sn $
+# !... ..!. ..!. .!.. map bd @ qn ~> c_bd
 
 # Siberian Nights
-send c_ch !.!! !.!! !.!! !.!! map ch @ qn $
-send c_sn .... !... .... !... map sn @ qn $
-send c_bd !... ..!. .... .... map bd @ qn
+# !.!! !.!! !.!! !.!! map ch @ qn ~> c_ch $
+# .... !... .... !... map sn @ qn ~> c_sn $
+# !... ..!. .... .... map bd @ qn ~> c_bd
 
 # New Wave
-send c_bd  !... ..!. !!.. .... map bd @ qn $
-send c_sn  .... !... .... !... map sn @ qn $
-send c_ch  !!!! !!!! !!!! !!!! map ch @ qn $
-send c_oh  ..!. .... .... .... map oh @ qn $
-send c_kt2 .... !... .... !... map sh @ qn
+# !... ..!. !!.. .... map bd @ qn ~> c_bd  $
+# .... !... .... !... map sn @ qn ~> c_sn  $
+# !!!! !!!! !!!! !!!! map ch @ qn ~> c_ch  $
+# ..!. .... .... .... map oh @ qn ~> c_oh  $
+# .... !... .... !... map sh @ qn ~> c_kt2
 
 # House
-send c_bd !... !... !... !... map bd @ qn $
-send c_sn .... !... .... !... map sn @ qn $
-send c_cy !... .... .... .... map cy @ qn $
-send c_oh ..!. ..!. ..!. ..!. map oh @ qn
+# !... !... !... !... map bd @ qn ~> c_bd $
+# .... !... .... !... map sn @ qn ~> c_sn $
+# !... .... .... .... map cy @ qn ~> c_cy $
+# ..!. ..!. ..!. ..!. map oh @ qn ~> c_oh
 
 # House 2
-send c_bd !... !... !... !... map bd @ qn $
-send c_sn .... !... .... !... map sn @ qn $
-send c_ch !!!! !!!! !!!! !!!! map ch @ qn $
-send c_oh ..!. .!.. ..!. ..!. map oh @ qn
+# !... !... !... !... map bd @ qn ~> c_bd $
+# .... !... .... !... map sn @ qn ~> c_sn $
+# !!!! !!!! !!!! !!!! map ch @ qn ~> c_ch $
+# ..!. .!.. ..!. ..!. map oh @ qn ~> c_oh
 
 # Brit House
-send c_bd !... !... !... !... map bd @ qn $
-send c_cl .... !... .... .... map cl @ qn $
-send c_cy ..!. ..!. ..!. ..!. map cy @ qn $
-send c_ch !!.! !!.! !!.! !!.! map ch @ qn $
-send c_oh ..!. ..!. ..!. ..!. map oh @ qn
+# !... !... !... !... map bd @ qn ~> c_bd $
+# .... !... .... .... map cl @ qn ~> c_cl $
+# ..!. ..!. ..!. ..!. map cy @ qn ~> c_cy $
+# !!.! !!.! !!.! !!.! map ch @ qn ~> c_ch $
+# ..!. ..!. ..!. ..!. map oh @ qn ~> c_oh
 
 # French House
-send c_bd  !... !... !... !... map bd @ qn $
-send c_cl  .... !... .... !... map cl @ qn $
-send c_kt2 !!!. !.!! !!!. !.!! map sh @ qn $
-send c_ch  !!!! !!!! !!!! !!!! map ch @ qn $
-send c_oh  .!.! .!.! .!.! .!.! map oh @ qn
+# !... !... !... !... map bd @ qn ~> c_bd  $
+# .... !... .... !... map cl @ qn ~> c_cl  $
+# !!!. !.!! !!!. !.!! map sh @ qn ~> c_kt2 $
+# !!!! !!!! !!!! !!!! map ch @ qn ~> c_ch  $
+# .!.! .!.! .!.! .!.! map oh @ qn ~> c_oh
 
 # Dirty House
-send c_bd !.!. !... !.!. !..! map bd @ qn $
-send c_sn .... !... .... !... map sn @ qn $
-send c_cl ..!. !... !.!. !... map cl @ qn $
-send c_ch .... .... ..!. ...! map ch @ qn $
-send c_oh ..!. .... ..!. ..!. map oh @ qn
+# !.!. !... !.!. !..! map bd @ qn ~> c_bd $
+# .... !... .... !... map sn @ qn ~> c_sn $
+# ..!. !... !.!. !... map cl @ qn ~> c_cl $
+# .... .... ..!. ...! map ch @ qn ~> c_ch $
+# ..!. .... ..!. ..!. map oh @ qn ~> c_oh
 
 # Deep House
-send c_bd !... !... !... !... map bd @ qn $
-send c_cl .... !... .... .... map cl @ qn $
-send c_ch .!.. ...! .!.. .... map ch @ qn $
-send c_oh ..!. ..!. ..!. ..!. map oh @ qn
+# !... !... !... !... map bd @ qn ~> c_bd $
+# .... !... .... .... map cl @ qn ~> c_cl $
+# .!.. ...! .!.. .... map ch @ qn ~> c_ch $
+# ..!. ..!. ..!. ..!. map oh @ qn ~> c_oh
 
 # Deeper House
-send c_bd  !... !... !... !... map bd @ qn $
-send c_cl  .!.. .... .!.. .... map cl @ qn $
-send c_kt1 ..!. ...! ..!. .... map mt @ qn $
-send c_kt2 ...! .... !... .... map sh @ qn $
-send c_oh  ..!. ..!. ..!! ..!. map oh @ qn
+# !... !... !... !... map bd @ qn ~> c_bd  $
+# .!.. .... .!.. .... map cl @ qn ~> c_cl  $
+# ..!. ...! ..!. .... map mt @ qn ~> c_kt1 $
+# ...! .... !... .... map sh @ qn ~> c_kt2 $
+# ..!. ..!. ..!! ..!. map oh @ qn ~> c_oh
 
 # Slow Deep House
-send c_bd  !... !... !... !... map bd @ qn $
-send c_cl  .... !... .... !... map cl @ qn $
-send c_kt2 !!!! !!!! !!!! !!!! map sh @ qn $
-send c_ch  !... !... !... !... map ch @ qn $
-send c_oh  ..!! ..!! .!!. ..!. map oh @ qn
+# !... !... !... !... map bd @ qn ~> c_bd  $
+# .... !... .... !... map cl @ qn ~> c_cl  $
+# !!!! !!!! !!!! !!!! map sh @ qn ~> c_kt2 $
+# !... !... !... !... map ch @ qn ~> c_ch  $
+# ..!! ..!! .!!. ..!. map oh @ qn ~> c_oh
 
 # Footwork - A
-send c_bd !..! ..!. !..! ..!. map bd @ qn $
-send c_cl .... .... .... !... map cl @ qn $
-send c_ch ..!. .... ..!. .... map ch @ qn $
-send c_rs !!!! !!!! !!!! !!!! map rs @ qn
+# !..! ..!. !..! ..!. map bd @ qn ~> c_bd $
+# .... .... .... !... map cl @ qn ~> c_cl $
+# ..!. .... ..!. .... map ch @ qn ~> c_ch $
+# !!!! !!!! !!!! !!!! map rs @ qn ~> c_rs
 
 # Footwork - B
-send c_bd !..! ..!. !..! ..!. map bd @ qn $
-send c_cl .... .... .... !... map cl @ qn $
-send c_ch ..!. ..!! ..!. ..!. map ch @ qn $
-send c_rs !!!! !!!! !!!! !!!! map rs @ qn
+# !..! ..!. !..! ..!. map bd @ qn ~> c_bd $
+# .... .... .... !... map cl @ qn ~> c_cl $
+# ..!. ..!! ..!. ..!. map ch @ qn ~> c_ch $
+# !!!! !!!! !!!! !!!! map rs @ qn ~> c_rs
 
 

@@ -141,21 +141,20 @@ MIDI like shown previously.
 First things first, let's define some useful constants:
 ```
 let
-	bpm 120
-	note 60
+bpm 120
+note 60
 
 let
-	qn bpm * 4  # Quarter Note
-	hn bpm * 2  # Half Note
-	fn bpm      # Full Note
+qn bpm * 4  # Quarter Note
+hn bpm * 2  # Half Note
+fn bpm      # Full Note
 ```
 
 Now we're going to assign names to the MIDI channels we set up earlier in LMMs.
 ```
-# MIDI Channels
 let
-	c_bd 1
-	c_sn 2
+c_bd 1
+c_sn 2
 ```
 
 One final bit of boilerplate before we get onto the fun part; We are going to
@@ -176,8 +175,8 @@ you will need to adjust the base note in LMMS to avoid stretching.
 
 ```
 let
-	bd 69  # Base Note for Bass Drum
-	sn 69  # Bass Note for Snare Drum
+bd 69  # Base Note for Bass Drum
+sn 69  # Bass Note for Snare Drum
 ```
 
 Okay nice! The boilerplate is out of the way and we can get to the fun part!
@@ -256,44 +255,44 @@ floor" pattern which is very common in Disco and EDM.
 To start off, we will define some useful constants again:
 ```
 let
-	bpm 124
-	note 58  # A#3
+bpm 124
+note 58  # A#3
 
 let
-	en bpm * 8  # Eight Notes
-	qn bpm * 4  # Quarter Notes
-	hn bpm * 2  # Half Notes
-	fn bpm * 1  # Full Notes
+en bpm * 8  # Eight Notes
+qn bpm * 4  # Quarter Notes
+hn bpm * 2  # Half Notes
+fn bpm * 1  # Full Notes
 
 let n note  # Shorthand
 
 let
-	o1 n + 12 * 0
-	o2 n + 12 * 1
-	o3 n + 12 * 2
+o1 n + 12 * 0
+o2 n + 12 * 1
+o3 n + 12 * 2
 ```
 
 Next, let's define our MIDI channels and base notes:
 ```
 # MIDI Channels
 let
-	c_bd 1  # Bass Drum
-	c_sn 2  # Snare Drum
-	c_oh 3  # Open HiHat
-	c_ch 4  # Closed HiHat
-	c_cb 5  # Cowbell
-	c_gb 6  # Gritty Bass
-	c_sh 7  # Shaker
-	c_bs 8  # Bass
+c_bd 1  # Bass Drum
+c_sn 2  # Snare Drum
+c_oh 3  # Open HiHat
+c_ch 4  # Closed HiHat
+c_cb 5  # Cowbell
+c_gb 6  # Gritty Bass
+c_sh 7  # Shaker
+c_bs 8  # Bass
 
 # MIDI Base Notes
 let
-	bd 69  # Bass Drum Base Note
-	sn 69  # Snare Drum Base Note
-	oh 69  # Open HiHat Base Note
-	ch 69  # Closed HiHat Base Note
-	cb 69  # Cowbell Base Note
-	sh 1   # Shaker Base Note
+bd 69  # Bass Drum Base Note
+sn 69  # Snare Drum Base Note
+oh 69  # Open HiHat Base Note
+ch 69  # Closed HiHat Base Note
+cb 69  # Cowbell Base Note
+sh 1   # Shaker Base Note
 ```
 
 So far we haven't encountered anything new but let's introduce a new concept:
