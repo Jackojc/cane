@@ -82,11 +82,11 @@ constexpr bool is_literal_primary(Token x) {
 		is_literal(x);
 }
 
-constexpr bool is_meta(Token x) {
-	return cmp_any(x.kind,
-		Symbols::GLOBAL_NOTE,
-		Symbols::GLOBAL_BPM);
-}
+// constexpr bool is_meta(Token x) {
+// 	return cmp_any(x.kind,
+// 		Symbols::GLOBAL_NOTE,
+// 		Symbols::GLOBAL_BPM);
+// }
 
 enum class OpFix {
 	LIT_PREFIX,
@@ -272,15 +272,15 @@ inline double literal_primary(Context& ctx, Lexer& lx, View lit_v, double lit, s
 			lit = literal_const(ctx, lx, lx.peek.view);
 		} break;
 
-		case Symbols::GLOBAL_BPM: {
-			lx.next();  // skip `bpm`
-			lit = ctx.global_bpm;
-		} break;
+		// case Symbols::GLOBAL_BPM: {
+		// 	lx.next();  // skip `bpm`
+		// 	lit = ctx.global_bpm;
+		// } break;
 
-		case Symbols::GLOBAL_NOTE: {
-			lx.next();  // skip `note`
-			lit = ctx.global_note;
-		} break;
+		// case Symbols::GLOBAL_NOTE: {
+		// 	lx.next();  // skip `note`
+		// 	lit = ctx.global_note;
+		// } break;
 
 		case Symbols::LPAREN: {
 			lx.next();  // skip `(`
@@ -462,6 +462,8 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 				dur = durs[index];
 				index = (index + 1) % durs.size();
 			}
+
+			seq.flags |= SEQ_DURATION;
 		} break;
 
 		case Symbols::MAP: {
@@ -485,6 +487,8 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 					index = (index + 1) % notes.size();
 				}
 			}
+
+			seq.flags |= SEQ_NOTE;
 		} break;
 
 		case Symbols::VEL: {
@@ -555,8 +559,6 @@ inline Sequence sequence_expr(Context& ctx, Lexer& lx, View expr_v, size_t bp) {
 	CANE_LOG(LogLevel::WRN);
 
 	Sequence seq {};
-	seq.bpm = ctx.global_bpm;
-
 	Token tok = lx.peek;
 
 	if (is_sequence_prefix(tok)) {
@@ -637,6 +639,14 @@ inline void timeline(Context& ctx, Lexer& lx, View stat_v, Unit orig) {
 		if (chan > CHANNEL_MAX or chan < CHANNEL_MIN)
 			lx.error(ctx, Phases::SEMANTIC, encompass(before_v, lx.prev.view), STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
 
+
+		if ((seq.flags & SEQ_NOTE) != SEQ_NOTE)
+			lx.error(ctx, Phases::SEMANTIC, encompass(stat_v, lx.prev.view), STR_NO_NOTE);
+
+		if ((seq.flags & SEQ_DURATION) != SEQ_DURATION)
+			lx.error(ctx, Phases::SEMANTIC, encompass(stat_v, lx.prev.view), STR_NO_BPM);
+
+
 		Timeline tl = sequence_compile(std::move(seq), chan, orig);
 
 		ctx.time = std::max(tl.duration, ctx.time);
@@ -646,7 +656,7 @@ inline void timeline(Context& ctx, Lexer& lx, View stat_v, Unit orig) {
 
 		while (lx.peek.kind == Symbols::WITH) {
 			lx.next();  // skip `$`
-			timeline(ctx, lx, stat_v, orig);
+			timeline(ctx, lx, lx.peek.view, orig);
 		}
 	}
 }
@@ -698,41 +708,41 @@ inline Timeline compile(
 		lx.error(ctx, cane::Phases::ENCODING, src, cane::STR_ENCODING);
 
 	// Compile
-	enum {
-		META_NONE,
-		META_NOTE = 0b01,
-		META_BPM  = 0b10,
-	};
+	// enum {
+	// 	META_NONE,
+	// 	META_NOTE = 0b01,
+	// 	META_BPM  = 0b10,
+	// };
 
-	uint8_t flags = META_NONE;
+	// uint8_t flags = META_NONE;
 
-	while (is_meta(lx.peek)) {
-		auto [view, kind] = lx.next();
+	// while (is_meta(lx.peek)) {
+	// 	auto [view, kind] = lx.next();
 
-		switch (kind) {
-			case Symbols::GLOBAL_BPM: {
-				CANE_LOG(LogLevel::INF, sym2str(Symbols::GLOBAL_BPM));
-				uint64_t bpm = literal_expr(ctx, lx, lx.peek.view, 0);
-				ctx.global_bpm = bpm;
-				flags |= META_BPM;
-			} break;
+	// 	switch (kind) {
+	// 		case Symbols::GLOBAL_BPM: {
+	// 			CANE_LOG(LogLevel::INF, sym2str(Symbols::GLOBAL_BPM));
+	// 			uint64_t bpm = literal_expr(ctx, lx, lx.peek.view, 0);
+	// 			ctx.global_bpm = bpm;
+	// 			flags |= META_BPM;
+	// 		} break;
 
-			case Symbols::GLOBAL_NOTE: {
-				CANE_LOG(LogLevel::INF, sym2str(Symbols::GLOBAL_NOTE));
-				uint64_t note = literal_expr(ctx, lx, lx.peek.view, 0);
-				ctx.global_note = note;
-				flags |= META_NOTE;
-			} break;
+	// 		case Symbols::GLOBAL_NOTE: {
+	// 			CANE_LOG(LogLevel::INF, sym2str(Symbols::GLOBAL_NOTE));
+	// 			uint64_t note = literal_expr(ctx, lx, lx.peek.view, 0);
+	// 			ctx.global_note = note;
+	// 			flags |= META_NOTE;
+	// 		} break;
 
-			default: { lx.error(ctx, Phases::SYNTACTIC, view, STR_META); } break;
-		}
-	}
+	// 		default: { lx.error(ctx, Phases::SYNTACTIC, view, STR_META); } break;
+	// 	}
+	// }
 
-	if ((flags & META_BPM) != META_BPM)
-		lx.error(ctx, Phases::SEMANTIC, lx.peek.view, STR_NO_BPM);
+	// if ((flags & META_BPM) != META_BPM)
+	// 	lx.error(ctx, Phases::SEMANTIC, lx.peek.view, STR_NO_BPM);
 
-	if ((flags & META_NOTE) != META_NOTE)
-		lx.error(ctx, Phases::SEMANTIC, lx.peek.view, STR_NO_NOTE);
+	// if ((flags & META_NOTE) != META_NOTE)
+	// 	lx.error(ctx, Phases::SEMANTIC, lx.peek.view, STR_NO_NOTE);
 
 	while (lx.peek.kind != Symbols::TERMINATOR)
 		statement(ctx, lx, lx.peek.view);
@@ -749,31 +759,10 @@ inline Timeline compile(
 		t += ACTIVE_SENSING_INTERVAL;
 	}
 
-	// MIDI clock pulse
-	// We fire off a MIDI tick 24 times
-	// for every quarter note
-	Unit clock_freq = std::chrono::duration_cast<cane::Unit>(std::chrono::minutes { 1 }) / (ctx.global_bpm * 24);
-	t = Unit::zero();
-	while (t < tl.duration) {
-		tl.emplace_back(t, midi2int(Midi::TIMING_CLOCK), 0, 0);
-		t += clock_freq;
-	}
-
 	// Sort sequence by timestamps
 	std::stable_sort(tl.begin(), tl.end(), [] (auto& a, auto& b) {
 		return a.time < b.time;
 	});
-
-	// Start/Stop
-	tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::START), 0, 0);
-	tl.emplace(tl.end(), tl.duration, midi2int(Midi::STOP), 0, 0);
-
-	// Reset state of MIDI devices
-	for (size_t i = CHANNEL_MIN; i != CHANNEL_MAX; ++i) {
-		tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::CHANNEL_MODE), ALL_SOUND_OFF, 0);
-		tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::CHANNEL_MODE), ALL_NOTES_OFF, 0);
-		tl.emplace(tl.begin(), Unit::zero(), midi2int(Midi::CHANNEL_MODE), ALL_RESET_CC, 0);
-	}
 
 	return tl;
 }

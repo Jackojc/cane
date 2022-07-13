@@ -116,8 +116,8 @@ constexpr auto LOCAL_CONTROL_OFF = 0;
 	X(TERMINATOR, "eof") \
 	\
 	/* Special */ \
-	X(IDENT,   "ident") \
-	X(INT,     "int") \
+	X(IDENT, "ident") \
+	X(INT,   "int") \
 	\
 	X(WITH, "$") \
 	\
@@ -129,7 +129,7 @@ constexpr auto LOCAL_CONTROL_OFF = 0;
 	X(GLOBAL_BPM,  "bpm") \
 	X(GLOBAL_NOTE, "note") \
 	\
-	X(LET,   "let") \
+	X(LET, "let") \
 	\
 	/* Sequence */ \
 	X(SEP,  ":") \
@@ -143,6 +143,7 @@ constexpr auto LOCAL_CONTROL_OFF = 0;
 	X(MAP,  "map") \
 	X(VEL,  "vel") \
 	X(BPM,  "@") \
+	X(MS,   "ms") \
 	\
 	X(CAR, "car") \
 	X(CDR, "cdr") \

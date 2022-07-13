@@ -1,7 +1,7 @@
 syntax "cane" "\.cn"
 
 # Keywords
-color red "\<bpm|note|let|map|vel|car|cdr|len|beat|skips\>"
+color red "\<let|map|vel|car|cdr|len|beat|skips\>"
 
 # Operator
 color green "=>|~>|@|\?|<|>|\*\*|\||&|\^|,|~|'|\+|\-|\*"

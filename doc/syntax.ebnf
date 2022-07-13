@@ -33,11 +33,9 @@ seq_expr ::=
 	'(' <seq_expr> ')'
 
 
-let   ::= "let" ( <identifier> <lit_expr> )+
-bpm   ::= "bpm" <lit_expr>
-note  ::= "note" <lit_expr>
+let  ::= "let" ( <identifier> <lit_expr> )+
 send ::= <seq_expr> '~>' <lit_expr>
 
-stat ::= <let> | <alias> | <bpm> | <note> | <send> | <seq_expr>
+stat ::= <let> | <send> | <seq_expr>
 
 program ::= <stat>*

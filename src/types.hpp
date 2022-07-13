@@ -41,8 +41,14 @@ struct MidiEvent {
 		time(time_), data({status, note, velocity}) {}
 };
 
+enum {
+	SEQ_NONE,
+	SEQ_NOTE      = 1 << 0,
+	SEQ_DURATION  = 1 << 1,
+};
+
 struct Sequence: public std::vector<Event> {
-	uint64_t bpm = BPM_DEFAULT;
+	uint8_t flags = SEQ_NONE;
 	Sequence(): std::vector<Event>::vector() {}
 };
 

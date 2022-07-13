@@ -151,8 +151,8 @@ struct Lexer {
 			else if (view == "let"_sv)   kind = Symbols::LET;
 			else if (view == "car"_sv)   kind = Symbols::CAR;
 			else if (view == "cdr"_sv)   kind = Symbols::CDR;
-			else if (view == "bpm"_sv)   kind = Symbols::GLOBAL_BPM;
-			else if (view == "note"_sv)  kind = Symbols::GLOBAL_NOTE;
+			// else if (view == "bpm"_sv)   kind = Symbols::GLOBAL_BPM;
+			// else if (view == "note"_sv)  kind = Symbols::GLOBAL_NOTE;
 		}
 
 		// If the kind is still NONE by this point, we can assume we didn't find
