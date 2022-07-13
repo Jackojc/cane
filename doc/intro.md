@@ -349,31 +349,41 @@ sure that all of the sequences finish at the same time so we can re-use this bar
 The last thing we need to do now is layer all of our sequences together and play
 them.
 
-First, our underlying beat:
+First, our beat:
 ```
-  b_bd map bd ~> c_bd
-$ b_sn map sn ~> c_sn
-$ b_ch map ch ~> c_ch
-$ b_cb map cb ~> c_cb
-$ b_sh map sh ~> c_sh
+b_bd map bd ~> c_bd $
+b_sn map sn ~> c_sn $
+b_ch map ch ~> c_ch $
+b_cb map cb ~> c_cb $
+b_sh map sh ~> c_sh $
 ```
 
-Next, our melody:
+Next we have our melody (I think you might actually call this a monody or lick
+due to it's simplicity):
 ```
-$ b_bs map
+b_bs map
 	o1 - 4  o2 - 4  o1 - 4  o2 - 4
 	o1 - 7  o2 - 7  o1 - 7  o2 - 7
 	o1 - 5  o2 - 5  o1 - 5  o2 - 5
 	o1      o2      o1      o2
-~> c_bs
+~> c_bs $
 
-$ b_gb map
+b_gb map
 	o1 + 3  o1 + 3  o1 + 3  o1 + 5
 	o1 + 3  o1 + 5  o1 + 5  o1 + 8
 	o1 + 5  o1 + 8  o1 + 8  o1
 	o1 + 8  o1      o1      o1
 ~> c_gb
 ```
+
+We introduce a new concept here in the form of literal expressions. `map` takes
+a variable number of note values (>=1) which are just MIDI notes. We're referencing
+some of the constants we defined earlier to cut down on the verbosity of changing
+octaves.
+
+This pattern is fairly basic and lacks any polyphony or interesting rhythm but
+I would encourage you to experiment here and see if you can make something
+more interesting with chords, nested tuplets or varying note lengths.
 
 ([sample](snd/four-on-the-floor.ogg))
 ([full code](/examples/four-on-the-floor.cn))
