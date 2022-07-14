@@ -102,17 +102,8 @@ which make it desirable for realtime use
 - [Prop](https://pbat.ch/proj/prop.html)
 - [qookei](https://github.com/qookei) (for conflict)
 
-### Tools
-- [LMMS](https://lmms.io/)
-- [Hydrogen](http://hydrogen-music.org/)
-- [JACK Applications](https://jackaudio.org/applications/)
-
 ### Resources
-- [Euclidean Rhythms](http://cgm.cs.mcgill.ca/~godfried/publications/banff.pdf)
-- [Euclidean Rhythms (Extended Paper)](http://cgm.cs.mcgill.ca/~godfried/publications/banff-extended.pdf)
-- [Summary of MIDI 1.0 Messages](https://www.midi.org/specifications-old/item/table-1-summary-of-midi-message)
-- [List of Euclidean Rhythms](http://www.iniitu.net/Euclidian_Erd%C3%B6s_Deep_Aksak_rhythms.html)
-- [Polyrhythm](https://en.wikipedia.org/wiki/Polyrhythm)
+See the list of resources [here](doc/resources.md)
 
 ### License
 This project uses the GPL-3.0 license. (check [LICENSE](LICENSE))
