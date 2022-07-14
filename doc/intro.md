@@ -410,4 +410,4 @@ can do to learn more:
 
 - Check out the `examples/` directory for more complicated compositions
 - Read the [reference](ref.md) for a more in-depth look at how Cane works
-- Join the [Discord](https://discord.gg/Qqguu9SRvU) to talk with us
+- Join the [Discord](https://discord.gg/UVYAtpYYD2) to talk with us

@@ -38,3 +38,19 @@ let foo 123
 let x 1 y 2 z 3
 ```
 
+### Operators
+Operators should be surrounded by whitespace on both sides to increase readability.
+
+**Good:**
+```
+4:16 ** 2 > 1
+!..! & !!.. @ 120
+```
+
+**Bad:**
+```
+foo&bar=>baz
+1+2*3
+```
+
+

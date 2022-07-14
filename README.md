@@ -7,7 +7,7 @@ Cane is a small vector language designed for making beats with realtime MIDI.
 [![issues](https://img.shields.io/github/issues/Jackojc/cane.svg?style=flat)](https://github.com/Jackojc/cane/issues)
 [![pull requests](https://img.shields.io/github/issues-pr/Jackojc/cane?style=flat)](https://github.com/Jackojc/cane/pulls)
 [![license](https://img.shields.io/github/license/Jackojc/cane.svg?style=flat)](./LICENSE)
-[![discord](https://img.shields.io/discord/537732103765229590.svg?label=discord&style=flat)](https://discord.gg/Qqguu9SRvU)
+[![discord](https://img.shields.io/discord/997102432133849088.svg?label=discord&style=flat)](https://discord.gg/UVYAtpYYD2)
 
 ### Example
 ```
@@ -118,4 +118,5 @@ which make it desirable for realtime use
 This project uses the GPL-3.0 license. (check [LICENSE](LICENSE))
 
 ### Progress & Discussion
-You can join the discord server in order to follow progress and/or contribute to discussion of the project: https://discord.gg/H2qKkSd9gC
+You can join the discord server in order to follow progress and/or contribute to discussion of the project: https://discord.gg/UVYAtpYYD2
+
