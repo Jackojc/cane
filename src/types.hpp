@@ -57,7 +57,13 @@ struct Timeline: public std::vector<MidiEvent> {
 	Timeline(): std::vector<MidiEvent>::vector() {}
 };
 
-using Handler = void(*)(Phases, View, View, std::string);
+enum class HandlerKind {
+	Error,
+	Warning,
+	Notice,
+};
+
+using Handler = void(*)(HandlerKind, Phases, View, View, std::string);
 
 struct Context {
 	std::unordered_map<View, double> constants;
@@ -68,12 +74,10 @@ struct Context {
 	Timeline tl;
 	Unit time = Unit::zero();
 
-	Handler error_handler;
-	Handler warning_handler;
-	Handler notice_handler;
+	Handler handler;
 
-	inline Context(Handler&& error_handler_, Handler&& warning_handler_, Handler&& notice_handler_):
-		error_handler(error_handler_), warning_handler(warning_handler_), notice_handler(notice_handler_) {}
+	inline Context(Handler&& handler_):
+		handler(handler_) {}
 };
 
 inline std::ostream& operator<<(std::ostream& os, Sequence& s) {

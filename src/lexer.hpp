@@ -23,7 +23,7 @@ struct Lexer {
 		std::ostringstream ss;
 		fmt(ss, std::forward<Ts>(args)...);
 
-		ctx.error_handler(Phases::SYNTACTIC, original, sv, ss.str());
+		ctx.handler(HandlerKind::Error, Phases::SYNTACTIC, original, sv, ss.str());
 
 		throw Error {};
 	}
@@ -32,7 +32,7 @@ struct Lexer {
 	[[noreturn]] inline void error(Context& ctx, Phases phase, View sv, Ts&&... args) {
 		std::ostringstream ss;
 		fmt(ss, std::forward<Ts>(args)...);
-		ctx.error_handler(phase, original, sv, ss.str());
+		ctx.handler(HandlerKind::Error, phase, original, sv, ss.str());
 		throw Error {};
 	}
 
@@ -40,14 +40,14 @@ struct Lexer {
 	inline void warning(Context& ctx, Phases phase, View sv, Ts&&... args) {
 		std::ostringstream ss;
 		fmt(ss, std::forward<Ts>(args)...);
-		ctx.warning_handler(phase, original, sv, ss.str());
+		ctx.handler(HandlerKind::Warning, phase, original, sv, ss.str());
 	}
 
 	template <typename... Ts>
 	inline void notice(Context& ctx, Phases phase, View sv, Ts&&... args) {
 		std::ostringstream ss;
 		fmt(ss, std::forward<Ts>(args)...);
-		ctx.notice_handler(phase, original, sv, ss.str());
+		ctx.handler(HandlerKind::Notice, phase, original, sv, ss.str());
 	}
 
 	inline Token next() {

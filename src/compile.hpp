@@ -549,7 +549,7 @@ inline Sequence sequence_postfix(Context& ctx, Lexer& lx, View expr_v, Sequence 
 inline Sequence sequence_expr(Context& ctx, Lexer& lx, View expr_v, size_t bp) {
 	CANE_LOG(LogLevel::WRN);
 
-	Sequence seq {};
+	Sequence seq;
 	Token tok = lx.peek;
 
 	if (is_sequence_prefix(tok)) {
@@ -596,60 +596,41 @@ inline Sequence sequence_expr(Context& ctx, Lexer& lx, View expr_v, size_t bp) {
 	return seq;
 }
 
-inline Timeline sequence_compile(Sequence seq, uint8_t chan, Unit time) {
-	CANE_LOG(LogLevel::INF);
+inline void timeline(Context& ctx, Lexer& lx, View stat_v, Sequence seq, Unit orig) {
+	View before_v = lx.peek.view;
+	uint64_t chan = literal_expr(ctx, lx, before_v, 0);
 
-	Timeline tl {};
+	if (chan > CHANNEL_MAX or chan < CHANNEL_MIN)
+		lx.error(ctx, Phases::SEMANTIC, encompass(before_v, lx.prev.view), STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
+
+
+	if ((seq.flags & SEQ_NOTE) != SEQ_NOTE)
+		lx.error(ctx, Phases::SEMANTIC, encompass(stat_v, lx.prev.view), STR_NO_NOTE);
+
+	if ((seq.flags & SEQ_DURATION) != SEQ_DURATION)
+		lx.error(ctx, Phases::SEMANTIC, encompass(stat_v, lx.prev.view), STR_NO_BPM);
+
+
+	Timeline tl;
 
 	auto ON = midi2int(Midi::NOTE_ON) | (chan - 1);
 	auto OFF = midi2int(Midi::NOTE_OFF) | (chan - 1);
 
 	for (auto& [dur, note, vel, kind]: seq) {
 		if (kind == BEAT) {
-			tl.emplace_back(time, ON, note, vel);
-			tl.emplace_back(time + dur, OFF, note, vel);
+			tl.emplace_back(orig, ON, note, vel);
+			tl.emplace_back(orig + dur, OFF, note, vel);
 		}
 
-		time += dur;
+		orig += dur;
 	}
 
-	tl.duration = time;
+	tl.duration = orig;
 
-	return tl;
-}
+	ctx.time = std::max(tl.duration, ctx.time);
+	ctx.tl.duration = std::max(tl.duration, ctx.tl.duration);
 
-inline void timeline(Context& ctx, Lexer& lx, View stat_v, Unit orig) {
-	Sequence seq = sequence_expr(ctx, lx, lx.peek.view, 0);
-
-	if (lx.peek.kind == Symbols::SEND) {
-		lx.next();  // skip `~>`
-
-		View before_v = lx.peek.view;
-		uint64_t chan = literal_expr(ctx, lx, before_v, 0);
-
-		if (chan > CHANNEL_MAX or chan < CHANNEL_MIN)
-			lx.error(ctx, Phases::SEMANTIC, encompass(before_v, lx.prev.view), STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
-
-
-		if ((seq.flags & SEQ_NOTE) != SEQ_NOTE)
-			lx.error(ctx, Phases::SEMANTIC, encompass(stat_v, lx.prev.view), STR_NO_NOTE);
-
-		if ((seq.flags & SEQ_DURATION) != SEQ_DURATION)
-			lx.error(ctx, Phases::SEMANTIC, encompass(stat_v, lx.prev.view), STR_NO_BPM);
-
-
-		Timeline tl = sequence_compile(std::move(seq), chan, orig);
-
-		ctx.time = std::max(tl.duration, ctx.time);
-		ctx.tl.duration = std::max(tl.duration, ctx.tl.duration);
-
-		ctx.tl.insert(ctx.tl.end(), tl.begin(), tl.end());
-
-		while (lx.peek.kind == Symbols::WITH) {
-			lx.next();  // skip `$`
-			timeline(ctx, lx, lx.peek.view, orig);
-		}
-	}
+	ctx.tl.insert(ctx.tl.end(), tl.begin(), tl.end());
 }
 
 inline void statement(Context& ctx, Lexer& lx, View stat_v) {
@@ -675,22 +656,35 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 		}
 	}
 
-	else if (is_sequence_primary(tok) or is_sequence_prefix(tok))
-		timeline(ctx, lx, stat_v, ctx.time);
+	else if (is_sequence_primary(tok) or is_sequence_prefix(tok)) {
+		Unit orig = ctx.time;
+		Sequence seq = sequence_expr(ctx, lx, lx.peek.view, 0);
+
+		if (lx.peek.kind == Symbols::SEND) {
+			lx.next();  // skip `~>`
+			timeline(ctx, lx, stat_v, std::move(seq), orig);
+
+			while (lx.peek.kind == Symbols::WITH) {
+				lx.next();  // skip `$`
+
+				seq = sequence_expr(ctx, lx, lx.peek.view, 0);
+
+				lx.expect(ctx, is(Symbols::SEND), lx.peek.view, STR_EXPECT, sym2str(Symbols::SEND));
+				lx.next();  // skip `~>`
+
+				timeline(ctx, lx, lx.peek.view, std::move(seq), orig);
+			}
+		}
+	}
 
 	else
 		lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_STATEMENT);
 }
 
-inline Timeline compile(
-	View src,
-	Handler&& error_handler,
-	Handler&& warning_handler,
-	Handler&& notice_handler
-) {
+inline Timeline compile(View src, Handler&& handler) {
 	CANE_LOG(LogLevel::WRN);
 
-	Context ctx { std::move(error_handler), std::move(warning_handler), std::move(notice_handler) };
+	Context ctx { std::move(handler) };
 	Lexer lx { src, ctx };
 
 	lx.next(); // important

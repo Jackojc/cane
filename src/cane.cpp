@@ -230,14 +230,12 @@ int main(int argc, const char* argv[]) {
 		// Compile
 		auto t1 = clock::now();
 			cane::Timeline timeline = cane::compile(src,
-				[] (cane::Phases phase, cane::View original, cane::View sv, std::string str) {
-					cane::report_error(std::cerr, phase, original, sv, str);
-				},
-				[] (cane::Phases phase, cane::View original, cane::View sv, std::string str) {
-					cane::report_warning(std::cerr, phase, original, sv, str);
-				},
-				[] (cane::Phases phase, cane::View original, cane::View sv, std::string str) {
-					cane::report_notice(std::cerr, phase, original, sv, str);
+				[] (cane::HandlerKind kind, cane::Phases phase, cane::View original, cane::View sv, std::string str) {
+					switch (kind) {
+						case cane::HandlerKind::Error:   { cane::report_error   (std::cerr, phase, original, sv, str); } break;
+						case cane::HandlerKind::Warning: { cane::report_warning (std::cerr, phase, original, sv, str); } break;
+						case cane::HandlerKind::Notice:  { cane::report_notice  (std::cerr, phase, original, sv, str); } break;
+					}
 				}
 			);
 		auto t2 = clock::now();
