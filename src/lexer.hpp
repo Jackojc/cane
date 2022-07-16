@@ -123,6 +123,7 @@ struct Lexer {
 		}
 
 		else if (view == "="_sv) {
+			kind = Symbols::SUS;
 			src = cane::next(src);
 
 			if (cane::peek(src) == ">"_sv) {

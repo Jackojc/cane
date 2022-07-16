@@ -10,7 +10,7 @@ provide-module -override cane %{
 
 	# literals
 	add-highlighter shared/cane/other/ regex "\b\d+" 0:value             # decimal
-	add-highlighter shared/cane/other/ regex "!|\." 0:value              # steps
+	add-highlighter shared/cane/other/ regex "!|\.|=" 0:value              # steps
 
 	# add-highlighter shared/cane/other/ regex "\b0[xX][a-fA-F0-9]+" 0:value # hex
 	# add-highlighter shared/cane/other/ regex "\b0[bB][0-1]+" 0:value       # binary

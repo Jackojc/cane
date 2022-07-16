@@ -18,7 +18,8 @@ constexpr bool is_literal(Token x) {
 constexpr bool is_step(Token x) {
 	return cmp_any(x.kind,
 		Symbols::SKIP,
-		Symbols::BEAT);
+		Symbols::BEAT,
+		Symbols::SUS);
 }
 
 constexpr bool is_literal_prefix(Token x) {
@@ -362,7 +363,8 @@ inline Sequence sequence_primary(Context& ctx, Lexer& lx, View expr_v, Sequence 
 		} break;
 
 		case Symbols::SKIP:
-		case Symbols::BEAT: {
+		case Symbols::BEAT:
+		case Symbols::SUS: {
 			seq = sequence(ctx, lx, lx.peek.view, std::move(seq));
 		} break;
 
@@ -616,13 +618,20 @@ inline void timeline(Context& ctx, Lexer& lx, View stat_v, Sequence seq, Unit or
 	auto ON = midi2int(Midi::NOTE_ON) | (chan - 1);
 	auto OFF = midi2int(Midi::NOTE_OFF) | (chan - 1);
 
-	for (auto& [dur, note, vel, kind]: seq) {
+	for (auto it = seq.begin(); it != seq.end(); ++it) {
+		auto& [dur, note, vel, kind] = *it;
+
+		size_t count = 1;
 		if (kind == BEAT) {
 			tl.emplace_back(orig, ON, note, vel);
-			tl.emplace_back(orig + dur, OFF, note, vel);
+
+			while ((it + 1) != seq.end() and (it + 1)->kind == SUS)
+				it++, count++;
+
+			tl.emplace_back(orig + (dur * count), OFF, note, vel);
 		}
 
-		orig += dur;
+		orig += (dur * count);
 	}
 
 	tl.duration = orig;

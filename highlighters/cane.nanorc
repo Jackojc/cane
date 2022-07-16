@@ -10,7 +10,7 @@ color green "=>|~>|@|\?|<|>|\*\*|\||&|\^|,|~|'|\+|\-|\*"
 color brightgreen "\$|:"
 
 # Values
-color yellow "[\!\.]"
+color yellow "[\!\.=]"
 
 # Grouping
 color white "\(|\)"

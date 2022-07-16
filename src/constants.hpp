@@ -135,6 +135,7 @@ constexpr auto LOCAL_CONTROL_OFF = 0;
 	X(SEP,  ":") \
 	X(SKIP, ".") \
 	X(BEAT, "!") \
+	X(SUS,  "=") \
 	\
 	/* Sequence Operators */ \
 	X(CHAIN, "=>") \
@@ -191,7 +192,8 @@ inline std::ostream& operator<<(std::ostream& os, Symbols s) {
 
 #define STEPS \
 	X(SKIP, Symbols::SKIP, CANE_BLUE) \
-	X(BEAT, Symbols::BEAT, CANE_YELLOW)
+	X(BEAT, Symbols::BEAT, CANE_YELLOW) \
+	X(SUS,  Symbols::SUS,  CANE_YELLOW)
 
 	#define X(name, sym, colour) name,
 		enum Steps { STEPS };

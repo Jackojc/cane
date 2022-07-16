@@ -100,6 +100,7 @@ which make it desirable for realtime use
 ### Acknowledgements
 - [Gwion](https://github.com/Gwion/Gwion)
 - [Prop](https://pbat.ch/proj/prop.html)
+- [fennecdjay](https://github.com/fennecdjay) (for inspiring the project)
 - [qookei](https://github.com/qookei) (for conflict)
 
 ### Resources
