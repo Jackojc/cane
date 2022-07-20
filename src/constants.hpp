@@ -16,12 +16,17 @@ constexpr size_t VELOCITY_MAX     = 127u;
 constexpr size_t VELOCITY_DEFAULT = 127u;
 
 constexpr size_t BPM_MIN     = 1u;
+constexpr size_t BPM_MAX     = 9999u;
 constexpr size_t BPM_DEFAULT = 120u;
 
-constexpr auto DURATION_DEFAULT = std::chrono::milliseconds { 60'000 / BPM_DEFAULT };
+constexpr uint64_t DURATION_DEFAULT = 60'000 / BPM_DEFAULT;
+
+constexpr uint64_t MILLI  = 1000;
+constexpr uint64_t SECOND = 1000 * MILLI;
+constexpr uint64_t MINUTE = 60 * SECOND;
 
 
-constexpr auto ACTIVE_SENSING_INTERVAL = std::chrono::milliseconds { 250 };
+constexpr auto ACTIVE_SENSING_INTERVAL = 250;  // ms
 
 constexpr auto ALL_SOUND_OFF = 120;
 constexpr auto ALL_RESET_CC  = 121;

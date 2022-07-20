@@ -59,20 +59,22 @@ highlighters in the `highlighters/` directory.
 | Keywords | `let` `map` `vel` `car` `cdr` `len` `beats` `skips` |
 | Operators | `=>` `@` `?` `<` `>` `**` `\|` `&` `^` `,` `~` `'` `+` `-` `*` `/` |
 | Operators/Keywords | `$` `:` `~>` |
-| Values | `!` `.` |
+| Values | `!` `.` `=` |
 | Comments | `#.+$` |
 | Grouping | `(` `)` |
 | Identifier | `\S+` |
 | Literal | `\d+` |
 
 ### Steps
-A step is the basic unit of a sequence and is either a beat or
-a skip.
+A step is the basic unit of a sequence and is either a beat,
+a skip or a sustain.
 
-A beat plays a note and a skip passes time (Skips do not sustain a note).
+A beat plays a note, a skip passes time and sustain continues to hold
+a note down across multiple steps.
 
 - Beat: `!`
 - Skip: `.`
+- Sustain: `=`
 
 ### Literals
 Literals are scalar value expressions used as arguments to some
@@ -142,6 +144,11 @@ And voila, our sequences now play together as expected.
 
 ### Nested Tuplets
 > TODO
+
+### Sustained Notes
+Sustain steps allow you to play a note across multiple steps which makes it
+easy to play varying note lengths while keeping sequences the same length and
+tempo.
 
 ### Debug
 It is sometimes useful to visualise sequences instead of relying solely on your

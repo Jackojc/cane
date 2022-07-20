@@ -8,14 +8,14 @@ struct Token {
 	cane::Symbols kind = Symbols::NONE;
 };
 
-using Unit        = std::chrono::microseconds;
-using UnitSeconds = std::chrono::duration<double>;
-using UnitMillis  = std::chrono::duration<double, std::milli>;
+// using Unit        = std::chrono::microseconds;
+// using UnitSeconds = std::chrono::duration<double>;
+// using UnitMillis  = std::chrono::duration<double, std::milli>;
 
-constexpr auto ONE_MIN = std::chrono::duration_cast<Unit>(std::chrono::minutes { 1 });
+// constexpr auto ONE_MIN = std::chrono::duration_cast<Unit>(std::chrono::minutes { 1 });
 
 struct Event {
-	Unit duration;
+	uint64_t duration;
 	uint8_t note;
 	uint8_t velocity;
 	uint8_t kind;
@@ -26,7 +26,7 @@ struct Event {
 		velocity(VELOCITY_DEFAULT),
 		kind(kind_) {}
 
-	constexpr Event(Unit duration_, uint8_t note_, uint8_t vel_, uint8_t kind_):
+	constexpr Event(uint64_t duration_, uint8_t note_, uint8_t vel_, uint8_t kind_):
 		duration(duration_),
 		note(note_),
 		velocity(vel_),
@@ -34,10 +34,10 @@ struct Event {
 };
 
 struct MidiEvent {
-	Unit time;
+	uint64_t time;
 	std::array<uint8_t, 3> data;
 
-	constexpr MidiEvent(Unit time_, uint8_t status, uint8_t note, uint8_t velocity):
+	constexpr MidiEvent(uint64_t time_, uint8_t status, uint8_t note, uint8_t velocity):
 		time(time_), data({status, note, velocity}) {}
 };
 
@@ -53,7 +53,7 @@ struct Sequence: public std::vector<Event> {
 };
 
 struct Timeline: public std::vector<MidiEvent> {
-	Unit duration = Unit::zero();
+	uint64_t duration = 0u;
 	Timeline(): std::vector<MidiEvent>::vector() {}
 };
 
@@ -72,13 +72,29 @@ struct Context {
 	std::unordered_set<View> symbols;
 
 	Timeline tl;
-	Unit time = Unit::zero();
+	uint64_t time = 0u;
 
 	Handler handler;
 
 	inline Context(Handler&& handler_):
 		handler(handler_) {}
 };
+
+inline void default_handler(HandlerKind kind, Phases phase, View original, View sv, std::string str) {
+	switch (kind) {
+		case HandlerKind::Error: {
+			report_error(std::cerr, phase, original, sv, str);
+		} break;
+
+		case HandlerKind::Warning: {
+			report_warning(std::cerr, phase, original, sv, str);
+		} break;
+
+		case HandlerKind::Notice: {
+			report_notice(std::cerr, phase, original, sv, str);
+		} break;
+	}
+}
 
 inline std::ostream& operator<<(std::ostream& os, Sequence& s) {
 	for (auto& [dur, note, vel, kind]: s)
@@ -103,7 +119,7 @@ inline std::ostream& operator<<(std::ostream& os, Timeline& tl) {
 		print(os, "[ ", CANE_BOLD, (int)ev.data[1], " ");
 		print(os, (int)ev.data[2], CANE_RESET " ] ");
 
-		print(os, CANE_RED, UnitMillis { ev.time }.count(), cane::STR_MILLI_SUFFIX, CANE_RESET);
+		// print(os, CANE_RED, UnitMillis { ev.time }.count(), cane::STR_MILLI_SUFFIX, CANE_RESET);
 		println(os);
 	}
 

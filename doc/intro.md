@@ -10,7 +10,7 @@ I am also going to use LMMS in order to turn our MIDI data from Cane
 into sound but you can use whatever you like instead.
 
 ### Setting Up An Audio Server
-Cane depends on the JACK audio server in order to facilitate the routing
+Cane depends on the [JACK](https://jackaudio.org/) audio server in order to facilitate the routing
 of MIDI.
 
 There are two options you can use for setting up a JACK server.

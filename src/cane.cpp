@@ -111,7 +111,7 @@ int main(int argc, const char* argv[]) {
 
 			jack_nframes_t sample_rate = 0;
 			jack_nframes_t buffer_size = 0;
-			cane::Unit time = cane::Unit::zero();
+			uint64_t time = 0u;
 
 			cane::Timeline::iterator it;
 			cane::Timeline::const_iterator end;
@@ -171,7 +171,7 @@ int main(int argc, const char* argv[]) {
 			if ((lost = jack_midi_get_lost_event_count(out_buffer)))
 				cane::general_warning(cane::STR_LOST_EVENT, lost);
 
-			time += std::chrono::duration_cast<cane::Unit>(std::chrono::seconds { nframes }) / sample_rate;
+			time += cane::SECOND / (sample_rate / nframes);
 
 			return 0;
 		}, static_cast<void*>(&midi)))
@@ -229,23 +229,15 @@ int main(int argc, const char* argv[]) {
 
 		// Compile
 		auto t1 = clock::now();
-			cane::Timeline timeline = cane::compile(src,
-				[] (cane::HandlerKind kind, cane::Phases phase, cane::View original, cane::View sv, std::string str) {
-					switch (kind) {
-						case cane::HandlerKind::Error:   { cane::report_error   (std::cerr, phase, original, sv, str); } break;
-						case cane::HandlerKind::Warning: { cane::report_warning (std::cerr, phase, original, sv, str); } break;
-						case cane::HandlerKind::Notice:  { cane::report_notice  (std::cerr, phase, original, sv, str); } break;
-					}
-				}
-			);
+		cane::Timeline timeline = cane::compile(src, cane::default_handler);
 		auto t2 = clock::now();
 
 		if (timeline.empty())
 			return 0;
 
-		CANE_DBG_RUN(cane::print(std::cerr, timeline));
+		// CANE_DBG_RUN(cane::print(std::cerr, timeline));
 		CANE_LOG(cane::LogLevel::DBG, "event(s) = ", timeline.size());
-		CANE_LOG(cane::LogLevel::DBG, "events/s = ", timeline.size() / cane::UnitSeconds{timeline.duration}.count());
+		CANE_LOG(cane::LogLevel::DBG, "events/s = ", timeline.size() / (timeline.duration / cane::SECOND));
 
 		// Setup MIDI events.
 		// Very important that we assign these here or else
@@ -275,15 +267,15 @@ int main(int argc, const char* argv[]) {
 				else                cane::print(std::cout, CANE_BLUE   "-");
 			}
 
-			auto so_far = cane::UnitSeconds{(timeline.duration / 100) * count}.count();
-			auto total = cane::UnitSeconds{timeline.duration}.count();
+			auto so_far = ((timeline.duration / 100) * count) / cane::SECOND;
+			auto total = timeline.duration / cane::SECOND;
 
 			std::cout << std::fixed << std::setprecision(2);
 			cane::print(std::cout, CANE_RESET CANE_BOLD "] ", so_far, "s/", total, "s" CANE_RESET);
 			std::cout.flush();
 
 			count++;
-			std::this_thread::sleep_for(timeline.duration / 100);
+			std::this_thread::sleep_for(std::chrono::microseconds{timeline.duration / 100});
 		}
 
 		cane::println(std::cout);

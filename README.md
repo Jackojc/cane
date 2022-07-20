@@ -11,11 +11,11 @@ Cane is a small vector language designed for making beats with realtime MIDI.
 
 ### Example
 ```
-# Metadata
-bpm 120
-note 60 # Middle C
-
 # Constants
+let
+	bpm 120
+	note 60 # Middle C
+
 let
 	qn bpm * 4 # Quarter Note
 	hn bpm * 2 # Half Note
@@ -46,7 +46,7 @@ let
 ```
 
 ### What Can Cane Do?
-- Control hardware and software synths through JACK MIDI
+- Control hardware and software synths through [JACK](https://jackaudio.org/) MIDI
 - Play chords and melodies
 - Generate complex beats with relatively little effort
 - Embeddable in larger projects
@@ -94,7 +94,7 @@ terminate. This makes the language deterministic and keeps the implementation
 simple
 - Cane is designed to enable an experimental and iterative workflow, one where you
 more often spend time removing things than adding them
-- JACK was chosen as the backend for MIDI transport for its low latency properties
+- [JACK](https://jackaudio.org/) was chosen as the backend for MIDI transport for its low latency properties
 which make it desirable for realtime use
 
 ### Acknowledgements

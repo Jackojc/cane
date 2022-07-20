@@ -429,75 +429,57 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 			seq = sequence_repeat(std::move(seq), reps);
 		} break;
 
+		case Symbols::MAP:
+		case Symbols::VEL:
 		case Symbols::BPM: {
 			lx.expect(ctx, is_literal_primary, lx.peek.view, STR_LIT_EXPR);
 
-			std::vector<Unit> durs;
+			size_t index = 0;
+			std::vector<uint64_t> values;
+
 			while (is_literal_primary(lx.peek)) {
 				View before_v = lx.peek.view;
-				uint64_t bpm = literal_expr(ctx, lx, before_v, 0);
+				uint64_t val = literal_expr(ctx, lx, before_v, 0);
 
-				if (bpm < BPM_MIN)
-					lx.error(ctx, Phases::SEMANTIC, encompass(before_v, lx.prev.view), STR_GREATER, BPM_MIN);
+				auto [min, max] = [&] () { switch (tok.kind) {
+					case Symbols::MAP: return std::pair { NOTE_MIN,     NOTE_MAX     };
+					case Symbols::VEL: return std::pair { VELOCITY_MIN, VELOCITY_MAX };
+					case Symbols::BPM: return std::pair { BPM_MIN,      BPM_MAX      };
+					default:           return std::pair { 0ul,          0ul          };
+				}} ();
 
-				durs.emplace_back(ONE_MIN / bpm);
+				if (val < min or val > max)
+					lx.error(ctx, Phases::SEMANTIC, encompass(before_v, lx.prev.view), STR_BETWEEN, min, max);
+
+				values.emplace_back(val);
 			}
 
-			size_t index = 0;
-			for (auto& [dur, note, vel, kind]: seq) {
-				dur = durs[index];
-				index = (index + 1) % durs.size();
-			}
+			for (auto& [dur, note, vel, kind]: seq) { switch (tok.kind) {
+				case Symbols::MAP: {
+					seq.flags |= SEQ_NOTE;
 
-			seq.flags |= SEQ_DURATION;
-		} break;
+					if (kind == BEAT) {
+						note = values[index];
+						index = (index + 1) % values.size();
+					}
+				} break;
 
-		case Symbols::MAP: {
-			lx.expect(ctx, is_literal_primary, lx.peek.view, STR_LIT_EXPR);
+				case Symbols::VEL: {
+					if (kind == BEAT) {
+						vel = values[index];
+						index = (index + 1) % values.size();
+					}
+				} break;
 
-			std::vector<uint64_t> notes;
-			while (is_literal_primary(lx.peek)) {
-				View before_v = lx.peek.view;
-				uint64_t note = literal_expr(ctx, lx, before_v, 0);
+				case Symbols::BPM: {
+					seq.flags |= SEQ_DURATION;
 
-				if (note > NOTE_MAX or note < NOTE_MIN)
-					lx.error(ctx, Phases::SEMANTIC, encompass(before_v, lx.prev.view), STR_BETWEEN, NOTE_MIN, NOTE_MAX);
+					dur = MINUTE / values[index];
+					index = (index + 1) % values.size();
+				} break;
 
-				notes.emplace_back(note);
-			}
-
-			size_t index = 0;
-			for (auto& [dur, note, vel, kind]: seq) {
-				if (kind == BEAT) {
-					note = notes[index];
-					index = (index + 1) % notes.size();
-				}
-			}
-
-			seq.flags |= SEQ_NOTE;
-		} break;
-
-		case Symbols::VEL: {
-			lx.expect(ctx, is_literal_primary, lx.peek.view, STR_LIT_EXPR);
-
-			std::vector<uint64_t> velocities;
-			while (is_literal_primary(lx.peek)) {
-				View before_v = lx.peek.view;
-				uint64_t vel = literal_expr(ctx, lx, before_v, 0);
-
-				if (vel > VELOCITY_MAX or vel < VELOCITY_MIN)
-					lx.error(ctx, Phases::SEMANTIC, encompass(before_v, lx.prev.view), STR_BETWEEN, VELOCITY_MIN, VELOCITY_MAX);
-
-				velocities.emplace_back(vel);
-			}
-
-			size_t index = 0;
-			for (auto& [dur, note, vel, kind]: seq) {
-				if (kind == BEAT) {
-					vel = velocities[index];
-					index = (index + 1) % velocities.size();
-				}
-			}
+				default: break;
+			}}
 		} break;
 
 		case Symbols::CHAIN: {
@@ -529,15 +511,15 @@ inline Sequence sequence_postfix(Context& ctx, Lexer& lx, View expr_v, Sequence 
 		case Symbols::CDR: { seq = sequence_cdr(std::move(seq)); } break;
 
 		case Symbols::DBG: {
+			if ((seq.flags & SEQ_DURATION) != SEQ_DURATION)
+				lx.error(ctx, Phases::SEMANTIC, encompass(expr_v, lx.prev.view), STR_NO_BPM);
+
 			auto mini = sequence_minify(seq);
 			size_t count = seq.size() / mini.size();
 
-			Unit length = Unit::zero();
-
-			for (auto& [dur, note, vel, kind]: seq)
-				length += dur;
-
-			size_t seconds = std::chrono::duration_cast<UnitSeconds>(length).count();
+			uint64_t seconds = std::accumulate(seq.begin(), seq.end(), 0u, [] (auto& lhs, auto& rhs) {
+				return lhs + rhs.duration;
+			}) / SECOND;
 
 			lx.notice(ctx, Phases::SEMANTIC, encompass(expr_v, tok.view), STR_DEBUG, mini, count, seq.size(), seconds);
 		} break;
@@ -598,7 +580,7 @@ inline Sequence sequence_expr(Context& ctx, Lexer& lx, View expr_v, size_t bp) {
 	return seq;
 }
 
-inline void timeline(Context& ctx, Lexer& lx, View stat_v, Sequence seq, Unit orig) {
+inline void timeline(Context& ctx, Lexer& lx, View stat_v, Sequence seq, uint64_t orig) {
 	View before_v = lx.peek.view;
 	uint64_t chan = literal_expr(ctx, lx, before_v, 0);
 
@@ -625,7 +607,7 @@ inline void timeline(Context& ctx, Lexer& lx, View stat_v, Sequence seq, Unit or
 		if (kind == BEAT) {
 			tl.emplace_back(orig, ON, note, vel);
 
-			while ((it + 1) != seq.end() and (it + 1)->kind == SUS)
+			while ((it + 1) != seq.end() and (it + 1)->kind == SUS)  // amongus
 				it++, count++;
 
 			tl.emplace_back(orig + (dur * count), OFF, note, vel);
@@ -666,7 +648,7 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 	}
 
 	else if (is_sequence_primary(tok) or is_sequence_prefix(tok)) {
-		Unit orig = ctx.time;
+		uint64_t orig = ctx.time;
 		Sequence seq = sequence_expr(ctx, lx, lx.peek.view, 0);
 
 		if (lx.peek.kind == Symbols::SEND) {
@@ -710,11 +692,11 @@ inline Timeline compile(View src, Handler&& handler) {
 		return tl;
 
 	// Active sensing
-	Unit t = Unit::zero();
-	while (t < tl.duration) {
-		tl.emplace_back(t, midi2int(Midi::ACTIVE_SENSE), 0, 0);
-		t += ACTIVE_SENSING_INTERVAL;
-	}
+	// uint64_t t = 0u;
+	// while (t < tl.duration) {
+	// 	tl.emplace_back(t, midi2int(Midi::ACTIVE_SENSE), 0, 0);
+	// 	t += ACTIVE_SENSING_INTERVAL;
+	// }
 
 	// Sort sequence by timestamps
 	std::stable_sort(tl.begin(), tl.end(), [] (auto& a, auto& b) {

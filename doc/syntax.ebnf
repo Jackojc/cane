@@ -3,7 +3,7 @@ identifier ::= ? \S+ ?
 comment ::= ? #.+$ ?
 
 
-sequence ::= ( '!' | '.' )*
+sequence ::= ( '!' | '.' | '=' )*
 euclidean ::= ( ':' <lit_expr> | <literal> ) ':' <lit_expr>
 
 
@@ -11,12 +11,12 @@ lit_infix ::= <lit_expr> ( '+' | '-' | '*' | '/' ) <lit_expr>
 lit_prefix ::= ( "len" | "beats" | "skips" ) <seq_expr>
 
 lit_expr ::=
-	"bpm" | "note" | <identifier> |
+	<identifier> |
 	<lit_prefix> | <lit_infix> |
 	'(' <lit_expr> ')'
 
 
-seq_prefix ::= ( '~' | '\'' ) <seq_expr>
+seq_prefix     ::= ( '~' | '\'' ) <seq_expr>
 seq_infix_expr ::= <seq_expr> ( '|' | '&' | '^' | ',' ) <seq_expr>
 seq_infix_lit  ::= <seq_expr> ( '<' | '>' | '**' ) <lit_expr>
 seq_infix_lit  ::= <seq_expr> "map" <lit_expr>+
@@ -24,8 +24,7 @@ seq_infix_lit  ::= <seq_expr> "vel" <lit_expr>+
 seq_infix_lit  ::= <seq_expr> '@' <lit_expr>+
 seq_infix_lit  ::= <seq_expr> '=>' <identifier>
 seq_infix      ::= <seq_infix_expr> | <seq_infix_lit>
-
-seq_postfix ::= <seq_expr> ( '?' | "car" | "cdr" )
+seq_postfix    ::= <seq_expr> ( '?' | "car" | "cdr" )
 
 seq_expr ::=
 	<identifier> | <sequence> |
@@ -34,7 +33,7 @@ seq_expr ::=
 
 
 let  ::= "let" ( <identifier> <lit_expr> )+
-send ::= <seq_expr> '~>' <lit_expr> [ '$' <send> ]
+send ::= <seq_expr> '~>' <lit_expr> [ '$' <send>+ ]
 
 stat ::= <let> | <send> | <seq_expr>
 
