@@ -142,13 +142,66 @@ we use the layer statement (`$`). Applying it to the above example, we get:
 ```
 And voila, our sequences now play together as expected.
 
-### Nested Tuplets
-> TODO
+### Tuplets
+In Cane, the BPM operator (`@`) allows you to map a duration to a sequence.
+You can map a different BPM to two different sequences and then join them
+together to have multiple tempos in the same sequence. This allows you to make
+some rather complicated rhythms.
+
+Let's build up a small rhythm using this idea. First, we will start off with just
+our pattern and later subdivide the tempo:
+```
+let
+	bpm 140
+	qn bpm * 4
+
+2:8, 4:32, 2:16
+** 4 @qn map 60 ~> 1
+```
+If we take a listen to this beat, it sounds pretty boring and repetitive so
+now lets add some rhythmic variation:
+```
+(
+	2:8  @ qn / 8 * 8,
+	4:32 @ qn / 4 * 32,
+	2:16 @ qn / 4 * 16
+) ** 4 @qn map 60 ~> 1
+```
+If you take a listen now I think you'll agree that it sounds a lot more
+interesting than what we had before.
+
+What we're doing here is taking this sequence with a combined total of 56 steps
+and playing it in the same time as a sequence with 16 steps. We do this by
+speeding up or slowing down the sequences. The first sequence simply plays at
+a tempo of `qn`, `/ 8 * 8` does nothing here but it serves to keep things looking
+consistent. Our second sequence has 32 total steps but we want it to play in the
+same time as a 4 step sequence at a tempo of `qn`. To do this, we divide by the
+number of steps we _want_ to take and the number of steps it contains. So plugging
+that into the short formula, we get: `qn / 4 * 32`.
 
 ### Sustained Notes
-Sustain steps allow you to play a note across multiple steps which makes it
+Sustain steps allow you to hold down a note across multiple steps which makes it
 easy to play varying note lengths while keeping sequences the same length and
 tempo.
+
+As an example, let's take two sequences that we want to play for the same
+duration. One of the sequences will use quarter notes while the other uses
+full notes.
+```
+!.!.!.!.!.!.!.!. @ 120 map 60 ~> 1
+!===!===!===!=== @ 120 map 60 ~> 2
+```
+both of these sequences will take the same amount of time to play but the first
+sequence will play eight notes sustained for a quarter note while the second
+sequence will play four notes sustained for a full note each.
+
+If you didn't want to use sustain steps here, you'd have to do something like this:
+```
+!.!.!.!.!.!.!.!. @ 120 map 60 ~> 1
+!!!!             @ 30  map 60 ~> 1
+```
+Having to mess with the tempo and vary the sequence length to play the sequences
+for the same duration very quickly gets unwieldy with more complex sequences.
 
 ### Debug
 It is sometimes useful to visualise sequences instead of relying solely on your

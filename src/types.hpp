@@ -8,12 +8,6 @@ struct Token {
 	cane::Symbols kind = Symbols::NONE;
 };
 
-// using Unit        = std::chrono::microseconds;
-// using UnitSeconds = std::chrono::duration<double>;
-// using UnitMillis  = std::chrono::duration<double, std::milli>;
-
-// constexpr auto ONE_MIN = std::chrono::duration_cast<Unit>(std::chrono::minutes { 1 });
-
 struct Event {
 	uint64_t duration;
 	uint8_t note;
@@ -119,7 +113,7 @@ inline std::ostream& operator<<(std::ostream& os, Timeline& tl) {
 		print(os, "[ ", CANE_BOLD, (int)ev.data[1], " ");
 		print(os, (int)ev.data[2], CANE_RESET " ] ");
 
-		// print(os, CANE_RED, UnitMillis { ev.time }.count(), cane::STR_MILLI_SUFFIX, CANE_RESET);
+		print(os, CANE_RED, ev.time / MILLI, cane::STR_MILLI_SUFFIX, CANE_RESET);
 		println(os);
 	}
 

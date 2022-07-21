@@ -26,7 +26,7 @@ constexpr uint64_t SECOND = 1000 * MILLI;
 constexpr uint64_t MINUTE = 60 * SECOND;
 
 
-constexpr auto ACTIVE_SENSING_INTERVAL = 250;  // ms
+constexpr auto ACTIVE_SENSING_INTERVAL = 250 * MILLI;  // ms
 
 constexpr auto ALL_SOUND_OFF = 120;
 constexpr auto ALL_RESET_CC  = 121;

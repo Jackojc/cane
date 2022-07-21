@@ -692,11 +692,11 @@ inline Timeline compile(View src, Handler&& handler) {
 		return tl;
 
 	// Active sensing
-	// uint64_t t = 0u;
-	// while (t < tl.duration) {
-	// 	tl.emplace_back(t, midi2int(Midi::ACTIVE_SENSE), 0, 0);
-	// 	t += ACTIVE_SENSING_INTERVAL;
-	// }
+	uint64_t t = 0u;
+	while (t < tl.duration) {
+		tl.emplace_back(t, midi2int(Midi::ACTIVE_SENSE), 0, 0);
+		t += ACTIVE_SENSING_INTERVAL;
+	}
 
 	// Sort sequence by timestamps
 	std::stable_sort(tl.begin(), tl.end(), [] (auto& a, auto& b) {
