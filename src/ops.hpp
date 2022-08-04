@@ -109,6 +109,7 @@ inline decltype(auto) sequence_xor(Sequence lhs, Sequence rhs) {
 	return lhs;
 }
 
+// Generate a new sequence using the first element of another sequence.
 inline decltype(auto) sequence_car(Sequence seq) {
 	auto it = seq.begin();
 
@@ -118,6 +119,7 @@ inline decltype(auto) sequence_car(Sequence seq) {
 	return seq;
 }
 
+// Generate a new sequence with everything but the first element.
 inline decltype(auto) sequence_cdr(Sequence seq) {
 	if (seq.size() > 1)
 		seq.erase(seq.begin());

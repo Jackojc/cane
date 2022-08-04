@@ -317,6 +317,7 @@ inline double literal_infix(Context& ctx, Lexer& lx, View lit_v, double lit, siz
 	return lit;
 }
 
+// Parse a literal expression using Pratt parsing.
 inline double literal_expr(Context& ctx, Lexer& lx, View lit_v, size_t bp) {
 	CANE_LOG(LogLevel::WRN);
 
@@ -437,10 +438,13 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 			size_t index = 0;
 			std::vector<uint64_t> values;
 
+			// Collect literal expressions to use for mapping notes/velocity/duration.
 			while (is_literal_primary(lx.peek)) {
 				View before_v = lx.peek.view;
 				uint64_t val = literal_expr(ctx, lx, before_v, 0);
 
+				// Lookup minimum and maximum ranges for each kind of mapping and
+				// assert that the specified value is correct.
 				auto [min, max] = [&] () { switch (tok.kind) {
 					case Symbols::MAP: return std::pair { NOTE_MIN,     NOTE_MAX     };
 					case Symbols::VEL: return std::pair { VELOCITY_MIN, VELOCITY_MAX };
@@ -454,6 +458,8 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 				values.emplace_back(val);
 			}
 
+			// Loop over the sequence and map the values in a circular fashion using
+			// modulo indexing.
 			for (auto& [dur, note, vel, kind]: seq) { switch (tok.kind) {
 				case Symbols::MAP: {
 					seq.flags |= SEQ_NOTE;
@@ -474,6 +480,7 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 				case Symbols::BPM: {
 					seq.flags |= SEQ_DURATION;
 
+					// Convert the BPM to an absolute per-note duration.
 					dur = MINUTE / values[index];
 					index = (index + 1) % values.size();
 				} break;
@@ -517,6 +524,7 @@ inline Sequence sequence_postfix(Context& ctx, Lexer& lx, View expr_v, Sequence 
 			auto mini = sequence_minify(seq);
 			size_t count = seq.size() / mini.size();
 
+			// Sum the durations of each note to get the overall sequence duration.
 			uint64_t seconds = std::accumulate(seq.begin(), seq.end(), 0u, [] (auto& lhs, auto& rhs) {
 				return lhs + rhs.duration;
 			}) / SECOND;
@@ -588,6 +596,8 @@ inline void timeline(Context& ctx, Lexer& lx, View stat_v, Sequence seq, uint64_
 		lx.error(ctx, Phases::SEMANTIC, encompass(before_v, lx.prev.view), STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
 
 
+	// Assert that notes and duration have been mapped before we attempt to compile
+	// the sequence to a timeline of MIDI events.
 	if ((seq.flags & SEQ_NOTE) != SEQ_NOTE)
 		lx.error(ctx, Phases::SEMANTIC, encompass(stat_v, lx.prev.view), STR_NO_NOTE);
 
@@ -607,6 +617,9 @@ inline void timeline(Context& ctx, Lexer& lx, View stat_v, Sequence seq, uint64_
 		if (kind == BEAT) {
 			tl.emplace_back(orig, ON, note, vel);
 
+			// Peek one step ahead to see if this note should be
+			// sustained. If so, we offset the note off event until
+			// the sustain ends.
 			while ((it + 1) != seq.end() and (it + 1)->kind == SUS)  // amongus
 				it++, count++;
 
@@ -672,7 +685,7 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 		lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_STATEMENT);
 }
 
-inline Timeline compile(View src, Handler&& handler) {
+inline Timeline compile(View src, Handler&& handler, size_t bpm = 120) {
 	CANE_LOG(LogLevel::WRN);
 
 	Context ctx { std::move(handler) };
@@ -693,15 +706,28 @@ inline Timeline compile(View src, Handler&& handler) {
 
 	// Active sensing
 	uint64_t t = 0u;
+
 	while (t < tl.duration) {
 		tl.emplace_back(t, midi2int(Midi::ACTIVE_SENSE), 0, 0);
 		t += ACTIVE_SENSING_INTERVAL;
+	}
+
+	// MIDI Clock
+	uint64_t freq = MINUTE / (bpm * 24);
+	t = 0u;
+
+	while (t < tl.duration) {
+		tl.emplace_back(t, midi2int(Midi::TIMING_CLOCK), 0, 0);
+		t += freq;
 	}
 
 	// Sort sequence by timestamps
 	std::stable_sort(tl.begin(), tl.end(), [] (auto& a, auto& b) {
 		return a.time < b.time;
 	});
+
+	tl.emplace(tl.begin(), 0u, midi2int(Midi::START), 0, 0);
+	tl.emplace(tl.end(), tl.duration, midi2int(Midi::STOP), 0, 0);
 
 	return tl;
 }
