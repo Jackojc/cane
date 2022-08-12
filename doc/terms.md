@@ -26,3 +26,5 @@
 ### `note mapping`
 > Mapping a series of notes onto a sequence.
 
+### `timeline`
+> A timeline of MIDI events which you get by sending a sequence to a MIDI channel.

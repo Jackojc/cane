@@ -402,6 +402,7 @@ more interesting with chords, nested tuplets or varying note lengths.
 ([full code](/examples/four-on-the-floor.cn))
 
 ### Something Weird
+> TODO
 
 ### Where To Go From Here
 Now that you're familiar with the basics of Cane there are a few things you

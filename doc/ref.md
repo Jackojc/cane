@@ -56,9 +56,9 @@ highlighters in the `highlighters/` directory.
 
 | Class | Token |
 | --- | --- |
-| Keywords | `let` `map` `vel` `car` `cdr` `len` `beats` `skips` |
+| Keywords | `let` `map` `vel` `car` `cdr` `len` `beats` `skips` `pat` |
 | Operators | `=>` `@` `?` `<` `>` `**` `\|` `&` `^` `,` `~` `'` `+` `-` `*` `/` |
-| Operators/Keywords | `$` `:` `~>` |
+| Operators/Keywords | `$` `:` `~>` `\\` |
 | Values | `!` `.` `=` |
 | Comments | `#.+$` |
 | Grouping | `(` `)` |
@@ -117,10 +117,32 @@ send, your song will not send any MIDI.
 send is _not_ an operator like most things in Cane. It is a statement and must
 appear at the beginning of an expression.
 
-As an example, you can send a sequence to MIDI channel 1 like so: `4:16 ~> 1`.
+As an example, you can send a sequence to MIDI channel 1 like so:
+`4:16 @ 120 map 60 ~> 1`.
 
 It is important to note that you should map step durations and notes before
 trying to send a sequence otherwise you'll get an error.
+
+### Timelines
+Timelines are the result of sending a sequence to a MIDI channel. Timelines are
+a vector of MIDI events and can be layered or defined as part of a pattern.
+
+In an ideal Cane song, you'll define all of your patterns ahead of time and then
+simply pick and choose which patterns to play in sequence at the end.
+
+To define a pattern, simply use the `pat` keyword followed by an identifier and
+timeline like so:
+```
+pat four_on_the_floor
+	4:16 @ 120 map 60 ~> kick
+```
+
+To recall a pattern, you must prefix the name with `\\` to avoid ambiguity with
+named sequences:
+```
+\four_on_the_floor
+\four_on_the_floor
+```
 
 ### Layering
 Normally, sequences are played one after the other but you can use layering
@@ -128,17 +150,17 @@ to play two sequences at the same time to build up more complex rhythms.
 
 If we start off with a simple beat like this:
 ```
-2:16 ~> kick
-2:16 > 2 ~> snare
-8:16 ~> hihat
+2:16 @ 120 map 60 ~> kick
+2:16 > 2 @ 120 map 60 ~> snare
+8:16 @ 120 map 60 ~> hihat
 ```
 When playing it you'll find that each sequence plays on its own after the other.
 This obviously isn't what we want so to make the sequences play simultaneously,
 we use the layer statement (`$`). Applying it to the above example, we get:
 ```
-2:16 ~> kick $
-2:16 > 2 ~> snare $
-8:16 ~> hihat
+2:16 @ 120 map 60 ~> kick $
+2:16 > 2 @ 120 map 60 ~> snare $
+8:16 @ 120 map 60 ~> hihat
 ```
 And voila, our sequences now play together as expected.
 
