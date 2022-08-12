@@ -83,6 +83,13 @@ constexpr bool is_literal_primary(Token x) {
 		is_literal(x);
 }
 
+constexpr bool is_timeline_primary(Token x) {
+	return cmp_any(x.kind,
+		Symbols::REF) or
+		is_sequence_prefix(x) or
+		is_sequence_primary(x);
+}
+
 enum class OpFix {
 	LIT_PREFIX,
 	LIT_INFIX,
@@ -247,6 +254,21 @@ inline Sequence sequence_const(Context& ctx, Lexer& lx, View expr_v) {
 	auto [view, kind] = lx.next();
 
 	if (auto it = ctx.chains.find(view); it != ctx.chains.end())
+		return it->second;
+
+	lx.error(ctx, Phases::SEMANTIC, view, STR_UNDEFINED, view);
+}
+
+inline Timeline timeline_const(Context& ctx, Lexer& lx, View stat_v) {
+	CANE_LOG(LogLevel::INF);
+
+	lx.expect(ctx, is(Symbols::REF), lx.peek.view, STR_EXPECT, sym2str(Symbols::REF));
+	lx.next();
+
+	lx.expect(ctx, is(Symbols::IDENT), lx.peek.view, STR_IDENT);
+	auto [view, kind] = lx.next();
+
+	if (auto it = ctx.patterns.find(view); it != ctx.patterns.end())
 		return it->second;
 
 	lx.error(ctx, Phases::SEMANTIC, view, STR_UNDEFINED, view);
@@ -588,13 +610,10 @@ inline Sequence sequence_expr(Context& ctx, Lexer& lx, View expr_v, size_t bp) {
 	return seq;
 }
 
-inline void timeline(Context& ctx, Lexer& lx, View stat_v, Sequence seq, uint64_t orig) {
-	View before_v = lx.peek.view;
-	uint64_t chan = literal_expr(ctx, lx, before_v, 0);
+inline Timeline sequence_compile(Context& ctx, Lexer& lx, View stat_v, Sequence seq, uint64_t chan) {
+	CANE_LOG(LogLevel::INF);
 
-	if (chan > CHANNEL_MAX or chan < CHANNEL_MIN)
-		lx.error(ctx, Phases::SEMANTIC, encompass(before_v, lx.prev.view), STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
-
+	Timeline tl;
 
 	// Assert that notes and duration have been mapped before we attempt to compile
 	// the sequence to a timeline of MIDI events.
@@ -604,18 +623,17 @@ inline void timeline(Context& ctx, Lexer& lx, View stat_v, Sequence seq, uint64_
 	if ((seq.flags & SEQ_DURATION) != SEQ_DURATION)
 		lx.error(ctx, Phases::SEMANTIC, encompass(stat_v, lx.prev.view), STR_NO_BPM);
 
+	const auto ON = midi2int(Midi::NOTE_ON) | (chan - 1);
+	const auto OFF = midi2int(Midi::NOTE_OFF) | (chan - 1);
 
-	Timeline tl;
-
-	auto ON = midi2int(Midi::NOTE_ON) | (chan - 1);
-	auto OFF = midi2int(Midi::NOTE_OFF) | (chan - 1);
+	uint64_t t = 0u;
 
 	for (auto it = seq.begin(); it != seq.end(); ++it) {
 		auto& [dur, note, vel, kind] = *it;
-
 		size_t count = 1;
+
 		if (kind == BEAT) {
-			tl.emplace_back(orig, ON, note, vel);
+			tl.emplace_back(t, ON, note, vel);
 
 			// Peek one step ahead to see if this note should be
 			// sustained. If so, we offset the note off event until
@@ -623,18 +641,84 @@ inline void timeline(Context& ctx, Lexer& lx, View stat_v, Sequence seq, uint64_
 			while ((it + 1) != seq.end() and (it + 1)->kind == SUS)  // amongus
 				it++, count++;
 
-			tl.emplace_back(orig + (dur * count), OFF, note, vel);
+			tl.emplace_back(t + (dur * count), OFF, note, vel);
 		}
 
-		orig += (dur * count);
+		t += dur * count;
 	}
 
-	tl.duration = orig;
+	tl.duration = t;
 
-	ctx.time = std::max(tl.duration, ctx.time);
-	ctx.tl.duration = std::max(tl.duration, ctx.tl.duration);
+	return tl;
+}
 
-	ctx.tl.insert(ctx.tl.end(), tl.begin(), tl.end());
+inline uint64_t channel(Context& ctx, Lexer& lx) {
+	CANE_LOG(LogLevel::INF);
+
+	View before_v = lx.peek.view;
+	uint64_t chan = literal_expr(ctx, lx, before_v, 0);
+
+	if (chan > CHANNEL_MAX or chan < CHANNEL_MIN)
+		lx.error(ctx, Phases::SEMANTIC, encompass(before_v, lx.prev.view), STR_BETWEEN, CHANNEL_MIN, CHANNEL_MAX);
+
+	return chan;
+}
+
+inline Timeline timeline_send(Context& ctx, Lexer& lx, View stat_v) {
+	CANE_LOG(LogLevel::WRN);
+
+	Timeline tl;
+	Sequence seq = sequence_expr(ctx, lx, lx.peek.view, 0);
+
+	// Sending the sequence to a MIDI channel is optional so we check here.
+	// If we are sending the sequence to a MIDI channel, we compile it to a
+	// timeline and then loop while we see a layering statement and combine
+	// those timelines.
+	if (lx.peek.kind != Symbols::SEND)
+		return tl;
+
+	// lx.expect(ctx, is(Symbols::SEND), lx.peek.view, STR_EXPECT, sym2str(Symbols::SEND));
+	lx.next();  // skip `~>`
+
+	uint64_t chan = channel(ctx, lx);
+	tl = sequence_compile(ctx, lx, stat_v, std::move(seq), chan);
+
+	return tl;
+}
+
+inline Timeline timeline_expr(Context& ctx, Lexer& lx, View stat_v) {
+	CANE_LOG(LogLevel::WRN);
+
+	Timeline tl;
+	Token tok = lx.peek;
+
+	if (tok.kind == Symbols::REF)
+		tl = timeline_const(ctx, lx, lx.peek.view);
+
+	else if (is_sequence_primary(tok) or is_sequence_prefix(tok))
+		tl = timeline_send(ctx, lx, stat_v);
+
+	else
+		lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_CHAN_PRIMARY);
+
+	tok = lx.peek;
+
+	// While we see the `$` statement, we compile sequences and layer them
+	// together in the same timeline.
+	while (tok.kind == Symbols::WITH) {
+		CANE_LOG(LogLevel::INF, sym2str(tok.kind));
+
+		lx.next();  // skip `$`
+
+		Timeline new_tl = timeline_expr(ctx, lx, stat_v);
+
+		tl.duration = std::max(tl.duration, new_tl.duration);
+		tl.insert(tl.end(), new_tl.begin(), new_tl.end());
+
+		tok = lx.peek;
+	}
+
+	return tl;
 }
 
 inline void statement(Context& ctx, Lexer& lx, View stat_v) {
@@ -660,32 +744,42 @@ inline void statement(Context& ctx, Lexer& lx, View stat_v) {
 		}
 	}
 
-	else if (is_sequence_primary(tok) or is_sequence_prefix(tok)) {
-		uint64_t orig = ctx.time;
-		Sequence seq = sequence_expr(ctx, lx, lx.peek.view, 0);
+	else if (tok.kind == Symbols::PAT) {
+		CANE_LOG(LogLevel::INF, sym2str(Symbols::PAT));
+		lx.next();  // skip `pat`
 
-		if (lx.peek.kind == Symbols::SEND) {
-			lx.next();  // skip `~>`
-			timeline(ctx, lx, stat_v, std::move(seq), orig);
+		lx.expect(ctx, is(Symbols::IDENT), lx.peek.view, STR_IDENT);
+		auto [view, kind] = lx.next();  // get identifier
 
-			while (lx.peek.kind == Symbols::WITH) {
-				lx.next();  // skip `$`
+		Timeline tl = timeline_expr(ctx, lx, lx.peek.view);
 
-				seq = sequence_expr(ctx, lx, lx.peek.view, 0);
+		// Assign or warn if re-assigned.
+		if (auto [it, succ] = ctx.symbols.emplace(view); not succ)
+			lx.error(ctx, Phases::SEMANTIC, view, STR_CONFLICT, view);
 
-				lx.expect(ctx, is(Symbols::SEND), lx.peek.view, STR_EXPECT, sym2str(Symbols::SEND));
-				lx.next();  // skip `~>`
+		if (auto [it, succ] = ctx.patterns.try_emplace(view, tl); not succ)
+			lx.error(ctx, Phases::SEMANTIC, view, STR_REDEFINED, view);
+	}
 
-				timeline(ctx, lx, lx.peek.view, std::move(seq), orig);
-			}
-		}
+	else if (is_timeline_primary(tok)) {
+		Timeline tl = timeline_expr(ctx, lx, lx.peek.view);
+
+		// Offset this timeline to the current global offset.
+		for (MidiEvent& ev: tl)
+			ev.time += ctx.time;
+
+		ctx.tl.insert(ctx.tl.end(), tl.begin(), tl.end());
+
+		// Update global offset and increase duration.
+		ctx.time += tl.duration;
+		ctx.tl.duration += tl.duration;
 	}
 
 	else
 		lx.error(ctx, Phases::SYNTACTIC, tok.view, STR_STATEMENT);
 }
 
-inline Timeline compile(View src, Handler&& handler, size_t bpm = 120) {
+inline Timeline compile(View src, Handler&& handler, size_t bpm = 0) {
 	CANE_LOG(LogLevel::WRN);
 
 	Context ctx { std::move(handler) };
@@ -713,12 +807,14 @@ inline Timeline compile(View src, Handler&& handler, size_t bpm = 120) {
 	}
 
 	// MIDI Clock
-	uint64_t freq = MINUTE / (bpm * 24);
-	t = 0u;
+	if (bpm > 0) {
+		uint64_t freq = MINUTE / (bpm * 24);
+		t = 0u;
 
-	while (t < tl.duration) {
-		tl.emplace_back(t, midi2int(Midi::TIMING_CLOCK), 0, 0);
-		t += freq;
+		while (t < tl.duration) {
+			tl.emplace_back(t, midi2int(Midi::TIMING_CLOCK), 0, 0);
+			t += freq;
+		}
 	}
 
 	// Sort sequence by timestamps

@@ -62,6 +62,7 @@ using Handler = void(*)(HandlerKind, Phases, View, View, std::string);
 struct Context {
 	std::unordered_map<View, double> constants;
 	std::unordered_map<View, Sequence> chains;
+	std::unordered_map<View, Timeline> patterns;
 
 	std::unordered_set<View> symbols;
 

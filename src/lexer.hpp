@@ -97,8 +97,9 @@ struct Lexer {
 		else if (view == "<"_sv) { kind = Symbols::ROTL; src = cane::next(src); }
 		else if (view == ">"_sv) { kind = Symbols::ROTR; src = cane::next(src); }
 
-		else if (view == "@"_sv) { kind = Symbols::BPM;  src = cane::next(src); }
-		else if (view == "$"_sv) { kind = Symbols::WITH; src = cane::next(src); }
+		else if (view == "@"_sv)  { kind = Symbols::BPM;  src = cane::next(src); }
+		else if (view == "$"_sv)  { kind = Symbols::WITH; src = cane::next(src); }
+		else if (view == "\\"_sv) { kind = Symbols::REF;  src = cane::next(src); }
 
 		else if (view == "~"_sv) {
 			kind = Symbols::INVERT;
@@ -146,12 +147,13 @@ struct Lexer {
 				return cane::is_alphanumeric(decode(sv)) or sv == "_"_sv;
 			});
 
-			if      (view == "map"_sv)   kind = Symbols::MAP;
-			else if (view == "vel"_sv)   kind = Symbols::VEL;
-			else if (view == "len"_sv)   kind = Symbols::LEN_OF;
-			else if (view == "let"_sv)   kind = Symbols::LET;
-			else if (view == "car"_sv)   kind = Symbols::CAR;
-			else if (view == "cdr"_sv)   kind = Symbols::CDR;
+			if      (view == "map"_sv) kind = Symbols::MAP;
+			else if (view == "vel"_sv) kind = Symbols::VEL;
+			else if (view == "len"_sv) kind = Symbols::LEN_OF;
+			else if (view == "let"_sv) kind = Symbols::LET;
+			else if (view == "pat"_sv) kind = Symbols::PAT;
+			else if (view == "car"_sv) kind = Symbols::CAR;
+			else if (view == "cdr"_sv) kind = Symbols::CDR;
 		}
 
 		// If the kind is still NONE by this point, we can assume we didn't find

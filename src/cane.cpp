@@ -235,7 +235,7 @@ int main(int argc, const char* argv[]) {
 		if (timeline.empty())
 			return 0;
 
-		// CANE_DBG_RUN(cane::print(std::cerr, timeline));
+		CANE_DBG_RUN(cane::print(std::cerr, timeline));
 		CANE_LOG(cane::LogLevel::DBG, "event(s) = ", timeline.size());
 		CANE_LOG(cane::LogLevel::DBG, "events/s = ", timeline.size() / (timeline.duration / cane::SECOND));
 

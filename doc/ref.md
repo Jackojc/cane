@@ -198,7 +198,7 @@ sequence will play four notes sustained for a full note each.
 If you didn't want to use sustain steps here, you'd have to do something like this:
 ```
 !.!.!.!.!.!.!.!. @ 120 map 60 ~> 1
-!!!!             @ 30  map 60 ~> 1
+!!!!             @ 30  map 60 ~> 2
 ```
 Having to mess with the tempo and vary the sequence length to play the sequences
 for the same duration very quickly gets unwieldy with more complex sequences.

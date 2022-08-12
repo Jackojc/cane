@@ -357,8 +357,7 @@ b_cb map cb ~> c_cb $
 b_sh map sh ~> c_sh $
 ```
 
-Next we have our melody (I think you might actually call this a monody or lick
-due to it's simplicity):
+Next we have our riff:
 ```
 b_bs map
 	o1 - 4  o2 - 4  o1 - 4  o2 - 4

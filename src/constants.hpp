@@ -125,6 +125,7 @@ constexpr auto LOCAL_CONTROL_OFF = 0;
 	X(INT,   "int") \
 	\
 	X(WITH, "$") \
+	X(REF,  "\\") \
 	\
 	/* Grouping */ \
 	X(LPAREN, "(") \
@@ -135,6 +136,7 @@ constexpr auto LOCAL_CONTROL_OFF = 0;
 	X(GLOBAL_NOTE, "note") \
 	\
 	X(LET, "let") \
+	X(PAT, "pat") \
 	\
 	/* Sequence */ \
 	X(SEP,  ":") \
@@ -149,7 +151,6 @@ constexpr auto LOCAL_CONTROL_OFF = 0;
 	X(MAP,  "map") \
 	X(VEL,  "vel") \
 	X(BPM,  "@") \
-	X(MS,   "ms") \
 	\
 	X(CAR, "car") \
 	X(CDR, "cdr") \
