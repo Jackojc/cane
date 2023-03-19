@@ -147,14 +147,20 @@ constexpr auto LOCAL_CONTROL_OFF = 0;
 	/* Sequence Operators */ \
 	X(CHAIN, "=>") \
 	\
-	X(SEND, "~>") \
-	X(MAP,  "map") \
-	X(VEL,  "vel") \
-	X(BPM,  "@") \
+	X(SEND,   "~>") \
+	X(MAP,    "map") \
+	X(MAPALL, "mapall") \
+	X(VEL,    "vel") \
+	X(BPM,    "@") \
 	\
 	X(CAR, "car") \
 	X(CDR, "cdr") \
 	X(DBG, "?") \
+	\
+	X(UP,   "up") \
+	X(DOWN, "down") \
+	\
+	X(FILL, "fill") \
 	\
 	X(LEN_OF,  "len") \
 	X(BEAT_OF, "beats") \

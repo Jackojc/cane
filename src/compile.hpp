@@ -3,8 +3,9 @@
 
 namespace cane {
 
-constexpr decltype(auto) is(Symbols kind) {
-	return [=] (Token other) { return kind == other.kind; };
+template <typename... Ts>
+constexpr decltype(auto) is(Ts&&... kinds) {
+	return [=] (Token other) { return ((other.kind == kinds) or ...); };
 }
 
 [[nodiscard]] inline double   literal_expr  (Context&, Lexer&, View, size_t);
@@ -47,6 +48,7 @@ constexpr bool is_sequence_postfix(Token x) {
 	return cmp_any(x.kind,
 		Symbols::CAR,
 		Symbols::CDR,
+		Symbols::FILL,
 		Symbols::DBG);
 }
 
@@ -61,6 +63,9 @@ constexpr bool is_sequence_infix(Token x) {
 		Symbols::REP,
 		Symbols::BPM,
 		Symbols::MAP,
+		Symbols::MAPALL,
+		Symbols::UP,
+		Symbols::DOWN,
 		Symbols::VEL,
 		Symbols::CHAIN);
 }
@@ -105,15 +110,19 @@ inline std::pair<size_t, size_t> binding_power(Context& ctx, Lexer& lx, Token to
 
 	enum {
 		DBG,
-		CHAIN = DBG,
-		MAP   = DBG,
-		VEL   = DBG,
-		CAT   = DBG,
+		CHAIN  = DBG,
+		MAP    = DBG,
+		MAPALL = DBG,
+		UP     = DBG,
+		DOWN   = DBG,
+		VEL    = DBG,
+		CAT    = DBG,
 
 		BPM,
 
 		CAR,
-		CDR = CAR,
+		CDR  = CAR,
+		FILL = CAR,
 
 		OR,
 		AND  = OR,
@@ -159,24 +168,28 @@ inline std::pair<size_t, size_t> binding_power(Context& ctx, Lexer& lx, Token to
 		} break;
 
 		case OpFix::SEQ_INFIX: switch (kind) {
-			case Symbols::MAP:   return { MAP,   MAP   + LEFT };
-			case Symbols::VEL:   return { VEL,   VEL   + LEFT };
-			case Symbols::CHAIN: return { CHAIN, CHAIN + LEFT };
-			case Symbols::CAT:   return { CAT,   CAT   + LEFT };
-			case Symbols::OR:    return { OR,    OR    + LEFT };
-			case Symbols::AND:   return { AND,   AND   + LEFT };
-			case Symbols::XOR:   return { XOR,   XOR   + LEFT };
-			case Symbols::REP:   return { REP,   REP   + LEFT };
-			case Symbols::ROTL:  return { ROTL,  ROTL  + LEFT };
-			case Symbols::ROTR:  return { ROTR,  ROTR  + LEFT };
-			case Symbols::BPM:   return { BPM,   BPM   + LEFT };
+			case Symbols::MAP:    return { MAP,    MAP    + LEFT };
+			case Symbols::MAPALL: return { MAPALL, MAPALL + LEFT };
+			case Symbols::UP:     return { UP,     UP     + LEFT };
+			case Symbols::DOWN:   return { DOWN,   DOWN   + LEFT };
+			case Symbols::VEL:    return { VEL,    VEL    + LEFT };
+			case Symbols::CHAIN:  return { CHAIN,  CHAIN  + LEFT };
+			case Symbols::CAT:    return { CAT,    CAT    + LEFT };
+			case Symbols::OR:     return { OR,     OR     + LEFT };
+			case Symbols::AND:    return { AND,    AND    + LEFT };
+			case Symbols::XOR:    return { XOR,    XOR    + LEFT };
+			case Symbols::REP:    return { REP,    REP    + LEFT };
+			case Symbols::ROTL:   return { ROTL,   ROTL   + LEFT };
+			case Symbols::ROTR:   return { ROTR,   ROTR   + LEFT };
+			case Symbols::BPM:    return { BPM,    BPM    + LEFT };
 			default: break;
 		} break;
 
 		case OpFix::SEQ_POSTFIX: switch(kind) {
-			case Symbols::DBG: return { DBG, DBG + LEFT };
-			case Symbols::CAR: return { CAR, CAR + LEFT };
-			case Symbols::CDR: return { CDR, CDR + LEFT };
+			case Symbols::DBG:  return { DBG,  DBG  + LEFT };
+			case Symbols::CAR:  return { CAR,  CAR  + LEFT };
+			case Symbols::CDR:  return { CDR,  CDR  + LEFT };
+			case Symbols::FILL: return { FILL, FILL + LEFT };
 			default: break;
 		} break;
 	}
@@ -215,7 +228,7 @@ inline Sequence euclide(Context& ctx, Lexer& lx, View expr_v, Sequence seq) {
 		beats = literal_expr(ctx, lx, lx.peek.view, 0);
 	}
 
-	else
+	else  // Just a literal, no disambiguator needed.
 		beats = literal(ctx, lx, lx.peek.view);
 
 	lx.expect(ctx, is(Symbols::SEP), lx.peek.view, STR_EXPECT, sym2str(Symbols::SEP));
@@ -441,6 +454,30 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 		case Symbols::ROTL: { seq = sequence_rotl (std::move(seq), literal_expr(ctx, lx, tok.view, 0)); } break;
 		case Symbols::ROTR: { seq = sequence_rotr (std::move(seq), literal_expr(ctx, lx, tok.view, 0)); } break;
 
+		case Symbols::UP:   {
+			View before_v = lx.peek.view;
+			uint64_t up = literal_expr(ctx, lx, before_v, 0);
+
+			for (Event& ev: seq) {
+				ev.note += up;
+
+				if (ev.note < NOTE_MIN or ev.note > NOTE_MAX)
+					lx.error(ctx, Phases::SEMANTIC, encompass(before_v, lx.prev.view), STR_BETWEEN, NOTE_MIN, NOTE_MAX);
+			}
+		} break;
+
+		case Symbols::DOWN: {
+			View before_v = lx.peek.view;
+			uint64_t down = literal_expr(ctx, lx, before_v, 0);
+
+			for (Event& ev: seq) {
+				ev.note -= down;
+
+				if (ev.note < NOTE_MIN or ev.note > NOTE_MAX)
+					lx.error(ctx, Phases::SEMANTIC, encompass(before_v, lx.prev.view), STR_BETWEEN, NOTE_MIN, NOTE_MAX);
+			}
+		} break;
+
 		case Symbols::REP: {
 			View before_v = lx.peek.view;
 			uint64_t reps = literal_expr(ctx, lx, before_v, 0);
@@ -453,6 +490,7 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 		} break;
 
 		case Symbols::MAP:
+		case Symbols::MAPALL:
 		case Symbols::VEL:
 		case Symbols::BPM: {
 			lx.expect(ctx, is_literal_primary, lx.peek.view, STR_LIT_EXPR);
@@ -490,6 +528,13 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 						note = values[index];
 						index = (index + 1) % values.size();
 					}
+				} break;
+
+				case Symbols::MAPALL: {  // Map notes across inactive steps also.
+					seq.flags |= SEQ_NOTE;
+
+					note = values[index];
+					index = (index + 1) % values.size();
 				} break;
 
 				case Symbols::VEL: {
@@ -538,6 +583,11 @@ inline Sequence sequence_postfix(Context& ctx, Lexer& lx, View expr_v, Sequence 
 	switch (tok.kind) {
 		case Symbols::CAR: { seq = sequence_car(std::move(seq)); } break;
 		case Symbols::CDR: { seq = sequence_cdr(std::move(seq)); } break;
+
+		case Symbols::FILL: {
+			for (Event& ev: seq)
+				x = ev.kind == Steps::SKIP ? Steps::SUS : x;
+		} break;
 
 		case Symbols::DBG: {
 			if ((seq.flags & SEQ_DURATION) != SEQ_DURATION)
@@ -807,6 +857,7 @@ inline Timeline compile(View src, Handler&& handler, size_t bpm = 0) {
 	}
 
 	// MIDI Clock
+	// Only active if a BPM is set.
 	if (bpm > 0) {
 		uint64_t freq = MINUTE / (bpm * 24);
 		t = 0u;
@@ -822,8 +873,11 @@ inline Timeline compile(View src, Handler&& handler, size_t bpm = 0) {
 		return a.time < b.time;
 	});
 
-	tl.emplace(tl.begin(), 0u, midi2int(Midi::START), 0, 0);
-	tl.emplace(tl.end(), tl.duration, midi2int(Midi::STOP), 0, 0);
+	// MIDI Sequencing
+	if (bpm > 0) {
+		tl.emplace(tl.begin(), 0u, midi2int(Midi::START), 0, 0);
+		tl.emplace(tl.end(), tl.duration, midi2int(Midi::STOP), 0, 0);
+	}
 
 	return tl;
 }

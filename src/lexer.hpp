@@ -147,13 +147,17 @@ struct Lexer {
 				return cane::is_alphanumeric(decode(sv)) or sv == "_"_sv;
 			});
 
-			if      (view == "map"_sv) kind = Symbols::MAP;
-			else if (view == "vel"_sv) kind = Symbols::VEL;
-			else if (view == "len"_sv) kind = Symbols::LEN_OF;
-			else if (view == "let"_sv) kind = Symbols::LET;
-			else if (view == "pat"_sv) kind = Symbols::PAT;
-			else if (view == "car"_sv) kind = Symbols::CAR;
-			else if (view == "cdr"_sv) kind = Symbols::CDR;
+			if      (view == "map"_sv)    kind = Symbols::MAP;
+			if      (view == "mapall"_sv) kind = Symbols::MAPALL;
+			else if (view == "vel"_sv)    kind = Symbols::VEL;
+			else if (view == "len"_sv)    kind = Symbols::LEN_OF;
+			else if (view == "let"_sv)    kind = Symbols::LET;
+			else if (view == "pat"_sv)    kind = Symbols::PAT;
+			else if (view == "car"_sv)    kind = Symbols::CAR;
+			else if (view == "cdr"_sv)    kind = Symbols::CDR;
+			else if (view == "up"_sv)     kind = Symbols::UP;
+			else if (view == "down"_sv)   kind = Symbols::DOWN;
+			else if (view == "fill"_sv)   kind = Symbols::FILL;
 		}
 
 		// If the kind is still NONE by this point, we can assume we didn't find
