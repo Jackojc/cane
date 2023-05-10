@@ -506,10 +506,13 @@ inline Sequence sequence_infix(Context& ctx, Lexer& lx, View expr_v, Sequence se
 				// Lookup minimum and maximum ranges for each kind of mapping and
 				// assert that the specified value is correct.
 				auto [min, max] = [&] () { switch (tok.kind) {
-					case Symbols::MAP: return std::pair { NOTE_MIN,     NOTE_MAX     };
-					case Symbols::VEL: return std::pair { VELOCITY_MIN, VELOCITY_MAX };
-					case Symbols::BPM: return std::pair { BPM_MIN,      BPM_MAX      };
-					default:           return std::pair { 0ul,          0ul          };
+					case Symbols::MAPALL:
+					case Symbols::MAP:    return std::pair { NOTE_MIN,     NOTE_MAX     };
+					case Symbols::VEL:    return std::pair { VELOCITY_MIN, VELOCITY_MAX };
+					case Symbols::BPM:    return std::pair { BPM_MIN,      BPM_MAX      };
+
+					default:
+						lx.error(ctx, Phases::INTERNAL, tok.view, STR_UNREACHABLE, sym2str(tok.kind));
 				}} ();
 
 				if (val < min or val > max)
@@ -586,7 +589,7 @@ inline Sequence sequence_postfix(Context& ctx, Lexer& lx, View expr_v, Sequence 
 
 		case Symbols::FILL: {
 			for (Event& ev: seq)
-				x = ev.kind == Steps::SKIP ? Steps::SUS : x;
+				ev.kind = ev.kind == Steps::SKIP ? static_cast<decltype(ev.kind)>(Steps::SUS) : ev.kind;
 		} break;
 
 		case Symbols::DBG: {
