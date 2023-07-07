@@ -47,8 +47,18 @@ namespace cane {
 	}
 
 	constexpr auto hash_bytes(const char* begin, const char* const end) {
-		size_t offset_basis = 14'695'981'039'346'656'037u;
-		size_t prime = 1'099'511'628'211u;
+		size_t offset_basis = 0;
+		size_t prime = 0;
+
+		if constexpr(sizeof(size_t) == 4) {
+			offset_basis = 2'166'136'261ul;
+			prime = 16'777'619ul;
+		}
+
+		else if constexpr(sizeof(size_t) == 8) {
+			offset_basis = 14'695'981'039'346'656'037ul;
+			prime = 1'099'511'628'211ul;
+		}
 
 		size_t hash = offset_basis;
 
